@@ -16,6 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone;
 
+import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;

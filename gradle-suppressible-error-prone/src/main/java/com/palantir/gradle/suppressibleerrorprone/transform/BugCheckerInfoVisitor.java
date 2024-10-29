@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone;
+package com.palantir.gradle.suppressibleerrorprone.transform;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;

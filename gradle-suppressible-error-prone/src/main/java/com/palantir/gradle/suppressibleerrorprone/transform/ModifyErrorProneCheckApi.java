@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone;
+package com.palantir.gradle.suppressibleerrorprone.transform;
 
-import com.palantir.gradle.suppressibleerrorprone.ModifyErrorProneCheckApi.Params;
+import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi.Params;
 import com.palantir.gradle.utils.environmentvariables.EnvironmentVariables;
 import java.io.BufferedOutputStream;
 import java.io.File;
