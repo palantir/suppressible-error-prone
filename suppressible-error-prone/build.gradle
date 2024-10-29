@@ -15,6 +15,7 @@ dependencies {
 }
 
 test {
+    // Errorprone needs access to these JDK modules
     jvmArgumentProviders.add(new CommandLineArgumentProvider() {
         @Override
         Iterable<String> asArguments() {
