@@ -56,28 +56,27 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         SuppressibleErrorProneExtension extension =
                 project.getExtensions().create("suppressibleErrorProne", SuppressibleErrorProneExtension.class);
 
-        setupTransform(project);
-
         String version = Optional.ofNullable((String) project.findProperty("suppressibleErrorProneVersion"))
                 .or(() -> Optional.ofNullable(
                         SuppressibleErrorPronePlugin.class.getPackage().getImplementationVersion()))
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
+        // When auto-suppressing, there are two stages. The first runs a bytecode patched version of errorprone (via an
+        // artifact transform) that intercepts every error from every check and adds a custom fix, a
+        // @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class. The second stage runs
+        // an unpatched version of errorprone that applies a single errorprone check: SuppressWarningsCoalesce,
+        // which will combine all the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one
+        // normal @SuppressWarnings annotation.
+        setupErrorProneArtifactTransform(project);
+
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
+            // Required so that we can run the runtime parts of the errorprone patching in suppressing stage 1 and
+            // also the SuppressWarningsCoalesce errorprone in suppressing stage 2.
             errorProneConfiguration
                     .getDependencies()
                     .add(project.getDependencies().create("com.palantir.baseline:suppressible-error-prone:" + version));
         });
-
-        if (isSuppressingStageTwo(project)) {
-            project.getExtensions().getByType(SourceSetContainer.class).configureEach(sourceSet -> {
-                project.getDependencies()
-                        .add(
-                                sourceSet.getCompileOnlyConfigurationName(),
-                                "com.palantir.baseline:suppressible-error-prone-annotations:" + version);
-            });
-        }
 
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
             configureJavaCompile(project, javaCompile);
@@ -88,6 +87,8 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                         configureErrorProneOptions(project, extension, javaCompile, errorProneOptions);
                     });
         });
+
+        addAnnotationDependencyForSuppressingStage2(project, version);
 
         if (isAnyKindOfPatching(project)) {
             project.afterEvaluate(_ignored -> {
@@ -108,7 +109,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private static void setupTransform(Project project) {
+    private static void setupErrorProneArtifactTransform(Project project) {
         Attribute<Boolean> suppressiblified =
                 Attribute.of("com.palantir.baseline.errorprone.suppressiblified", Boolean.class);
         project.getDependencies().getAttributesSchema().attribute(suppressiblified);
@@ -162,10 +163,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
-                    return List.of(
-                            "-XepPatchLocation:IN_PLACE",
-                            "-XepPatchChecks:",
-                            "-XepOpt:" + SuppressibleErrorPronePlugin.SUPPRESS_STAGE_ONE + "=true");
+                    return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:");
                 }
             });
             return;
@@ -216,6 +214,19 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 }
             });
             return;
+        }
+    }
+
+    private static void addAnnotationDependencyForSuppressingStage2(Project project, String version) {
+        if (isSuppressingStageTwo(project)) {
+            // Just before stage two of suppression starts compilation, we now have @RepeateableSuppressWarnings in
+            // the code, so we need to include the jar that has this type to each source set.
+            project.getExtensions().getByType(SourceSetContainer.class).configureEach(sourceSet -> {
+                project.getDependencies()
+                        .add(
+                                sourceSet.getCompileOnlyConfigurationName(),
+                                "com.palantir.baseline:suppressible-error-prone-annotations:" + version);
+            });
         }
     }
 
