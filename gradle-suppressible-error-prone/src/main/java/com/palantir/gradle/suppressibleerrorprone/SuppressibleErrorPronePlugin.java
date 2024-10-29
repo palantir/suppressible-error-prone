@@ -165,6 +165,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
+                    // "-XepPatchChecks:" patches *all* the checks that are enabled
                     return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:");
                 }
             });
