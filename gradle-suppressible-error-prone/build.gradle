@@ -9,6 +9,9 @@ dependencies {
     implementation 'com.palantir.gradle.utils:environment-variables'
 
     testImplementation 'com.netflix.nebula:nebula-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core'
+    testImplementation 'commons-io:commons-io'
 }
 
 gradlePlugin {

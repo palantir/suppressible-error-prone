@@ -18,11 +18,25 @@ package com.palantir.gradle.suppressibleerrorprone
 
 import nebula.test.IntegrationSpec
 import nebula.test.functional.ExecutionResult
+import org.apache.commons.io.FileUtils
 
 class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
+    // We need to put the source sets in a different directory that does not contain the any words that would hit
+    // the errorprone excludedPathRegex, ie build in build/nebulatest
+    static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
+    File sourceSetRoot
+    File mainSourceSet
     File appJava
 
+    def setupSpec() {
+        FileUtils.deleteDirectory(nebulatestSourceSets)
+    }
+
     def setup() {
+        sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
+        mainSourceSet = directory('src/main/java', sourceSetRoot)
+        appJava = file('app/App.java', mainSourceSet)
+
         // language=Gradle
         buildFile << '''
             apply plugin: 'com.palantir.suppressible-error-prone'
@@ -52,12 +66,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
 
+        buildFile << """
+            sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
+        """.stripIndent(true)
+
         file('gradle.properties') << '''
             __TESTING=true
             __TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM=true
         '''.stripIndent(true)
-
-        appJava = file('src/main/java/app/App.java')
     }
 
     def 'reports a failing error prone'() {
@@ -98,7 +114,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileJava')
     }
 
-    def 'ensure warnings are disabled in generated code'() {
+    def 'ensure error prone checks are disabled in generated code'() {
         // language=Java
         def erroringCode = '''
             package app;
@@ -109,14 +125,17 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
 
-        when:
-        writeJavaSourceFile(erroringCode, 'src/main/generated')
-        writeJavaSourceFile(erroringCode.replace('App', 'App2'), 'build/somePlace')
 
-        // language=Gradle
-        buildFile << '''
-            sourceSets.main.java.srcDirs('src/main/generated', 'build/somePlace')
-        '''.stripIndent(true)
+        when:
+        def sourceSet1 = new File(sourceSetRoot, '/src/generated')
+        def sourceSet2 = new File(sourceSetRoot, '/build/somePlace')
+
+        writeJavaSourceFile(erroringCode, sourceSet1)
+        writeJavaSourceFile(erroringCode.replace('App', 'App2'), sourceSet2)
+
+        buildFile << """
+            sourceSets.main.java.srcDirs('${projectDir.relativePath(sourceSet1)}', '${projectDir.relativePath(sourceSet2)}')
+        """.stripIndent(true)
 
         then:
         runTasksSuccessfully('compileJava')
@@ -401,5 +420,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
         String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
         return super.runTasks(strings)
+    }
+
+    @Override
+    void writeJavaSourceFile(String source) {
+        super.writeJavaSourceFile(source, sourceSetRoot)
     }
 }

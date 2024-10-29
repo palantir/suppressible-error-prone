@@ -158,8 +158,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // when this code lived in baseline, so we'll keep it enabled.
         errorProneOptions.getDisableWarningsInGeneratedCode().set(true);
 
-        // TODO: Fix this nebulatests
-        // errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
+        errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
         if (isSuppressingStageOne(project)) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
@@ -249,12 +248,12 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         return project.hasProperty(SuppressibleErrorPronePlugin.SUPPRESS_STAGE_TWO);
     }
 
-    //    private static String excludedPathsRegex() {
-    //        // Error-prone normalizes filenames to use '/' path separator:
-    //        // https://github.com/google/error-prone/blob/c601758e81723a8efc4671726b8363be7a306dce
-    //        // /check_api/src/main/java/com/google/errorprone/util/ASTHelpers.java#L1277-L1285
-    //
-    //        // language=RegExp
-    //        return ".*/(build(?!nebulatest/)|generated_.*[sS]rc|src/generated.*)/.*";
-    //    }
+    static String excludedPathsRegex() {
+        // Error-prone normalizes filenames to use '/' path separator:
+        // https://github.com/google/error-prone/blob/c601758e81723a8efc4671726b8363be7a306dce
+        // /check_api/src/main/java/com/google/errorprone/util/ASTHelpers.java#L1277-L1285
+
+        // language=RegExp
+        return ".*/(build|generated_.*[sS]rc|src/generated.*)/.*";
+    }
 }
