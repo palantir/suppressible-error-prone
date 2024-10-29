@@ -154,6 +154,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         errorProneOptions.getEnabled().set(project.provider(() -> ERROR_PRONE_DISABLE.stream()
                 .noneMatch(project::hasProperty)));
 
+        // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
+        // when this code lived in baseline, so we'll keep it enabled.
+        errorProneOptions.getDisableWarningsInGeneratedCode().set(true);
+
         // TODO: Fix this nebulatests
         // errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
