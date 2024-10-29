@@ -49,11 +49,16 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
     public final void transform(TransformOutputs outputs) {
         String inputName = getInputArtifact().get().getAsFile().getName();
 
+        // Unfortunately, looking at the filename is the only way to identify the right jar:
+        // https://github.com/gradle/gradle/issues/11831
         if (inputName.startsWith("error_prone_check_api")) {
             suppressCheckApi(outputs.file("error_prone_check_api_suppressible_error_prone_modified.jar"));
             return;
         }
 
+        // There's no way to just run the transform on a single jar/component:
+        // https://github.com/gradle/gradle/issues/8386
+        // Instead we run the transform on every jar but just don't modify the jars we don't care about.
         outputs.file(getInputArtifact());
     }
 
