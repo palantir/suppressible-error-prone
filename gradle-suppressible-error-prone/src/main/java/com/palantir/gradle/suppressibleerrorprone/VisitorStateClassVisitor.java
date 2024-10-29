@@ -20,6 +20,13 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+/**
+ * We want to intercept the error descriptions produced by errorprone checks that eventually go through `reportMatch`
+ * in `VisitorState` (even if the checks use the `buildDescription` approach). This is so we can modify the error
+ * descriptions to add our own fix. In the interests of minimising bytecode modifications, we just slot in a call
+ * to a static method at the start of the `reportMatch` method that modifies the description and then sets the
+ * description parameter to be the new value.
+ */
 final class VisitorStateClassVisitor extends ClassVisitor {
     VisitorStateClassVisitor(ClassVisitor classVisitor) {
         super(Opcodes.ASM9, classVisitor);
@@ -49,12 +56,14 @@ final class VisitorStateClassVisitor extends ClassVisitor {
             mv.visitVarInsn(Opcodes.ALOAD, 0);
             // Load the first argument aka the Description
             mv.visitVarInsn(Opcodes.ALOAD, 1);
-            // Modify the description using the method below. Result is on the stack.
+            // Modify the description using the method below, giving the method the parameters loaded above.
+            // Result is on the stack.
             mv.visitMethodInsn(
                     Opcodes.INVOKESTATIC,
                     "com/palantir/suppressibleerrorprone/VisitorStateModifications",
                     "interceptDescription",
-                    "(Lcom/google/errorprone/VisitorState;Lcom/google/errorprone/matchers/Description;)Lcom/google/errorprone/matchers/Description;",
+                    "(Lcom/google/errorprone/VisitorState;Lcom/google/errorprone/matchers/Description;)"
+                            + "Lcom/google/errorprone/matchers/Description;",
                     false);
             // Move modified result from the stack back into the description parameter variable
             mv.visitVarInsn(Opcodes.ASTORE, 1);
