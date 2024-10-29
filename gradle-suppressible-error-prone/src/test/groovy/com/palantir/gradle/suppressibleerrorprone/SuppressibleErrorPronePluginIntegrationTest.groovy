@@ -52,6 +52,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
 
+        file('gradle.properties') << '''
+            __TESTING=true
+            __TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM=true
+        '''.stripIndent(true)
+
         appJava = file('src/main/java/app/App.java')
     }
 

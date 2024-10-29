@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
@@ -129,9 +128,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneConfiguration.getAttributes().attribute(suppressiblified, true);
         });
 
-        project.getDependencies().registerTransform(Suppressiblify.class, spec -> {
-            // TODO: remove cachebust before merge
-            spec.getParameters().getCacheBust().set(UUID.randomUUID().toString());
+        project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
             spec.getParameters().getSuppressionStage1().set(isSuppressingStageOne(project));
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);

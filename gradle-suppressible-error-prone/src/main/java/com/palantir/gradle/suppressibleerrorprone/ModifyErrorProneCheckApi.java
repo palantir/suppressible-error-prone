@@ -16,13 +16,15 @@
 
 package com.palantir.gradle.suppressibleerrorprone;
 
-import com.palantir.gradle.suppressibleerrorprone.Suppressiblify.SParams;
+import com.palantir.gradle.suppressibleerrorprone.ModifyErrorProneCheckApi.Params;
+import com.palantir.gradle.utils.environmentvariables.EnvironmentVariables;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.UnaryOperator;
 import java.util.jar.JarFile;
 import java.util.zip.ZipOutputStream;
@@ -34,11 +36,12 @@ import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.Nested;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
-public abstract class Suppressiblify implements TransformAction<SParams> {
+public abstract class ModifyErrorProneCheckApi implements TransformAction<Params> {
     @InputArtifact
     protected abstract Provider<FileSystemLocation> getInputArtifact();
 
@@ -115,13 +118,29 @@ public abstract class Suppressiblify implements TransformAction<SParams> {
         }
     }
 
-    public abstract static class SParams implements TransformParameters {
+    public abstract static class Params implements TransformParameters {
+        @Input
+        public abstract Property<Boolean> getSuppressionStage1();
 
         @Input
         public abstract Property<String> getCacheBust();
 
-        @Input
-        public abstract Property<Boolean> getSuppressionStage1();
+        @Nested
+        protected abstract EnvironmentVariables getEnvironmentVariables();
+
+        public Params() {
+            // When running tests, you might want to debug why the artifact transform isn't working. Let me tell you,
+            // bashing your head against the wall because *for some reason* the artifact transform isn't running at
+            // all when it should is really frustrating, only to find out hours later that it's just getting cached
+            // as the inputs have not changed. So in tests only, we set the cache busting property to some random
+            // value so the transform always happens and you can actually debug the transform.
+            getCacheBust()
+                    .set(getEnvironmentVariables()
+                            .envVarOrFromTestingProperty("CACHE_BUST_ERRORPRONE_TRANSFORM")
+                            .map(Boolean::parseBoolean)
+                            .orElse(false)
+                            .map(should -> should ? UUID.randomUUID().toString() : ""));
+        }
     }
 
     private static ClassReader newClassReader(InputStream inputStream) {

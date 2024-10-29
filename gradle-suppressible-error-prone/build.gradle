@@ -6,6 +6,7 @@ apply plugin: 'com.palantir.external-publish-gradle-plugin'
 dependencies {
     implementation 'net.ltgt.gradle:gradle-errorprone-plugin'
     implementation 'org.ow2.asm:asm'
+    implementation 'com.palantir.gradle.utils:environment-variables'
 
     testImplementation 'com.netflix.nebula:nebula-test'
 }
