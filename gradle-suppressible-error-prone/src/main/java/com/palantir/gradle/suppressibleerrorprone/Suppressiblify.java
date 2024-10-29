@@ -68,7 +68,7 @@ public abstract class Suppressiblify implements TransformAction<SParams> {
 
     private Optional<UnaryOperator<ClassVisitor>> classVisitorFor(String classJarPath) {
         if (classJarPath.equals("com/google/errorprone/BugCheckerInfo.class")) {
-            return Optional.of(BugCheckerClassVisitor::new);
+            return Optional.of(BugCheckerInfoVisitor::new);
         }
 
         if (classJarPath.equals("com/google/errorprone/VisitorState.class")
