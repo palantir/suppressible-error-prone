@@ -1,6 +1,5 @@
 # Suppressible Error Prone
 
-
 A Gradle Plugin that extends the [Gradle Error Prone Plugin](https://github.com/tbroyer/gradle-errorprone-plugin) and [Error Prone](https://errorprone.info/) itself to support automatically suppressing errors.
 
 ## Motivation
@@ -11,7 +10,13 @@ If working in a single monorepo, it's somewhat easier to deal with this problem.
 
 In a polyrepo environment, it's much harder. You can't coordinate the suppression first then move on from there without a huge (probably impossible) amount of difficultly. Different repos will upgrade at different speeds, so you need to be able to suppress all errorprones in one go at any time. This is a feature this plugin provides.
 
-Additionally, unlike the builtin errorprone helper method to suppress errors, this approach identifies that the suppression has been automated rather than manual in the actual suppression name, rather than using comments, which are brittle and hard to programmatically change.
+Additionally, unlike the builtin errorprone helper method to suppress errors, this approach identifies that the suppression has been automated rather than manual in the actual suppression name, rather than using comments, which are brittle and hard to programmatically change. Example:
+
+```java
+// Here ArrayToString was added manually, but CollectionStreamForEach was 
+// added automatically when the check was rolled out.
+@SuppressWarnings({"ArrayToString", "for-rollout:CollectionStreamForEach"})
+```
 
 Other approaches like android-lint's baseline (and very large Palantir internal monorepo) have files in each source set or project that describe which Java files have which checks enabled. This plugin takes a different approach, instead suppressing checks inline in a more granular fashion.
 
