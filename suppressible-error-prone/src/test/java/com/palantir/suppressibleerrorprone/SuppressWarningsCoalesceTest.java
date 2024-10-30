@@ -21,128 +21,173 @@ import org.junit.jupiter.api.Test;
 class SuppressWarningsCoalesceTest {
     @Test
     void no_suppress_warnings_no_repeatable() {
-        fix().addInputLines("Test.java", "public class Test {", "  void f() {", "  }", "}")
+        fix().addInput(
+                        "Test.java",
+                        // language=Java
+                        """
+                        public class Test {
+                            void f() {}
+                        }
+                        """)
                 .expectUnchanged()
                 .doTest();
     }
 
     @Test
     void single_suppress_warnings_no_repeatable() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "public class Test {",
-                        "  @SuppressWarnings(\"Something\")",
-                        "  void f() {",
-                        "  }",
-                        "}")
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings("Something")
+                            void f() {}
+                        }
+                        """)
                 .expectUnchanged()
                 .doTest();
     }
 
     @Test
     void multiple_suppress_warnings_single_repeatable() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "public class Test {",
-                        "  @SuppressWarnings({\"A\", \"B\"})",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
-                        "  void f() {",
-                        "  }",
-                        "}")
-                .addOutputLines(
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings({"A", "B"})
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
+                            void f() {}
+                        }
+                        """)
+                .addOutput(
                         "Test.java",
-                        "public class Test {",
-                        "  @SuppressWarnings({\"A\", \"B\", \"C\"})",
-                        "  void f() {",
-                        "  }",
-                        "}")
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings({"A", "B", "C"})
+                            void f() {}
+                        }
+                        """)
                 .doTest();
     }
 
     @Test
     void single_suppress_warnings_multiple_repeatable_warnings() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "public class Test {",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"B\")",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
-                        "  @SuppressWarnings(\"A\")",
-                        "  void f() {",
-                        "  }",
-                        "}")
-                .addOutputLines(
+                        // language=Java
+                        """
+                        public class Test {
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("B")
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
+                            @SuppressWarnings("A")
+                            void f() {}
+                        }
+                        """)
+                .addOutput(
                         "Test.java",
-                        "public class Test {",
-                        "  @SuppressWarnings({\"A\", \"B\", \"C\"})",
-                        "  void f() {",
-                        "  }",
-                        "}")
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings({"A", "B", "C"})
+                            void f() {}
+                        }
+                        """)
                 .doTest();
     }
 
     @Test
     void no_suppressible_warnings_single_repeatable_warnings() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "public class Test {",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"A\")",
-                        "  void f() {",
-                        "  }",
-                        "}")
-                .addOutputLines(
-                        "Test.java", "public class Test {", "  @SuppressWarnings(\"A\")", "  void f() {", "  }", "}")
+                        // language=Java
+                        """
+                        public class Test {
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("A")
+                            void f() {}
+                        }
+                        """)
+                .addOutput(
+                        "Test.java",
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings("A")
+                            void f() {}
+                        }
+                        """)
                 .doTest();
     }
 
     @Test
     void multiple_suppress_warnings_multiple_repeatable_warnings() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "public class Test {",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
-                        "  @SuppressWarnings({\"A\", \"B\"})",
-                        "  void f() {",
-                        "  }",
-                        "}")
-                .addOutputLines(
+                        // language=Java
+                        """
+                        public class Test {
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("D")
+                            @SuppressWarnings({"A", "B"})
+                            void f() {}
+                        }
+                        """)
+                .addOutput(
                         "Test.java",
-                        "public class Test {",
-                        "  @SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})",
-                        "  void f() {",
-                        "  }",
-                        "}")
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings({"A", "B", "C", "D"})
+                            void f() {}
+                        }
+                        """)
                 .doTest();
     }
 
     @Test
     void field() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "public class Test {",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
-                        "  @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
-                        "  @SuppressWarnings({\"A\", \"B\"})",
-                        "  String field;",
-                        "}")
-                .addOutputLines(
+                        // language=Java
+                        """
+                        public class Test {
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
+                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("D")
+                            @SuppressWarnings({"A", "B"})
+                            String field;
+                        }
+                        """)
+                .addOutput(
                         "Test.java",
-                        "public class Test {",
-                        "  @SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})",
-                        "  String field;",
-                        "}")
+                        // language=Java
+                        """
+                        public class Test {
+                            @SuppressWarnings({"A", "B", "C", "D"})
+                            String field;
+                        }
+                        """)
                 .doTest();
     }
 
     @Test
     void klass() {
-        fix().addInputLines(
+        fix().addInput(
                         "Test.java",
-                        "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
-                        "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
-                        "@SuppressWarnings({\"A\", \"B\"})",
-                        "public class Test {}")
-                .addOutputLines("Test.java", "@SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})", "public class Test {}")
+                        // language=Java
+                        """
+                        @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
+                        @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("D")
+                        @SuppressWarnings({"A", "B"})
+                        public class Test {}
+                        """)
+                .addOutput(
+                        "Test.java",
+                        // language=Java
+                        """
+                        @SuppressWarnings({"A", "B", "C", "D"})
+                        public class Test {}
+                        """)
                 .doTest();
     }
 

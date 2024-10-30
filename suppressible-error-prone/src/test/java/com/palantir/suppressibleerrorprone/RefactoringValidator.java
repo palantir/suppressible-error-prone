@@ -18,6 +18,7 @@ package com.palantir.suppressibleerrorprone;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.google.common.base.Splitter;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -47,10 +48,10 @@ final class RefactoringValidator {
     }
 
     @CheckReturnValue
-    OutputStage addInputLines(String path, String... input) {
+    OutputStage addInput(String path, String input) {
         // If expectUnchanged is unused, the input is used as output
         this.outputPath = path;
-        this.outputLines = input;
+        this.outputLines = Splitter.on('\n').splitToList(input).toArray(String[]::new);
         return new OutputStage(this, delegate.addInputLines(path, input));
     }
 
@@ -64,9 +65,9 @@ final class RefactoringValidator {
         }
 
         @CheckReturnValue
-        TestStage addOutputLines(String path, String... output) {
+        TestStage addOutput(String path, String output) {
             helper.outputPath = path;
-            helper.outputLines = output;
+            helper.outputLines = Splitter.on('\n').splitToList(output).toArray(String[]::new);
             return new TestStage(helper, delegate.addOutputLines(path, output));
         }
 
