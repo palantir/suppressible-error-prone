@@ -54,7 +54,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             tasks.withType(JavaCompile).configureEach {
                 // This makes debugging the errorprone running inside the compiler "just work" from inside these tests
                 // Change this to true to enable it (after setting up the standalone debugger)
-                boolean debuggingErrorPrones = true
+                boolean debuggingErrorPrones = false
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -346,6 +346,41 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                     static {
                         System.out.println(new int[3].toString());
                     }
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'supports errorprone checks that match on a larger element than they report errors on'() {
+        // The UnusedVariable check implements CompilationUnitTreeMatcher, so will start with a whole
+        // CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
+        // This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
+        // than where the diagnostic description was produced.
+
+        // language=Java
+        writeJavaSourceFile '''
+            package app;
+            public final class App {
+                public void variables() {
+                    String variable;
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage2')
+
+        then:
+        runTasksSuccessfully('compileJava')
+
+        // language=Java
+        appJava.text == '''
+            package app;
+            public final class App {
+                public void variables() {
+                    @SuppressWarnings("for-rollout:UnusedVariable")
+                    String variable;
                 }
             }
         '''.stripIndent(true)

@@ -22,13 +22,14 @@ import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public final class VisitorStateModifications {
 
-    private static final Pattern LAST_INDENT = Pattern.compile("(?:.|\\n)*\\n(\\s*?)$", Pattern.MULTILINE);
+    private static final Pattern LAST_INDENT = Pattern.compile("(?:.|\\n)*\\n(?<indent>\\s*?)$", Pattern.MULTILINE);
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -36,18 +37,21 @@ public final class VisitorStateModifications {
             return Description.NO_MATCH;
         }
 
-        Tree firstSuppressibleParent = Stream.iterate(visitorState.getPath(), TreePath::getParentPath)
+        // We can't just use visitorState.getPath() because there are checks that do not emit Descriptions
+        // at the level they have descended to using the visitor. For example, UnusedVariable implements
+        // only CompilationUnitTreeMatcher then manually descends itself. So we need to look at the path
+        // to the actual error description.
+        TreePath pathToActualError =
+                TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
+
+        Tree firstSuppressibleParent = Stream.iterate(pathToActualError, TreePath::getParentPath)
                 .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Can't find anything we can suppress"))
                 .getLeaf();
 
-        Matcher matcher = LAST_INDENT.matcher(visitorState
-                .getSourceCode()
-                .subSequence(0, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
-
-        matcher.matches();
-        String indent = matcher.group(1);
+        // Guess the indent if we can't find it for some reason. Formatter will fix.
+        String indent = indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
 
         return Description.builder(
                         description.position,
@@ -63,6 +67,14 @@ public final class VisitorStateModifications {
                                         + indent)
                         .build())
                 .build();
+    }
+
+    private static Optional<String> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
+        return Optional.ofNullable(visitorState.getSourceCode())
+                .map(sourceCode -> LAST_INDENT.matcher(
+                        sourceCode.subSequence(0, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition())))
+                .filter(Matcher::matches)
+                .map(matcher -> matcher.group(1));
     }
 
     private VisitorStateModifications() {}
