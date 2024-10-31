@@ -111,15 +111,15 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static void setupErrorProneArtifactTransform(Project project) {
-        Attribute<Boolean> suppressiblified =
-                Attribute.of("com.palantir.baseline.errorprone.suppressiblified", Boolean.class);
-        project.getDependencies().getAttributesSchema().attribute(suppressiblified);
+        Attribute<Boolean> suppressible =
+                Attribute.of("com.palantir.suppressible-error-prone.suppressible", Boolean.class);
+        project.getDependencies().getAttributesSchema().attribute(suppressible);
 
         project.getDependencies()
                 .getArtifactTypes()
                 .getByName("jar")
                 .getAttributes()
-                .attribute(suppressiblified, false);
+                .attribute(suppressible, false);
 
         // It's the annotationProcessor configuration, not the errorprone that, is actually used by the compiler
         // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
@@ -127,15 +127,15 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneConfiguration
                     .getDependencies()
                     .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
-            errorProneConfiguration.getAttributes().attribute(suppressiblified, true);
+            errorProneConfiguration.getAttributes().attribute(suppressible, true);
         });
 
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
             spec.getParameters().getSuppressionStage1().set(isSuppressingStageOne(project));
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);
-            spec.getFrom().attribute(suppressiblified, false).attribute(artifactType, "jar");
-            spec.getTo().attribute(suppressiblified, true).attribute(artifactType, "jar");
+            spec.getFrom().attribute(suppressible, false).attribute(artifactType, "jar");
+            spec.getTo().attribute(suppressible, true).attribute(artifactType, "jar");
         });
     }
 
