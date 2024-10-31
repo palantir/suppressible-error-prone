@@ -75,7 +75,8 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             // also the SuppressWarningsCoalesce errorprone in suppressing stage 2.
             errorProneConfiguration
                     .getDependencies()
-                    .add(project.getDependencies().create("com.palantir.baseline:suppressible-error-prone:" + version));
+                    .add(project.getDependencies()
+                            .create("com.palantir.suppressible-error-prone:suppressible-error-prone:" + version));
         });
 
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
@@ -227,7 +228,8 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 project.getDependencies()
                         .add(
                                 sourceSet.getCompileOnlyConfigurationName(),
-                                "com.palantir.baseline:suppressible-error-prone-annotations:" + version);
+                                "com.palantir.suppressible-error-prone:suppressible-error-prone-annotations:"
+                                        + version);
             });
         }
     }
