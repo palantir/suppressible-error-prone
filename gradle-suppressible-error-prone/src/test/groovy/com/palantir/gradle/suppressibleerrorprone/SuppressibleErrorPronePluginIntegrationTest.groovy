@@ -54,7 +54,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             tasks.withType(JavaCompile).configureEach {
                 // This makes debugging the errorprone running inside the compiler "just work" from inside these tests
                 // Change this to true to enable it (after setting up the standalone debugger)
-                boolean debuggingErrorPrones = false
+                boolean debuggingErrorPrones = true
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -290,6 +290,65 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileJava')
 
         appJava.text.contains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+    }
+
+    def 'demonstrate suppressions on different source elements'() {
+        // language=Java
+        writeJavaSourceFile '''
+            package app;
+            public final class App {
+                public final String field = new int[3].toString();
+
+                public void method() {
+                    System.out.println(new int[3].toString());
+                }
+
+                public void variables() {
+                    String variable = new int[3].toString();
+                    System.out.println(variable);
+                }
+                
+                public static class SomeClass {
+                    static {
+                        System.out.println(new int[3].toString());
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage2')
+
+        then:
+        runTasksSuccessfully('compileJava')
+
+        // language=Java
+        appJava.text == '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public final String field = new int[3].toString();
+
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public void method() {
+                    System.out.println(new int[3].toString());
+                }
+
+                public void variables() {
+                    @SuppressWarnings("for-rollout:ArrayToString")
+                    String variable = new int[3].toString();
+                    System.out.println(variable);
+                }
+                
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static class SomeClass {
+                    static {
+                        System.out.println(new int[3].toString());
+                    }
+                }
+            }
+        '''.stripIndent(true)
     }
 
     def 'can disable errorprone using property'() {

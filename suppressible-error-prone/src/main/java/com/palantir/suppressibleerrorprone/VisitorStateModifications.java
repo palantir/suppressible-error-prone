@@ -21,9 +21,15 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public final class VisitorStateModifications {
+
+    private static final Pattern LAST_INDENT = Pattern.compile("(?:.|\\n)*\\n(\\s*?)$", Pattern.MULTILINE);
+
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         if (description == Description.NO_MATCH) {
@@ -36,6 +42,13 @@ public final class VisitorStateModifications {
                 .orElseThrow(() -> new RuntimeException("Can't find anything we can suppress"))
                 .getLeaf();
 
+        Matcher matcher = LAST_INDENT.matcher(visitorState
+                .getSourceCode()
+                .subSequence(0, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
+
+        matcher.matches();
+        String indent = matcher.group(1);
+
         return Description.builder(
                         description.position,
                         description.checkName,
@@ -46,7 +59,8 @@ public final class VisitorStateModifications {
                                 firstSuppressibleParent,
                                 "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\""
                                         + CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName
-                                        + "\")\n")
+                                        + "\")\n"
+                                        + indent)
                         .build())
                 .build();
     }
