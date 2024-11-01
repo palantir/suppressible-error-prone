@@ -1,0 +1,14 @@
+com.google.auto.service:auto-service = 1.1.1
+com.google.guava:guava = 33.3.1-jre
+com.netflix.nebula:nebula-test = 10.6.1
+com.palantir.gradle.utils:environment-variables = 0.9.0
+commons-io:commons-io = 2.17.0
+net.ltgt.gradle:gradle-errorprone-plugin = 4.1.0
+org.assertj:assertj-core = 3.26.3
+org.junit.jupiter:* = 5.11.3
+org.ow2.asm:asm = 9.7.1
+
+# dependency-upgrader:OFF
+# We want to avoid upgrading errorprone automatically as it will bring with it new checks.
+com.google.errorprone:* = 2.31.0
+# dependency-upgrader:ON
