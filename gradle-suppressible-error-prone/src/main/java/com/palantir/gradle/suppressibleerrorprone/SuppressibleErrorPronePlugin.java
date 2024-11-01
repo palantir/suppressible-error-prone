@@ -62,12 +62,14 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        // When auto-suppressing, there are two stages. The first runs a bytecode patched version of errorprone (via an
-        // artifact transform) that intercepts every error from every check and adds a custom fix, a
-        // @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class. The second stage runs
-        // an unpatched version of errorprone that applies a single errorprone check: SuppressWarningsCoalesce,
-        // which will combine all the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one
-        // normal @SuppressWarnings annotation.
+        // When auto-suppressing, there are two stages:
+        // 1. The first runs a bytecode patched version of errorprone (via an
+        //    artifact transform) that intercepts every error from every check and adds a custom fix, a
+        //    @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class.
+        // 2. The second stage runs a single errorprone check: SuppressWarningsCoalesce, which will combine all
+        //    the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one normal @SuppressWarnings
+        //    annotation.
+
         setupErrorProneArtifactTransform(project);
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
