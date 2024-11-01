@@ -102,3 +102,68 @@ suppressibleErrorProne {
     patchChecks.add('SomeCheck')
 }
 ```
+
+## Technical Details
+
+We achieve automatic suppression using a two stage process:
+
+1. Intercepting all the errors that errorprone produces, adding an `@RepeatableSuppressWarnings` annotation to the closest parent language element to erroring element that accepts `@SuppressWarnings`.
+2. The second stage comes and coalesces all the `@RepeatableSuppressWarnings` together with any existing `@SuppressWarnings` to produce a final `@SuppressWarnings` (this process happens via a regular old errorprone check).
+
+For example:
+
+```java
+class Example {
+    @SuppressWarnings("ArrayToString")
+    void example() {
+        // Fails CollectionStreamForEach
+        List.of(1).stream().forEach(...)
+        // ...
+    }
+}
+```
+
+Would have the `@RepeatableSuppressWarnings` annotation added after stage 1:
+
+```java
+class Example {
+    @RepeatableSuppressWarnings("CollectionStreamForEach")
+    @SuppressWarnings("ArrayToString")
+    void example() {
+        List.of(1).stream().forEach(...)
+        // ...
+    }
+}
+```
+
+Then stage 2 will coalesce the suppress warnings annotations into a single regular `@SuppressWarnings`. Note we prefix the automatically suppressed error with `for-rollout:` so it's easy to tell which suppressions happened because humans did it vs automation.
+
+```java
+class Example {
+    @SuppressWarnings({"ArrayToString", "for-rollout:CollectionStreamForEach"})
+    void example() {
+        List.of(1).stream().forEach(...)
+        // ...
+    }
+}
+```
+
+### How do we intercept all the errorprone errors?
+
+We actually modify the core errorprone library to achieve this using a Gradle [Artifact Transform](https://docs.gradle.org/8.10.2/userguide/artifact_transforms.html). This allows us to minimally rewrite the bytecode in the jar that has [`VisitorState#reportMatch`](https://github.com/google/error-prone/blob/f0c3c1eb1b576ee9bc44f1f21c9379e7a02dd745/check_api/src/main/java/com/google/errorprone/VisitorState.java#L281) method and add a call to our own static method to modify the `description` as a first step and add our own fix for `@RepeatableSuppressWarnings`.
+
+### How did we get that `for-rollout:` prefix to be accepted by errorprone
+
+Again, we use the same Artifact Transform to also add a static method to the end of [this constructor for `BugCheckerInfo`](https://github.com/google/error-prone/blob/f0c3c1eb1b576ee9bc44f1f21c9379e7a02dd745/check_api/src/main/java/com/google/errorprone/BugCheckerInfo.java#L147) that reflectively changes the `allNames` field to include the check's canonical name with the `for-rollout:` prefix.
+
+### Isn't using an Artifact Transform kinda janky?
+Using an artifact transform is kinda janky. If Google were to change these APIs or internal details, the code would break and we would have to fix (although I'm pretty sure we could - we could do whatever we want).
+
+The ideal would be to upstream this into errorprone itself. Upstreaming may be possible, but this PR at least demonstrates this works without having to go through that process. See readme for the discussion about rolling our errorprones in monorepo vs polyrepo environments and how Google may not have our problem.
+
+## Future work
+
+* Adding a way to remove unnecessary suppressions of error prone checks. This will be very useful when rolling an out an errorprone check that is incorrect and ends up spamming repos with suppressions. Just fixing the bug and upgrading should fix the bug.
+* Automatically discovering errorprones to run from the manifest of jars. Will enable library authors to distribute fixes to upcoming breaking changes automatically.
+
+
