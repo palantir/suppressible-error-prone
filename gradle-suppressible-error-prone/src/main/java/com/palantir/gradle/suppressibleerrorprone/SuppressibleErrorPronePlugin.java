@@ -68,7 +68,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // an unpatched version of errorprone that applies a single errorprone check: SuppressWarningsCoalesce,
         // which will combine all the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one
         // normal @SuppressWarnings annotation.
-        setupErrorProneArtifactTransform(project);
+
+        if (isSuppressingStageOne(project)) {
+            setupErrorProneArtifactTransform(project);
+        }
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
             // Required so that we can run the runtime parts of the errorprone patching in suppressing stage 1 and
