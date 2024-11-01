@@ -52,8 +52,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
             
             tasks.withType(JavaCompile).configureEach {
-                // This makes debugging the errorprone running inside the compiler "just work" from inside these tests
-                // Change this to true to enable it (after setting up the standalone debugger)
+                // This makes debugging the errorprone check code running inside the compiler (including the bytecode
+                // edited modifications we have made) "just work" from inside these tests.
+                // Change the variable below to trueto enable it, after setting up the standalone debugger:
+                //   1. Make a new run configuration in IntelliJ of type JVM Debug
+                //   2. Change it to "Listen" rather than "Attach"
+                //   3. Select Auto-restart.
+                //   4. Run the debugger
+                //   5. Run the tests as well
+                // If the variable below is true and the tests will fail as the compilation process will try to
+                // attach to a non-existent debugger 
                 boolean debuggingErrorPrones = false
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
