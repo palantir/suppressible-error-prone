@@ -52,7 +52,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // Unfortunately, looking at the filename is the only way to identify the right jar:
         // https://github.com/gradle/gradle/issues/11831
         if (inputName.startsWith("error_prone_check_api")) {
-            suppressCheckApi(outputs.file("error_prone_check_api_suppressible_error_prone_modified.jar"));
+            suppressCheckApi(outputs.file(inputName.replace(".jar", "") + "_suppressible_error_prone_modified.jar"));
             return;
         }
 
