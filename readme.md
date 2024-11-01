@@ -18,7 +18,32 @@ Additionally, unlike the builtin errorprone helper method to suppress errors, th
 @SuppressWarnings({"ArrayToString", "for-rollout:CollectionStreamForEach"})
 ```
 
-Other approaches like android-lint's baseline (and very large Palantir internal monorepo) have files in each source set or project that describe which Java files have which checks enabled. This plugin takes a different approach, instead suppressing checks inline in a more granular fashion.
+Other approaches like android-lint's baseline (and very large Palantir internal monorepo) have files in each source set or project that describe which Java files have which checks enabled. This plugin takes a different approach, instead suppressing checks inline in a more granular fashion on the language element closest to the error (including variable definitions), like so:
+
+```java
+public final class Example {
+    @SuppressWarnings("for-rollout:ArrayToString")
+    public final String field = new int[3].toString();
+
+    @SuppressWarnings("for-rollout:ArrayToString")
+    public void method() {
+        System.out.println(new int[3].toString());
+    }
+
+    public void variables() {
+        @SuppressWarnings("for-rollout:ArrayToString")
+        String variable = new int[3].toString();
+        System.out.println(variable);
+    }
+
+    @SuppressWarnings("for-rollout:ArrayToString")
+    public static class SomeClass {
+        static {
+            System.out.println(new int[3].toString());
+        }
+    }
+}
+```
 
 ## Usage
 
