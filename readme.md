@@ -104,7 +104,7 @@ Errorprone can be disabled by using the `-PerrorProneDisable` property.
 
 ### Using directly from Gradle
 
-You can also use this directly in Gradle without making a plugin (not recommended if you are in a polyrepo environment):
+You can also use this directly in Gradle without making a plugin (not recommended if you are in a polyrepo environment - save yourself the future pain, don't copy and paste anything, make a plugin for it!):
 
 ```gradle
 buildscript {
@@ -119,7 +119,7 @@ buildscript {
 apply plugin: 'com.palantir.suppressible-error-prone'
 
 dependencies {
-    // You will actually need a source of errorprone checks, this include the default Google ones
+    // You will actually need a source of errorprone checks, this includes the default Google ones
     errorprone 'com.google.errorprone:error_prone_core:<version>'
 }
 
@@ -182,9 +182,10 @@ We actually modify the core errorprone library to achieve this using a Gradle [A
 Again, we use the same Artifact Transform to also add a static method to the end of [this constructor for `BugCheckerInfo`](https://github.com/google/error-prone/blob/f0c3c1eb1b576ee9bc44f1f21c9379e7a02dd745/check_api/src/main/java/com/google/errorprone/BugCheckerInfo.java#L147) that reflectively changes the `allNames` field to include the check's canonical name with the `for-rollout:` prefix.
 
 ### Isn't using an Artifact Transform kinda janky?
+
 Using an artifact transform is kinda janky. If Google were to change these APIs or internal details, the code would break and we would have to fix (although I'm pretty sure we could - we could do whatever we want).
 
-The ideal would be to upstream this into errorprone itself. Upstreaming may be possible, but this PR at least demonstrates this works without having to go through that process. See readme for the discussion about rolling our errorprones in monorepo vs polyrepo environments and how Google may not have our problem.
+The ideal would be to upstream this into errorprone itself. Upstreaming may be possible, but this approach at least demonstrates this works without having to go through that process. See readme for the discussion about rolling our errorprones in monorepo vs polyrepo environments and how Google may not have our problem.
 
 ## Future work
 
