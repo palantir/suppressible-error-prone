@@ -189,7 +189,11 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 @Override
                 public Iterable<String> asArguments() {
                     String possibleSpecificPatchChecks = (String) project.property(ERROR_PRONE_APPLY);
-                    if (!(possibleSpecificPatchChecks == null || possibleSpecificPatchChecks.isBlank())) {
+
+                    boolean hasSpecificPatchChecks =
+                            possibleSpecificPatchChecks != null && !possibleSpecificPatchChecks.isBlank();
+
+                    if (hasSpecificPatchChecks) {
                         List<String> specificPatchChecks = Arrays.stream(possibleSpecificPatchChecks.split(","))
                                 .map(String::trim)
                                 .filter(Predicate.not(String::isEmpty))
