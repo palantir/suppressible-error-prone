@@ -80,14 +80,10 @@ public final class VisitorStateModifications {
     private VisitorStateModifications() {}
 
     private static boolean suppressibleKind(Tree.Kind kind) {
-        switch (kind) {
-            case CLASS:
-            case METHOD:
-            case VARIABLE:
-                // VARIABLE includes fields
-                return true;
-            default:
-                return false;
-        }
+        // VARIABLE includes fields
+        return switch (kind) {
+            case CLASS, METHOD, VARIABLE -> true;
+            default -> false;
+        };
     }
 }

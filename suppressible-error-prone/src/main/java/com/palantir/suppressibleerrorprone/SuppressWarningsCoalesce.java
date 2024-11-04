@@ -82,7 +82,7 @@ public final class SuppressWarningsCoalesce extends BugChecker
                     return annotationName.contentEquals("SuppressWarnings")
                             || annotationName.contentEquals("RepeatableSuppressWarnings");
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         if (suppressWarnings.isEmpty()) {
             return Description.NO_MATCH;
@@ -129,27 +129,26 @@ public final class SuppressWarningsCoalesce extends BugChecker
 
     private static Stream<String> annotationStringValues(AnnotationTree annotation) {
         return annotation.getArguments().stream().flatMap(arg -> {
-            if (arg instanceof AssignmentTree) {
-                AssignmentTree assignment = (AssignmentTree) arg;
-                ExpressionTree expression = assignment.getExpression();
-
-                if (expression instanceof LiteralTree) {
-                    return Stream.of((String) ((LiteralTree) expression).getValue());
-                }
-
-                if (expression instanceof NewArrayTree) {
-                    NewArrayTree newArray = (NewArrayTree) expression;
-                    return newArray.getInitializers().stream()
-                            .map(LiteralTree.class::cast)
-                            .map(LiteralTree::getValue)
-                            .map(String.class::cast);
-                }
-
-                throw new UnsupportedOperationException("Unsupported assignment expression: "
-                        + expression.getClass().getCanonicalName());
+            if (!(arg instanceof AssignmentTree assignment)) {
+                return Stream.empty();
             }
 
-            return Stream.empty();
+            ExpressionTree expression = assignment.getExpression();
+
+            if (expression instanceof LiteralTree) {
+                return Stream.of((String) ((LiteralTree) expression).getValue());
+            }
+
+            if (expression instanceof NewArrayTree) {
+                NewArrayTree newArray = (NewArrayTree) expression;
+                return newArray.getInitializers().stream()
+                        .map(LiteralTree.class::cast)
+                        .map(LiteralTree::getValue)
+                        .map(String.class::cast);
+            }
+
+            throw new UnsupportedOperationException("Unsupported assignment expression: "
+                    + expression.getClass().getCanonicalName());
         });
     }
 

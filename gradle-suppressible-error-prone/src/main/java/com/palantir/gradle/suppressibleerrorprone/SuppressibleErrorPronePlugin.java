@@ -197,7 +197,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                         List<String> specificPatchChecks = Arrays.stream(possibleSpecificPatchChecks.split(","))
                                 .map(String::trim)
                                 .filter(Predicate.not(String::isEmpty))
-                                .collect(Collectors.toList());
+                                .toList();
 
                         return List.of(
                                 "-XepPatchLocation:IN_PLACE",
@@ -222,11 +222,12 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                     return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + String.join(",", patchChecks));
                 }
             });
-            return;
         }
     }
 
     private static void addAnnotationDependencyForSuppressingStage2(Project project, String version) {
+        // We don't want to add the annotations every time as otherwise people would be able to see it IntelliJ
+        // and might use it. Better to just hide it forever.
         if (isSuppressingStageTwo(project)) {
             // Just before stage two of suppression starts compilation, we now have @RepeateableSuppressWarnings in
             // the code, so we need to include the jar that has this type to each source set.
