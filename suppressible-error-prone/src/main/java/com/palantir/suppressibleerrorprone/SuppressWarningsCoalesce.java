@@ -49,7 +49,9 @@ import javax.lang.model.element.Name;
         link = "https://github.com/palantir/gradle-baseline#baseline-error-prone-checks",
         linkType = BugPattern.LinkType.CUSTOM,
         severity = SeverityLevel.ERROR,
-        summary = "blah")
+        summary = "An implementation detail of suppressible-error-prone that coalesces multiple "
+                + "@RepeatableSuppressWarnings and an optional @SuppressWarnings annotation into a single "
+                + "@SuppressWarnings. Do not use manually. This could be deleted or changed at any moment.")
 public final class SuppressWarningsCoalesce extends BugChecker
         implements BugChecker.MethodTreeMatcher, BugChecker.VariableTreeMatcher, BugChecker.ClassTreeMatcher {
 
