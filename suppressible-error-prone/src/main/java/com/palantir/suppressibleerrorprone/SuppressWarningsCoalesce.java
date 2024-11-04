@@ -135,12 +135,11 @@ public final class SuppressWarningsCoalesce extends BugChecker
 
             ExpressionTree expression = assignment.getExpression();
 
-            if (expression instanceof LiteralTree) {
-                return Stream.of((String) ((LiteralTree) expression).getValue());
+            if (expression instanceof LiteralTree literalTree) {
+                return Stream.of((String) (literalTree.getValue()));
             }
 
-            if (expression instanceof NewArrayTree) {
-                NewArrayTree newArray = (NewArrayTree) expression;
+            if (expression instanceof NewArrayTree newArray) {
                 return newArray.getInitializers().stream()
                         .map(LiteralTree.class::cast)
                         .map(LiteralTree::getValue)
