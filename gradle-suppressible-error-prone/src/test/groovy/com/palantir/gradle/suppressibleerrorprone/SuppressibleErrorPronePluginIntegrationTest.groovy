@@ -44,7 +44,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             
             repositories {
                 mavenCentral()
-                mavenLocal()
             }
             
             dependencies {
@@ -412,6 +411,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     }
 
     def 'should be able to refactor near usages of deprecated methods'() {
+        // If a deprecated method usage appears in a compilation unit that is being refactored, the compiler will
+        // raise a warning about the deprecated method usage. If -Werror is also enabled, compilation will fail
+        // rather than succeed, even when patching checks. The code should make sure to disable the -Werror
+        // behaviour so patching always succeeds.
+
         // language=Gradle
         buildFile << '''
             tasks.withType(JavaCompile) {
@@ -481,7 +485,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
             suppressibleErrorProne {
                 conditionalPatchChecks.add(new ConditionalPatchCheck(new IfModuleIsUsed('com.fasterxml.jackson.core', 'jackson-core'), 'ArrayToString'))
-                conditionalPatchChecks.add(new ConditionalPatchCheck(new IfModuleIsUsed('donesnt', 'exist'), 'ArrayEquals'))
+                conditionalPatchChecks.add(new ConditionalPatchCheck(new IfModuleIsUsed('doesnt', 'exist'), 'ArrayEquals'))
             }
             
             dependencies {
