@@ -1,0 +1,5 @@
+type: feature
+feature:
+  description: Allow errorprone failures to be automatically suppressed
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/6

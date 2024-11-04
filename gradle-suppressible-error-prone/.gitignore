@@ -1,0 +1,3 @@
+# Avoids issues with nebulatests hitting the excludedPathRegex as they have build in the name
+# see SuppressibleErrorPronePluginIntegrationTest for more info
+nebulatestSourceSets/
