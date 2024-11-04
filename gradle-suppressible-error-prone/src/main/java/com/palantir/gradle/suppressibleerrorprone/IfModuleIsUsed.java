@@ -24,15 +24,7 @@ import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.compile.JavaCompile;
 
-public final class IfModuleIsUsed implements Spec<JavaCompile> {
-    private final String group;
-    private final String module;
-
-    public IfModuleIsUsed(String group, String module) {
-        this.group = group;
-        this.module = module;
-    }
-
+public record IfModuleIsUsed(String group, String module) implements Spec<JavaCompile> {
     @Override
     public boolean isSatisfiedBy(JavaCompile javaCompile) {
         Project project = javaCompile.getProject();

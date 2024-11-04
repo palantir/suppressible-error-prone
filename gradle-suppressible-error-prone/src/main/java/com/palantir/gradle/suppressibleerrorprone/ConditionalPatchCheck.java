@@ -20,24 +20,8 @@ import java.util.Set;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.compile.JavaCompile;
 
-public final class ConditionalPatchCheck {
-    private final Spec<JavaCompile> when;
-    private final Set<String> checks;
-
-    public ConditionalPatchCheck(Spec<JavaCompile> when, Set<String> checks) {
-        this.when = when;
-        this.checks = checks;
-    }
-
+public record ConditionalPatchCheck(Spec<JavaCompile> when, Set<String> checks) {
     public ConditionalPatchCheck(Spec<JavaCompile> when, String... checks) {
         this(when, Set.of(checks));
-    }
-
-    public Spec<JavaCompile> when() {
-        return when;
-    }
-
-    public Set<String> checks() {
-        return checks;
     }
 }
