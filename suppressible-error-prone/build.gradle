@@ -14,20 +14,13 @@ dependencies {
     testRuntimeOnly project(':suppressible-error-prone-annotations')
 }
 
-test {
-    // Errorprone needs access to these JDK modules
-    jvmArgumentProviders.add(new CommandLineArgumentProvider() {
-        @Override
-        Iterable<String> asArguments() {
-            return ['--add-opens=java.base/java.util=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED',
-                    '--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED'
-            ]
-        }
-    })
+moduleJvmArgs {
+    opens 'java.base/java.util'
+    exports('jdk.compiler/com.sun.tools.javac.api',
+            'jdk.compiler/com.sun.tools.javac.comp',
+            'jdk.compiler/com.sun.tools.javac.file',
+            'jdk.compiler/com.sun.tools.javac.main',
+            'jdk.compiler/com.sun.tools.javac.parser',
+            'jdk.compiler/com.sun.tools.javac.tree',
+            'jdk.compiler/com.sun.tools.javac.util')
 }
