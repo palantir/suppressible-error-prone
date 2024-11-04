@@ -75,10 +75,16 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
     }
 
     private Optional<UnaryOperator<ClassVisitor>> classVisitorFor(String classJarPath) {
+        // We always want to modify the BugCheckerInfo class, as this is where we help errorprone understand
+        // what the `for-rollout:` prefix for suppressions mean (which means this class is always modified,
+        // even during normal compilation).
         if (classJarPath.equals("com/google/errorprone/BugCheckerInfo.class")) {
             return Optional.of(BugCheckerInfoVisitor::new);
         }
 
+        // We only want to modify the VisitorState class if we're in stage 1 of the suppression process, as
+        // it intercepts all errors and changes them. So when we're just running normal compilation, we want
+        // to avoid running our modifications at all, and let the errors continue on their way unchanged.
         if (classJarPath.equals("com/google/errorprone/VisitorState.class")
                 && getParameters().getSuppressionStage1().get()) {
             return Optional.of(VisitorStateClassVisitor::new);
