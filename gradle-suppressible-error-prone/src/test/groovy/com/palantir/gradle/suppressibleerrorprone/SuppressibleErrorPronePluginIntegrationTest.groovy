@@ -26,6 +26,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
     File sourceSetRoot
     File mainSourceSet
+    File otherSourceSet
     File appJava
 
     def setupSpec() {
@@ -35,6 +36,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     def setup() {
         sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
         mainSourceSet = directory('src/main/java', sourceSetRoot)
+        otherSourceSet = directory('src/other/java', sourceSetRoot)
         appJava = file('app/App.java', mainSourceSet)
 
         // language=Gradle
@@ -48,6 +50,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 // as jars to the various configurations. We make sure to publish these to maven local before the
                 // test task runs. 
                 mavenLocal()
+            }
+            
+            sourceSets {
+                other
             }
             
             dependencies {
@@ -99,7 +105,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        def stderr = runTasksWithFailure('compileJava').standardError
+        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
 
         then:
         stderr.contains('[ArrayToString]')
@@ -122,7 +128,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         then:
-        runTasksSuccessfully('compileJava')
+        runTasksSuccessfully('compileAllErrorProne')
     }
 
     def 'ensure error prone checks are disabled in generated code'() {
@@ -149,7 +155,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         """.stripIndent(true)
 
         then:
-        runTasksSuccessfully('compileJava')
+        runTasksSuccessfully('compileAllErrorProne')
     }
 
     def 'can apply patches for a check if added to the patchChecks list'() {
@@ -171,10 +177,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        runTasksSuccessfully('compileJava')
+        runTasksSuccessfully('compileAllErrorProne')
 
         appJava.text.contains('Arrays.toString(new int[3])')
     }
@@ -199,7 +205,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
         appJava.text.contains('new int[3].toString()')
@@ -225,7 +231,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         when:
         // Doesn't actually do any patching as the set is empty. It just does a normal compile that fails.
-        def stderr = runTasksWithFailure('compileJava', '-PerrorProneApply').standardError
+        def stderr = runTasksWithFailure('compileAllErrorProne', '-PerrorProneApply').standardError
 
         then:
         stderr.contains('[ArrayToString]')
@@ -255,7 +261,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
         appJava.text.contains('new int[3].toString()')
@@ -274,7 +280,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply=ArrayToString,ArrayEquals')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply=ArrayToString,ArrayEquals')
 
         then:
         def patchedSource = appJava.text
@@ -294,11 +300,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage1')
-        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
 
         then:
-        runTasksSuccessfully('compileJava')
+        runTasksSuccessfully('compileAllErrorProne')
 
         appJava.text.contains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
     }
@@ -328,11 +334,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage1')
-        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
 
         then:
-        runTasksSuccessfully('compileJava')
+        runTasksSuccessfully('compileAllErrorProne')
 
         // language=Java
         appJava.text == '''
@@ -379,11 +385,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage1')
-        runTasksSuccessfully('compileJava', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
 
         then:
-        runTasksSuccessfully('compileJava')
+        runTasksSuccessfully('compileAllErrorProne')
 
         // language=Java
         appJava.text == '''
@@ -410,8 +416,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         then:
-        runTasksSuccessfully('compileJava', '-PerrorProneDisable')
-        runTasksSuccessfully('compileJava', '-Pcom.palantir.baseline-error-prone.disable')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneDisable')
+        runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable')
     }
 
     def 'should be able to refactor near usages of deprecated methods'() {
@@ -443,7 +449,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
         appJava.text.contains('Arrays.toString(new int[3])')
@@ -472,7 +478,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
 
         then:
@@ -509,12 +515,29 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
         when:
-        runTasksSuccessfully('compileJava', '-PerrorProneApply')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
         def patchedText = appJava.text
         patchedText.contains('Arrays.toString(new int[3])')
         patchedText.contains('new int[2].equals(new int[1])')
+    }
+
+    def 'compileAllErrorProne only depends on compile tasks with errorprone enabled'() {
+        // language=Gradle
+        buildFile << '''
+            tasks.named('compileTestJava').configure {
+                options.errorprone.enabled = false
+            }
+        '''.stripIndent(true)
+
+        when:
+        def stdout = runTasksSuccessfully('compileAllErrorProne', '--dry-run').standardOutput
+
+        then:
+        stdout.contains(':compileJava SKIPPED')
+        !stdout.contains(':compileTestJava SKIPPED')
+        stdout.contains(':compileOtherJava SKIPPED')
     }
 
     @Override
