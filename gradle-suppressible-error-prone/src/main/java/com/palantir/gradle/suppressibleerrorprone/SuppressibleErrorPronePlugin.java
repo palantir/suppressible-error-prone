@@ -26,8 +26,10 @@ import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import net.ltgt.gradle.errorprone.ErrorPronePlugin;
+import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -84,11 +86,9 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
             configureJavaCompile(project, javaCompile);
 
-            ((ExtensionAware) javaCompile.getOptions())
-                    .getExtensions()
-                    .configure(ErrorProneOptions.class, errorProneOptions -> {
-                        configureErrorProneOptions(project, extension, javaCompile, errorProneOptions);
-                    });
+            configureErrorProneOptions(javaCompile, errorProneOptions -> {
+                setupErrorProneOptions(project, extension, javaCompile, errorProneOptions);
+            });
         });
 
         addAnnotationDependencyForSuppressingStage2(project, version);
@@ -110,6 +110,13 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 });
             });
         }
+
+        project.getTasks().register("compileAllErrorProne", Task.class, compileAll -> {
+            compileAll.dependsOn(project.provider(
+                    () -> project.getTasks().withType(JavaCompile.class).matching(javaCompile -> {
+                        return errorProneOptionsFor(javaCompile).getEnabled().get();
+                    })));
+        });
     }
 
     private static void setupErrorProneArtifactTransform(Project project) {
@@ -123,21 +130,26 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .getAttributes()
                 .attribute(suppressible, false);
 
-        // It's the annotationProcessor configuration, not the errorprone that, is actually used by the compiler
-        // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
-        project.getConfigurations().named("annotationProcessor").configure(errorProneConfiguration -> {
-            errorProneConfiguration
-                    .getDependencies()
-                    .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
-            errorProneConfiguration.getAttributes().attribute(suppressible, true);
-        });
-
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
             spec.getParameters().getSuppressionStage1().set(isSuppressingStageOne(project));
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);
             spec.getFrom().attribute(suppressible, false).attribute(artifactType, "jar");
             spec.getTo().attribute(suppressible, true).attribute(artifactType, "jar");
+        });
+
+        // We need to configure the transform in each source set as they each have their own compile task
+        project.getExtensions().getByType(SourceSetContainer.class).configureEach(sourceSet -> {
+            // It's the annotationProcessor configuration, not the errorprone that, is actually used by the compiler
+            // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
+            project.getConfigurations()
+                    .named(sourceSet.getAnnotationProcessorConfigurationName())
+                    .configure(errorProneConfiguration -> {
+                        errorProneConfiguration
+                                .getDependencies()
+                                .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
+                        errorProneConfiguration.getAttributes().attribute(suppressible, true);
+                    });
         });
     }
 
@@ -148,7 +160,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void configureErrorProneOptions(
+    private void setupErrorProneOptions(
             Project project,
             SuppressibleErrorProneExtension extension,
             JavaCompile javaCompile,
@@ -239,6 +251,14 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                                         + version);
             });
         }
+    }
+
+    private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {
+        return ((ExtensionAware) javaCompile.getOptions()).getExtensions().getByType(ErrorProneOptions.class);
+    }
+
+    static void configureErrorProneOptions(JavaCompile javaCompile, Action<ErrorProneOptions> action) {
+        ((ExtensionAware) javaCompile.getOptions()).getExtensions().configure(ErrorProneOptions.class, action);
     }
 
     private static boolean isAnyKindOfPatching(Project project) {

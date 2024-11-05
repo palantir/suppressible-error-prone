@@ -80,24 +80,30 @@ public final class MyPlugin implements Plugin<Project> {
 }
 ```
 
+This plugin adds a marker task you can handily use that will run all the compile tasks with that have errorprone applied and enabled:
+
+```
+./gradlew compileAllErrorProne
+```
+
 To actually suppress all the current failures, you need to run compilation twice:
 
 ```
-./gradlew classes testClasses -PerrorProneSuppressStage1
-./gradlew classes testClasses -PerrorProneSuppressStage2
+./gradlew compileAllErrorProne -PerrorProneSuppressStage1
+./gradlew compileAllErrorProne -PerrorProneSuppressStage2
 ```
 
 If rolling out automatically to lots of repos, we'd recommend running the fixes first before suppressing:
 
 ```
-./gradlew classes testClasses -PerrorProneApply
+./gradlew compileAllErrorProne -PerrorProneApply
 ```
 
 You can also run fixes for individual checks:
 
 ```
-./gradlew classes testClasses -PerrorProneApply=Check
-./gradlew classes testClasses -PerrorProneApply=Check,OtherCheck
+./gradlew compileAllErrorProne -PerrorProneApply=Check
+./gradlew compileAllErrorProne -PerrorProneApply=Check,OtherCheck
 ```
 
 Errorprone can be disabled by using the `-PerrorProneDisable` property.
