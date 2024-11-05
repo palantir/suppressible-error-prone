@@ -23,13 +23,9 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public final class VisitorStateModifications {
-
-    private static final Pattern LAST_INDENT = Pattern.compile("(?:.|\\n)*\\n(?<indent>\\s*?)$", Pattern.MULTILINE);
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -51,7 +47,8 @@ public final class VisitorStateModifications {
                 .getLeaf();
 
         // Guess the indent if we can't find it for some reason. Formatter will fix.
-        String indent = indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
+        CharSequence indent =
+                indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
 
         return Description.builder(
                         description.position,
@@ -69,15 +66,24 @@ public final class VisitorStateModifications {
                 .build();
     }
 
-    private static Optional<String> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
+    private static Optional<CharSequence> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
         return Optional.ofNullable(visitorState.getSourceCode())
-                .map(sourceCode -> LAST_INDENT.matcher(
-                        sourceCode.subSequence(0, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition())))
-                .filter(Matcher::matches)
-                .map(matcher -> matcher.group(1));
+                .map(sourceCode ->
+                        lastIndent(sourceCode, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
     }
 
-    private VisitorStateModifications() {}
+    static CharSequence lastIndent(CharSequence sourceCode, int searchStartPosition) {
+        int pos = searchStartPosition - 1;
+
+        for (; pos >= 0; pos--) {
+            char character = sourceCode.charAt(pos);
+            if (character == '\n' || !Character.isWhitespace(character)) {
+                break;
+            }
+        }
+
+        return sourceCode.subSequence(pos + 1, searchStartPosition);
+    }
 
     private static boolean suppressibleKind(Tree.Kind kind) {
         // VARIABLE includes fields
@@ -86,4 +92,6 @@ public final class VisitorStateModifications {
             default -> false;
         };
     }
+
+    private VisitorStateModifications() {}
 }
