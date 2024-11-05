@@ -424,7 +424,18 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         // language=Java
         appJavaTextEquals '''
             package app;
-            public final class App { }
+            public final class App {
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                static class exports {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                interface opens {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                record provides(int cat) {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                enum to {;}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                @interface module {}
+            }
         '''.stripIndent(true)
     }
 
