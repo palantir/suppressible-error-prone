@@ -112,9 +112,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
 
         project.getTasks().register("compileAllErrorProne", Task.class, compileAll -> {
-            compileAll.dependsOn(project.getTasks().withType(JavaCompile.class).matching(javaCompile -> {
-                return errorProneOptionsFor(javaCompile).getEnabled().get();
-            }));
+            compileAll.dependsOn(project.provider(
+                    () -> project.getTasks().withType(JavaCompile.class).matching(javaCompile -> {
+                        return errorProneOptionsFor(javaCompile).getEnabled().get();
+                    })));
         });
     }
 
