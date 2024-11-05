@@ -1,0 +1,7 @@
+type: fix
+fix:
+  description: |-
+    * Support non-main source sets (eg `test`)
+    * Provide a `compileAllErrorProne` task that depends on all the compile tasks that have errorprone applied and enabled.
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/8
