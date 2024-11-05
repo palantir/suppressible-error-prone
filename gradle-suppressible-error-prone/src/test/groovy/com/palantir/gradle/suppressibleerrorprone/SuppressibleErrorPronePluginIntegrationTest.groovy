@@ -27,7 +27,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     File sourceSetRoot
     File mainSourceSet
     File otherSourceSet
-    File appJava
 
     def setupSpec() {
         FileUtils.deleteDirectory(nebulatestSourceSets)
@@ -37,7 +36,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
         mainSourceSet = directory('src/main/java', sourceSetRoot)
         otherSourceSet = directory('src/other/java', sourceSetRoot)
-        appJava = file('app/App.java', mainSourceSet)
 
         // language=Gradle
         buildFile << '''
@@ -85,6 +83,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         buildFile << """
             sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
+            sourceSets.other.java.srcDirs('${projectDir.relativePath(otherSourceSet)}')
         """.stripIndent(true)
 
         file('gradle.properties') << '''
@@ -95,7 +94,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
     def 'reports a failing error prone'() {
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -117,7 +116,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         when:
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
@@ -144,14 +143,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
 
         when:
-        def sourceSet1 = new File(sourceSetRoot, '/src/generated')
-        def sourceSet2 = new File(sourceSetRoot, '/build/somePlace')
+        def sourceDir1 = new File(sourceSetRoot, '/src/generated')
+        def sourceDir2 = new File(sourceSetRoot, '/build/somePlace')
 
-        writeJavaSourceFile(erroringCode, sourceSet1)
-        writeJavaSourceFile(erroringCode.replace('App', 'App2'), sourceSet2)
+        writeJavaSourceFile(erroringCode, sourceDir1)
+        writeJavaSourceFile(erroringCode.replace('App', 'App2'), sourceDir2)
 
         buildFile << """
-            sourceSets.main.java.srcDirs('${projectDir.relativePath(sourceSet1)}', '${projectDir.relativePath(sourceSet2)}')
+            sourceSets.main.java.srcDirs('${projectDir.relativePath(sourceDir1)}', '${projectDir.relativePath(sourceDir2)}')
         """.stripIndent(true)
 
         then:
@@ -167,7 +166,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -182,7 +181,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         then:
         runTasksSuccessfully('compileAllErrorProne')
 
-        appJava.text.contains('Arrays.toString(new int[3])')
+        appJavaTextContains('Arrays.toString(new int[3])')
     }
 
     def 'does not apply patches for a check if not added to the patchChecks list'() {
@@ -195,7 +194,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -208,7 +207,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJava.text.contains('new int[3].toString()')
+        appJavaTextContains('new int[3].toString()')
     }
 
     def 'does not apply patches if there is nothing in patchChecks set'() {
@@ -220,7 +219,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -235,7 +234,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         then:
         stderr.contains('[ArrayToString]')
-        appJava.text.contains('new int[3].toString()')
+        appJavaTextContains('new int[3].toString()')
     }
 
     def 'does not apply patches for check that was explicitly disabled'() {
@@ -251,7 +250,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -264,12 +263,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJava.text.contains('new int[3].toString()')
+        appJavaTextContains('new int[3].toString()')
     }
 
     def 'can patch specific checks using -PerrorProneApply'() {
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -283,14 +282,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply=ArrayToString,ArrayEquals')
 
         then:
-        def patchedSource = appJava.text
-        patchedSource.contains('Arrays.toString(new int[3])')
-        patchedSource.contains('Arrays.equals(new int[2], new int[1])')
+        appJavaTextContains('Arrays.toString(new int[3])')
+        appJavaTextContains('Arrays.equals(new int[2], new int[1])')
     }
 
     def 'can suppress a failing check (even if not in patchChecks set)'() {
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -306,12 +304,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         then:
         runTasksSuccessfully('compileAllErrorProne')
 
-        appJava.text.contains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+        appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
     }
 
     def 'demonstrate suppressions on different source elements'() {
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public final String field = new int[3].toString();
@@ -341,7 +339,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne')
 
         // language=Java
-        appJava.text == '''
+        appJavaTextEquals '''
             package app;
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
@@ -375,7 +373,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         // than where the diagnostic description was produced.
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public void variables() {
@@ -392,7 +390,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne')
 
         // language=Java
-        appJava.text == '''
+        appJavaTextEquals '''
             package app;
             public final class App {
                 public void variables() {
@@ -406,7 +404,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     def 'can disable errorprone using property'() {
         when:
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -435,10 +433,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
+            
+            println 'other src:' + sourceSets.other.allSource.srcDirs
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -452,7 +452,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJava.text.contains('Arrays.toString(new int[3])')
+        appJavaTextContains('Arrays.toString(new int[3])')
     }
 
     def 'can conditionally add patch checks'() {
@@ -468,7 +468,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -482,9 +482,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
 
         then:
-        def patchedText = appJava.text
-        patchedText.contains('Arrays.toString(new int[3])')
-        patchedText.contains('new int[2].equals(new int[1])')
+        appJavaTextContains('Arrays.toString(new int[3])')
+        appJavaTextContains('new int[2].equals(new int[1])')
     }
 
     def 'IfModuleIsUsed works properly'() {
@@ -501,11 +500,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             dependencies {
                 // Depends on jackson-core
                 implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
+                otherImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
             }
         '''.stripIndent(true)
 
         // language=Java
-        writeJavaSourceFile '''
+        writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -518,9 +518,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        def patchedText = appJava.text
-        patchedText.contains('Arrays.toString(new int[3])')
-        patchedText.contains('new int[2].equals(new int[1])')
+        appJavaTextContains('Arrays.toString(new int[3])')
+        appJavaTextContains('new int[2].equals(new int[1])')
     }
 
     def 'compileAllErrorProne only depends on compile tasks with errorprone enabled'() {
@@ -555,8 +554,19 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         return super.runTasks(strings)
     }
 
-    @Override
-    void writeJavaSourceFile(String source) {
-        super.writeJavaSourceFile(source, sourceSetRoot)
+
+    void writeJavaSourceFileToSourceSets(String source) {
+        super.writeJavaSourceFile(source, 'src/main/java', sourceSetRoot)
+        super.writeJavaSourceFile(source, 'src/other/java', sourceSetRoot)
+    }
+
+    void appJavaTextContains(String substring) {
+        assert file('app/App.java', mainSourceSet).text.contains(substring)
+        assert file('app/App.java', otherSourceSet).text.contains(substring)
+    }
+
+    void appJavaTextEquals(String substring) {
+        assert file('app/App.java', mainSourceSet).text == substring
+        assert file('app/App.java', otherSourceSet).text == substring
     }
 }

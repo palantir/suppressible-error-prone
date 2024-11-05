@@ -116,8 +116,6 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 return errorProneOptionsFor(javaCompile).getEnabled().get();
             }));
         });
-
-        System.out.println("ello");
     }
 
     private static void setupErrorProneArtifactTransform(Project project) {
