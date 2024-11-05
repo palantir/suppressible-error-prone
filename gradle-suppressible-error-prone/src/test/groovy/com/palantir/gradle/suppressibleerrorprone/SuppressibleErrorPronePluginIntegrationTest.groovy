@@ -69,7 +69,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 //   5. Run the tests as well
                 // If the variable below is true the tests will fail as the compilation process will try to
                 // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = false
+                boolean debuggingErrorPrones = true
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -398,6 +398,33 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                     String variable;
                 }
             }
+        '''.stripIndent(true)
+    }
+
+    def 'supports suppressing errorprone checks on classes, interfaces, records, enums, etc'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                static class exports {}
+                interface opens {}
+                record provides(int cat) {}
+                enum to {;}
+                @interface module {}
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then:
+        runTasksSuccessfully('compileAllErrorProne')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App { }
         '''.stripIndent(true)
     }
 
