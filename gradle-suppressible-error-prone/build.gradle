@@ -15,10 +15,14 @@ dependencies {
 }
 
 gradlePlugin {
+    website = 'https://github.com/palantir/suppressible-error-prone'
+    vcsUrl = 'https://github.com/palantir/suppressible-error-prone'
+
     plugins {
         suppressibleErrorProne {
             id = 'com.palantir.suppressible-error-prone'
             displayName = 'Suppressible Error Prone'
+            description = 'Extends the Gradle Error Prone Plugin and Error Prone itself to support automatically suppressing errors.'
             implementationClass = 'com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorPronePlugin'
         }
     }
