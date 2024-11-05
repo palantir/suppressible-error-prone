@@ -23,6 +23,7 @@ gradlePlugin {
             id = 'com.palantir.suppressible-error-prone'
             displayName = 'Suppressible Error Prone'
             description = 'Extends the Gradle Error Prone Plugin and Error Prone itself to support automatically suppressing errors.'
+            tags = ['error-prone', 'javac', 'suppression']
             implementationClass = 'com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorPronePlugin'
         }
     }
