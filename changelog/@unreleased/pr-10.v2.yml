@@ -1,0 +1,5 @@
+type: fix
+fix:
+  description: Avoid `StackOverflowError` when suppressing
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/10
