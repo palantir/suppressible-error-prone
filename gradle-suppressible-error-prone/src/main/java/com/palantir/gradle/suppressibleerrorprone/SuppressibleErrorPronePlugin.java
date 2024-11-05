@@ -137,6 +137,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             spec.getTo().attribute(suppressible, true).attribute(artifactType, "jar");
         });
 
+        // We need to configure the transform in each source set as they each have their own compile task
         project.getExtensions().getByType(SourceSetContainer.class).configureEach(sourceSet -> {
             // It's the annotationProcessor configuration, not the errorprone that, is actually used by the compiler
             // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
