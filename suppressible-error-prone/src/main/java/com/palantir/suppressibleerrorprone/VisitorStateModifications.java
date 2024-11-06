@@ -94,7 +94,7 @@ public final class VisitorStateModifications {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
         if (kind.asInterface().equals(ClassTree.class)) {
-            return false;
+            return true;
         }
 
         // VARIABLE includes fields
