@@ -1,3 +1,7 @@
+<p align="right">
+<a href="https://autorelease.general.dmz.palantir.tech/palantir/suppressible-error-prone"><img src="https://img.shields.io/badge/Perform%20an-Autorelease-success.svg" alt="Autorelease"></a>
+</p>
+
 # Suppressible Error Prone
 
 A Gradle Plugin that extends the [Gradle Error Prone Plugin](https://github.com/tbroyer/gradle-errorprone-plugin) and [Error Prone](https://errorprone.info/) itself to support automatically suppressing errors.
