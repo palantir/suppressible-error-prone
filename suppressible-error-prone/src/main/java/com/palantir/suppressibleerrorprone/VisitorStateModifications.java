@@ -45,10 +45,13 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
-        Tree firstSuppressibleParent = Stream.iterate(pathToActualError, TreePath::getParentPath)
+        Tree firstSuppressibleParent = Stream.iterate(
+                        pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
                 .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Can't find anything we can suppress"))
+                .orElseThrow(() -> new RuntimeException("Can't find any source element on the TreePath to the error to "
+                        + "place a @SuppressWarnings on. This is a bug an issues with suppressible-error-prone. "
+                        + "The path to the error is:\n\n" + pathToActualError))
                 .getLeaf();
 
         // Guess the indent if we can't find it for some reason. Formatter will fix.
@@ -84,7 +87,7 @@ public final class VisitorStateModifications {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
         if (kind.asInterface().equals(ClassTree.class)) {
-            return true;
+            return false;
         }
 
         // VARIABLE includes fields
