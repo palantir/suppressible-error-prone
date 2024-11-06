@@ -24,15 +24,11 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public final class VisitorStateModifications {
-
-    private static final Pattern LAST_INDENT = Pattern.compile("(?:.|\\n)*\\n(?<indent>\\s*?)$", Pattern.MULTILINE);
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -68,7 +64,8 @@ public final class VisitorStateModifications {
                 .getLeaf();
 
         // Guess the indent if we can't find it for some reason. Formatter will fix.
-        String indent = indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
+        CharSequence indent =
+                indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
 
         return Description.builder(
                         description.position,
@@ -86,15 +83,24 @@ public final class VisitorStateModifications {
                 .build();
     }
 
-    private static Optional<String> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
+    private static Optional<CharSequence> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
         return Optional.ofNullable(visitorState.getSourceCode())
-                .map(sourceCode -> LAST_INDENT.matcher(
-                        sourceCode.subSequence(0, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition())))
-                .filter(Matcher::matches)
-                .map(matcher -> matcher.group(1));
+                .map(sourceCode -> whitespaceIndentBefore(
+                        sourceCode, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
     }
 
-    private VisitorStateModifications() {}
+    static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
+        int pos = sourceElementPosition - 1;
+
+        for (; pos >= 0; pos--) {
+            char character = sourceCode.charAt(pos);
+            if (character == '\n' || !Character.isWhitespace(character)) {
+                break;
+            }
+        }
+
+        return sourceCode.subSequence(pos + 1, sourceElementPosition);
+    }
 
     private static boolean suppressibleKind(Tree.Kind kind) {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
@@ -109,4 +115,6 @@ public final class VisitorStateModifications {
             default -> false;
         };
     }
+
+    private VisitorStateModifications() {}
 }
