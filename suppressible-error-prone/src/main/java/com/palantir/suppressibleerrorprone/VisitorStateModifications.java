@@ -19,11 +19,14 @@ package com.palantir.suppressibleerrorprone;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class VisitorStateModifications {
 
@@ -40,10 +43,24 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
-        Tree firstSuppressibleParent = Stream.iterate(pathToActualError, TreePath::getParentPath)
+        Tree firstSuppressibleParent = Stream.iterate(
+                        pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
                 .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Can't find anything we can suppress"))
+                .orElseThrow(() -> {
+                    return new RuntimeException(
+                            """
+                            Can't find any source element on the TreePath to the error to \
+                            place a @SuppressWarnings on. This is a bug with suppressible-error-prone.
+                            The path to the error is:
+
+
+                            """
+                                    + StreamSupport.stream(pathToActualError.spliterator(), false)
+                                            .map(tree ->
+                                                    tree.getKind().name() + "\n===========================\n" + tree)
+                                            .collect(Collectors.joining("\n\n")));
+                })
                 .getLeaf();
 
         // Guess the indent if we can't find it for some reason. Formatter will fix.
@@ -86,9 +103,15 @@ public final class VisitorStateModifications {
     }
 
     private static boolean suppressibleKind(Tree.Kind kind) {
+        // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
+        // of class-like type definitions.
+        if (kind.asInterface().equals(ClassTree.class)) {
+            return true;
+        }
+
         // VARIABLE includes fields
         return switch (kind) {
-            case CLASS, METHOD, VARIABLE -> true;
+            case METHOD, VARIABLE -> true;
             default -> false;
         };
     }

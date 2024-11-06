@@ -314,6 +314,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 public final String field = new int[3].toString();
 
+                public App() {
+                    System.out.println(new int[3].toString());
+                }
+                
                 public void method() {
                     System.out.println(new int[3].toString());
                 }
@@ -344,7 +348,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public final String field = new int[3].toString();
-
+                
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public App() {
+                    System.out.println(new int[3].toString());
+                }
+                
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public void method() {
                     System.out.println(new int[3].toString());
@@ -397,6 +406,44 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                     @SuppressWarnings("for-rollout:UnusedVariable")
                     String variable;
                 }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'supports suppressing errorprone checks on classes, interfaces, records, enums, etc'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                static class exports {}
+                interface opens {}
+                record provides(int cat) {}
+                enum to {;}
+                @interface module {}
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then:
+        runTasksSuccessfully('compileAllErrorProne')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                static class exports {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                interface opens {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                record provides(int cat) {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                enum to {;}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                @interface module {}
             }
         '''.stripIndent(true)
     }
