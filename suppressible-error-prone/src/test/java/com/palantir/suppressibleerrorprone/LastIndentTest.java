@@ -22,6 +22,11 @@ import org.junit.jupiter.api.Test;
 
 class LastIndentTest {
     @Test
+    void empty_string() {
+        assertThat(lastIndent("|")).isEqualTo("");
+    }
+
+    @Test
     void start_of_string() {
         assertThat(lastIndent("""
             |hello
