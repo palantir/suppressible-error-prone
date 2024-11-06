@@ -68,12 +68,12 @@ public final class VisitorStateModifications {
 
     private static Optional<CharSequence> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
         return Optional.ofNullable(visitorState.getSourceCode())
-                .map(sourceCode ->
-                        lastIndent(sourceCode, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
+                .map(sourceCode -> whitespaceIndentBefore(
+                        sourceCode, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
     }
 
-    static CharSequence lastIndent(CharSequence sourceCode, int searchStartPosition) {
-        int pos = searchStartPosition - 1;
+    static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
+        int pos = sourceElementPosition - 1;
 
         for (; pos >= 0; pos--) {
             char character = sourceCode.charAt(pos);
@@ -82,7 +82,7 @@ public final class VisitorStateModifications {
             }
         }
 
-        return sourceCode.subSequence(pos + 1, searchStartPosition);
+        return sourceCode.subSequence(pos + 1, sourceElementPosition);
     }
 
     private static boolean suppressibleKind(Tree.Kind kind) {

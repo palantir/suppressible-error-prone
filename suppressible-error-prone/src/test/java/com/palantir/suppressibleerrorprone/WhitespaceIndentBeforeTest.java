@@ -20,37 +20,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-class LastIndentTest {
+class WhitespaceIndentBeforeTest {
+    // In these tests, the '|' character represents the start position of the search.
+
     @Test
     void empty_string() {
-        assertThat(lastIndent("|")).isEqualTo("");
+        assertThat(whitespaceIndentBefore("""
+        |
+        """)).isEqualTo("");
     }
 
     @Test
     void start_of_string() {
-        assertThat(lastIndent("""
-            |hello
-        """)).isEqualTo("    ");
+        assertThat(whitespaceIndentBefore("""
+            |class Foo {
+        """))
+                .isEqualTo("    ");
     }
 
     @Test
     void newline() {
-        assertThat(lastIndent("""
+        assertThat(whitespaceIndentBefore("""
 
 
-          |hello
-        """)).isEqualTo("  ");
+          |public static void main() {
+        """))
+                .isEqualTo("  ");
     }
 
     @Test
-    void something_else() {
-        assertThat(lastIndent("""
-
-        b |hello
-        """)).isEqualTo(" ");
+    void something_else_is_before_on_the_same_line() {
+        assertThat(whitespaceIndentBefore("""
+        class Foo {} |class Bar {}
+        """))
+                .isEqualTo(" ");
     }
 
-    private CharSequence lastIndent(String testCase) {
-        return VisitorStateModifications.lastIndent(testCase.replace("|", ""), testCase.indexOf('|'));
+    private CharSequence whitespaceIndentBefore(String testCase) {
+        return VisitorStateModifications.whitespaceIndentBefore(testCase.replace("|", ""), testCase.indexOf('|'));
     }
 }
