@@ -26,7 +26,9 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class VisitorStateModifications {
 
@@ -49,9 +51,14 @@ public final class VisitorStateModifications {
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
                 .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Can't find any source element on the TreePath to the error to "
-                        + "place a @SuppressWarnings on. This is a bug an issues with suppressible-error-prone. "
-                        + "The path to the error is:\n\n" + pathToActualError))
+                .orElseThrow(() -> {
+                    return new RuntimeException("Can't find any source element on the TreePath to the error to "
+                            + "place a @SuppressWarnings on. This is a bug an issues with suppressible-error-prone. "
+                            + "The path to the error is:\n\n"
+                            + StreamSupport.stream(pathToActualError.spliterator(), false)
+                                    .map(tree -> tree.getKind().name() + "\n===========================\n" + tree)
+                                    .collect(Collectors.joining("\n\n")));
+                })
                 .getLeaf();
 
         // Guess the indent if we can't find it for some reason. Formatter will fix.
