@@ -69,7 +69,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 //   5. Run the tests as well
                 // If the variable below is true the tests will fail as the compilation process will try to
                 // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = true
+                boolean debuggingErrorPrones = false
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -314,6 +314,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 public final String field = new int[3].toString();
 
+                public App() {
+                    System.out.println(new int[3].toString());
+                }
+                
                 public void method() {
                     System.out.println(new int[3].toString());
                 }
@@ -344,7 +348,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public final String field = new int[3].toString();
-
+                
+                @SuppressWarnings("for-rollout:ArrayToString")
+                App() {
+                    System.out.println(new int[3].toString());
+                }
+                
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public void method() {
                     System.out.println(new int[3].toString());

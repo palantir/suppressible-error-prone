@@ -19,6 +19,7 @@ package com.palantir.suppressibleerrorprone;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -80,9 +81,15 @@ public final class VisitorStateModifications {
     private VisitorStateModifications() {}
 
     private static boolean suppressibleKind(Tree.Kind kind) {
+        // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
+        // of class-like type definitions.
+        if (kind.asInterface().equals(ClassTree.class)) {
+            return true;
+        }
+
         // VARIABLE includes fields
         return switch (kind) {
-            case CLASS, METHOD, VARIABLE -> true;
+            case METHOD, VARIABLE -> true;
             default -> false;
         };
     }
