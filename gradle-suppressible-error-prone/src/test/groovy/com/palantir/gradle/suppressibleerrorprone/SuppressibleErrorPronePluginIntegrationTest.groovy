@@ -350,7 +350,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 public final String field = new int[3].toString();
                 
                 @SuppressWarnings("for-rollout:ArrayToString")
-                App() {
+                public App() {
                     System.out.println(new int[3].toString());
                 }
                 
