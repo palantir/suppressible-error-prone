@@ -17,6 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone;
 
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -154,6 +155,25 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private void configureJavaCompile(Project project, JavaCompile javaCompile) {
+        Path outputAbsolute = project.getLayout()
+                .getBuildDirectory()
+                .file("errorprone-timings/" + javaCompile.getName())
+                .get()
+                .getAsFile()
+                .toPath();
+
+        //        Path output =
+        //                project.getLayout().getProjectDirectory().getAsFile().toPath().relativize(outputAbsolute);
+
+        javaCompile.getOutputs().file(outputAbsolute.toFile());
+
+        javaCompile.getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
+            @Override
+            public Iterable<String> asArguments() {
+                return List.of("-Xplugin:SuppressibleErrorProneTimings " + outputAbsolute);
+            }
+        });
+
         if (isAnyKindOfPatching(project)) {
             // Don't attempt to cache since it won't capture the source files that might be modified
             javaCompile.getOutputs().cacheIf(t -> false);
