@@ -93,6 +93,10 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
                     getParameters().getRecordTimings().get()));
         }
 
+        if (classJarPath.equals("com/google/errorprone/VisitorState$SharedState.class")) {
+            return Optional.of(VisitorStateSharedStateClassVisitor::new);
+        }
+
         return Optional.empty();
     }
 

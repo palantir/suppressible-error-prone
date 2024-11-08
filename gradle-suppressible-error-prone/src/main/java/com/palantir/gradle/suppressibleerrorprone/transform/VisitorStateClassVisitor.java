@@ -31,12 +31,12 @@ import org.objectweb.asm.Opcodes;
  */
 final class VisitorStateClassVisitor extends ClassVisitor {
     private final boolean changeReportMatch;
-    private final boolean changeTimingSpan;
+    private final boolean disableTimingSpan;
 
-    VisitorStateClassVisitor(ClassVisitor classVisitor, boolean changeReportMatch, boolean changeTimingSpan) {
+    VisitorStateClassVisitor(ClassVisitor classVisitor, boolean changeReportMatch, boolean disableTimingSpan) {
         super(Opcodes.ASM9, classVisitor);
         this.changeReportMatch = changeReportMatch;
-        this.changeTimingSpan = changeTimingSpan;
+        this.disableTimingSpan = disableTimingSpan;
     }
 
     @Override
@@ -48,8 +48,10 @@ final class VisitorStateClassVisitor extends ClassVisitor {
             return new ReportMatchMethodVisitor(methodVisitor);
         }
 
-        if (name.equals("timingSpan") && changeTimingSpan) {
-            return new TimingSpanMethodVisitor(methodVisitor);
+        if (name.equals("timingSpan")) {
+            if (disableTimingSpan) {
+                return new DisableTimingSpanMethodVisitor(methodVisitor);
+            }
         }
 
         return methodVisitor;
@@ -81,8 +83,24 @@ final class VisitorStateClassVisitor extends ClassVisitor {
         }
     }
 
-    private static class TimingSpanMethodVisitor extends MethodVisitor {
-        TimingSpanMethodVisitor(MethodVisitor methodVisitor) {
+    private static class RedirectTimingSpanMethodVisitor extends MethodVisitor {
+        RedirectTimingSpanMethodVisitor(MethodVisitor methodVisitor) {
+            super(Opcodes.ASM9, methodVisitor);
+        }
+
+        @Override
+        public void visitCode() {
+            mv.visitFieldInsn(
+                    GETSTATIC,
+                    "com/palantir/suppressibleerrorprone/timings/NoopAutoCloseable",
+                    "INSTANCE",
+                    "Ljava/lang/AutoCloseable;");
+            mv.visitInsn(Opcodes.ARETURN);
+        }
+    }
+
+    private static class DisableTimingSpanMethodVisitor extends MethodVisitor {
+        DisableTimingSpanMethodVisitor(MethodVisitor methodVisitor) {
             super(Opcodes.ASM9, methodVisitor);
         }
 
