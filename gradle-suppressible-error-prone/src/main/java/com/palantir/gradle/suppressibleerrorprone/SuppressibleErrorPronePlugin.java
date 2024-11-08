@@ -158,7 +158,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private void configureJavaCompile(Project project, JavaCompile javaCompile) {
         Path outputAbsolute = project.getLayout()
                 .getBuildDirectory()
-                .file("errorprone-timings/" + javaCompile.getName())
+                .file("errorprone-timings/" + javaCompile.getName() + ".json")
                 .get()
                 .getAsFile()
                 .toPath();
