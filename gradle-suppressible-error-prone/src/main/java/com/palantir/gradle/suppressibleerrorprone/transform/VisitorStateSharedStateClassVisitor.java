@@ -75,17 +75,9 @@ final class VisitorStateSharedStateClassVisitor extends ClassVisitor {
                 mv.visitMethodInsn(
                         Opcodes.INVOKESTATIC,
                         "com/palantir/suppressibleerrorprone/timings/SuppressibleErrorProneTimings",
-                        "instance",
-                        "(Lcom/sun/tools/javac/util/Context;)"
-                                + "Lcom/palantir/suppressibleerrorprone/timings/SuppressibleErrorProneTimings;",
+                        "initOnVisitorStateSharedState",
+                        "(Ljava/lang/Object;Lcom/sun/tools/javac/util/Context;)V",
                         false);
-
-                // Store the result in 'suppressibleErrorProneTimings'
-                mv.visitFieldInsn(
-                        Opcodes.PUTFIELD,
-                        "com/google/errorprone/VisitorState$SharedState",
-                        "suppressibleErrorProneTimings",
-                        "Lcom/palantir/suppressibleerrorprone/timings/SuppressibleErrorProneTimings;");
             }
             super.visitInsn(opcode);
         }
