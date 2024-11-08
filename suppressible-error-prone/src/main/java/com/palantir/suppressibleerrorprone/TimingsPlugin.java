@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
@@ -60,13 +61,20 @@ public final class TimingsPlugin implements Plugin {
                 return;
             }
 
-            String perCheckOutput = errorProneTimings.timings().entrySet().stream()
+            Map<String, Duration> timings = errorProneTimings.timings();
+
+            String total = "Total time: "
+                    + timings.values().stream()
+                            .reduce(Duration.ZERO, Duration::plus)
+                            .toString();
+
+            String perCheckOutput = timings.entrySet().stream()
                     .sorted(Entry.<String, Duration>comparingByValue().reversed())
                     .map(entry -> entry.getKey() + ": " + entry.getValue())
                     .collect(Collectors.joining("\n"));
 
             try {
-                Files.writeString(output, perCheckOutput);
+                Files.writeString(output, total + "\n\n" + perCheckOutput);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
