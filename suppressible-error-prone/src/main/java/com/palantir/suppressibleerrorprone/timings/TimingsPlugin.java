@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.palantir.suppressibleerrorprone;
+package com.palantir.suppressibleerrorprone.timings;
 
 import com.google.auto.service.AutoService;
 import com.google.errorprone.ErrorProneTimings;
