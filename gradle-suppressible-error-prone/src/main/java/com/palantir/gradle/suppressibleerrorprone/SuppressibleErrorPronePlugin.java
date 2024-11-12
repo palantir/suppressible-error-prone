@@ -290,10 +290,6 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private static boolean isDisabledViaLegacyBaselineProperty(Project project) {
         Object disable = project.findProperty(ERROR_PRONE_BASELINE_DISABLE);
-        if (disable == null) {
-            return false;
-        } else {
-            return !disable.equals("false");
-        }
+        return disable != null && !disable.equals("false");
     }
 }
