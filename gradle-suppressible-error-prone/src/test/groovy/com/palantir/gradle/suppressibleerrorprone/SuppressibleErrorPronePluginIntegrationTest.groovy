@@ -449,7 +449,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     }
 
     def 'can disable errorprone using property'() {
-        when: 'there is some that will fail an errorprone'
+        when: 'there is java code some that will fail an errorprone during compilation'
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
