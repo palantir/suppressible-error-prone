@@ -449,7 +449,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     }
 
     def 'can disable errorprone using property'() {
-        when:
+        when: 'there is java code some that will fail an errorprone during compilation'
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -460,9 +460,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
 
-        then:
+        then: 'compilation succeeds when errorprone is disabled'
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneDisable')
         runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable')
+        runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable=true')
+
+        then: 'compilation fails the legacy baseline errorprone disable property is set to false'
+        runTasksWithFailure('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable=false')
     }
 
     def 'should be able to refactor near usages of deprecated methods'() {
