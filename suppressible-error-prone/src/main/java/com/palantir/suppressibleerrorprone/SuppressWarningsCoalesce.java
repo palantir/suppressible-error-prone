@@ -84,7 +84,7 @@ public final class SuppressWarningsCoalesce extends BugChecker
                     return annotationName.contentEquals("SuppressWarnings")
                             || annotationName.contentEquals("RepeatableSuppressWarnings");
                 })
-                .toList();
+                .collect(Collectors.toList());
 
         if (suppressWarnings.isEmpty()) {
             return Description.NO_MATCH;
@@ -131,17 +131,20 @@ public final class SuppressWarningsCoalesce extends BugChecker
 
     private static Stream<String> annotationStringValues(AnnotationTree annotation) {
         return annotation.getArguments().stream().flatMap(arg -> {
-            if (!(arg instanceof AssignmentTree assignment)) {
+            if (!(arg instanceof AssignmentTree)) {
                 return Stream.empty();
             }
+            AssignmentTree assignment = (AssignmentTree) arg;
 
             ExpressionTree expression = assignment.getExpression();
 
-            if (expression instanceof LiteralTree literalTree) {
+            if (expression instanceof LiteralTree) {
+                LiteralTree literalTree = (LiteralTree) expression;
                 return Stream.of((String) literalTree.getValue());
             }
 
-            if (expression instanceof NewArrayTree newArray) {
+            if (expression instanceof NewArrayTree) {
+                NewArrayTree newArray = (NewArrayTree) expression;
                 return newArray.getInitializers().stream()
                         .map(LiteralTree.class::cast)
                         .map(LiteralTree::getValue)
