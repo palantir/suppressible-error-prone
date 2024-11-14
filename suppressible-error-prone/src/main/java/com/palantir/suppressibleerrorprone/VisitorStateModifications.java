@@ -48,18 +48,14 @@ public final class VisitorStateModifications {
                 .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
                 .findFirst()
                 .orElseThrow(() -> {
-                    return new RuntimeException(
-                            """
-                            Can't find any source element on the TreePath to the error to \
-                            place a @SuppressWarnings on. This is a bug with suppressible-error-prone.
-                            The path to the error is:
-
-
-                            """
-                                    + StreamSupport.stream(pathToActualError.spliterator(), false)
-                                            .map(tree ->
-                                                    tree.getKind().name() + "\n===========================\n" + tree)
-                                            .collect(Collectors.joining("\n\n")));
+                    return new RuntimeException("Can't find any source element on the TreePath to the error to place a "
+                            + "@SuppressWarnings on. This is a bug with suppressible-error-prone.\n"
+                            + "The path to the error is:\n"
+                            + "\n"
+                            + "\n"
+                            + StreamSupport.stream(pathToActualError.spliterator(), false)
+                                    .map(tree -> tree.getKind().name() + "\n===========================\n" + tree)
+                                    .collect(Collectors.joining("\n\n")));
                 })
                 .getLeaf();
 
@@ -110,10 +106,13 @@ public final class VisitorStateModifications {
         }
 
         // VARIABLE includes fields
-        return switch (kind) {
-            case METHOD, VARIABLE -> true;
-            default -> false;
-        };
+        switch (kind) {
+            case METHOD:
+            case VARIABLE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private VisitorStateModifications() {}
