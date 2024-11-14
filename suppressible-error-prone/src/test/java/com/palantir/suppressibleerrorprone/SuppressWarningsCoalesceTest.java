@@ -126,6 +126,31 @@ class SuppressWarningsCoalesceTest {
     }
 
     @Test
+    void same_warnings_multiple_times() {
+        fix().addInput(
+                        "Test.java",
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"A\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"A\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"B\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\"})",
+                                "    void f() {}",
+                                "}"))
+                .addOutput(
+                        "Test.java",
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})",
+                                "    void f() {}",
+                                "}"))
+                .doTest();
+    }
+
+    @Test
     void field() {
         fix().addInput(
                         "Test.java",
