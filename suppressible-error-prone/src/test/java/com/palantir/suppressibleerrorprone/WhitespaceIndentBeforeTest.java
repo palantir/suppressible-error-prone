@@ -30,12 +30,12 @@ class WhitespaceIndentBeforeTest {
 
     @Test
     void start_of_string() {
-        assertThat(whitespaceIndentBefore("|class Foo {")).isEqualTo("    ");
+        assertThat(whitespaceIndentBefore("    |class Foo {")).isEqualTo("    ");
     }
 
     @Test
     void newline() {
-        assertThat(whitespaceIndentBefore("|public static void main() {")).isEqualTo("  ");
+        assertThat(whitespaceIndentBefore("\n  |public static void main() {")).isEqualTo("  ");
     }
 
     @Test
