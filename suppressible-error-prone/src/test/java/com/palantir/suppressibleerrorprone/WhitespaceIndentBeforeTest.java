@@ -27,7 +27,7 @@ class WhitespaceIndentBeforeTest {
     void empty_string() {
         assertThat(whitespaceIndentBefore("""
         |
-        """)).isEqualTo("");
+        """)).isEmpty();
     }
 
     @Test
