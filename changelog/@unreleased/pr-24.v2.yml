@@ -1,0 +1,6 @@
+type: fix
+fix:
+  description: Ensure multiple errors from the same method do not repeat in `@SuppressWarnings`
+    when suppressing
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/24

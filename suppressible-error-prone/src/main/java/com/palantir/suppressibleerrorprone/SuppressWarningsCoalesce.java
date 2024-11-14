@@ -93,6 +93,7 @@ public final class SuppressWarningsCoalesce extends BugChecker
         List<String> warningsToSuppress = suppressWarnings.stream()
                 .sorted(suppressWarningsBeforeRepeatableSuppressedWarnings())
                 .flatMap(SuppressWarningsCoalesce::annotationStringValues)
+                .distinct()
                 .collect(Collectors.toList());
 
         if (warningsToSuppress.isEmpty()) {
