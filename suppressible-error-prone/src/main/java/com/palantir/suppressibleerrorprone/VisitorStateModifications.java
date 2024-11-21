@@ -16,24 +16,43 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.fixes.Fix;
+import com.google.errorprone.fixes.Replacement;
+import com.google.errorprone.fixes.Replacements.CoalescePolicy;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.sun.tools.javac.tree.EndPosTable;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import javax.lang.model.element.Name;
 
 public final class VisitorStateModifications {
+    private static final Map<Tree, OurFix> FIXES = new WeakHashMap<>();
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         if (description == Description.NO_MATCH) {
-            return Description.NO_MATCH;
+            return description;
         }
 
         // We can't just use visitorState.getPath() because there are checks that do not emit Descriptions
@@ -45,7 +64,7 @@ public final class VisitorStateModifications {
 
         Tree firstSuppressibleParent = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
+                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
                 .findFirst()
                 .orElseThrow(() -> {
                     return new RuntimeException("Can't find any source element on the TreePath to the error to place a "
@@ -59,30 +78,93 @@ public final class VisitorStateModifications {
                 })
                 .getLeaf();
 
-        // Guess the indent if we can't find it for some reason. Formatter will fix.
-        CharSequence indent =
-                indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
+        ModifiersTree modifiersTree = isModifiersTree(firstSuppressibleParent).get();
+
+        Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
+                .filter(annotation -> {
+                    Name annotationName = annotationName(annotation.getAnnotationType());
+                    return annotationName.contentEquals("SuppressWarnings");
+                })
+                .findFirst();
+
+        boolean containedKey = FIXES.containsKey(firstSuppressibleParent);
+
+        OurFix ourFix = FIXES.computeIfAbsent(
+                firstSuppressibleParent, _ignored -> new OurFix(suppressWarnings, firstSuppressibleParent));
+
+        ourFix.addError(description.checkName);
+
+        if (containedKey) {
+            return Description.NO_MATCH;
+        }
 
         return Description.builder(
                         description.position,
                         description.checkName,
                         description.getLink(),
                         description.getMessageWithoutCheckName())
-                .addFix(SuggestedFix.builder()
-                        .prefixWith(
-                                firstSuppressibleParent,
-                                "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\""
-                                        + CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName
-                                        + "\")\n"
-                                        + indent)
-                        .build())
+                .addFix(ourFix)
                 .build();
     }
 
-    private static Optional<CharSequence> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
-        return Optional.ofNullable(visitorState.getSourceCode())
-                .map(sourceCode -> whitespaceIndentBefore(
-                        sourceCode, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
+    private static final class OurFix implements Fix {
+        private final Optional<? extends AnnotationTree> suppressWarnings;
+        private final Tree tree;
+        private final Set<String> errors = new LinkedHashSet<>();
+
+        private final Supplier<Fix> fixSupplier;
+
+        OurFix(Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+            this.suppressWarnings = suppressWarnings;
+            this.tree = tree;
+
+            this.fixSupplier = Suppliers.memoize(() -> {
+                return SuggestedFix.replace(suppressWarnings.get(), "");
+            });
+        }
+
+        private Fix fix() {
+            return fixSupplier.get();
+        }
+
+        public void addError(String error) {
+            errors.add(error);
+        }
+
+        @Override
+        public String toString(JCCompilationUnit compilationUnit) {
+            return fix().toString(compilationUnit);
+        }
+
+        @Override
+        public String getShortDescription() {
+            return fix().getShortDescription();
+        }
+
+        @Override
+        public CoalescePolicy getCoalescePolicy() {
+            return fix().getCoalescePolicy();
+        }
+
+        @Override
+        public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
+            return fix().getReplacements(endPositions);
+        }
+
+        @Override
+        public ImmutableSet<String> getImportsToAdd() {
+            return fix().getImportsToAdd();
+        }
+
+        @Override
+        public ImmutableSet<String> getImportsToRemove() {
+            return fix().getImportsToRemove();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return fix().isEmpty();
+        }
     }
 
     static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
@@ -98,21 +180,39 @@ public final class VisitorStateModifications {
         return sourceCode.subSequence(pos + 1, sourceElementPosition);
     }
 
-    private static boolean suppressibleKind(Tree.Kind kind) {
+    private static boolean suppressibleTree(Tree tree) {
+        return isModifiersTree(tree).isPresent();
+    }
+
+    private static Optional<ModifiersTree> isModifiersTree(Tree tree) {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
-        if (kind.asInterface().equals(ClassTree.class)) {
-            return true;
+        if (tree instanceof ClassTree) {
+            return Optional.of(((ClassTree) tree).getModifiers());
         }
 
-        // VARIABLE includes fields
-        switch (kind) {
-            case METHOD:
-            case VARIABLE:
-                return true;
-            default:
-                return false;
+        if (tree instanceof MethodTree) {
+            return Optional.of(((MethodTree) tree).getModifiers());
         }
+
+        if (tree instanceof VariableTree) {
+            return Optional.of(((VariableTree) tree).getModifiers());
+        }
+
+        return Optional.empty();
+    }
+
+    private static Name annotationName(Tree annotationType) {
+        if (annotationType instanceof IdentifierTree) {
+            return ((IdentifierTree) annotationType).getName();
+        }
+
+        if (annotationType instanceof MemberSelectTree) {
+            return ((MemberSelectTree) annotationType).getIdentifier();
+        }
+
+        throw new UnsupportedOperationException(
+                "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
     }
 
     private VisitorStateModifications() {}
