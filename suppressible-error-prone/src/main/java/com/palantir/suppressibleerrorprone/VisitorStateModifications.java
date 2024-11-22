@@ -16,6 +16,7 @@
 
 package com.palantir.suppressibleerrorprone;
 
+// CHECKSTYLE:OFF
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
@@ -24,11 +25,12 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+// CHECKSTYLE:ON
 
 public final class VisitorStateModifications {
+    private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -43,21 +45,23 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
-        Tree firstSuppressibleParent = Stream.iterate(
+        Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
                 .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
-                .findFirst()
-                .orElseThrow(() -> {
-                    return new RuntimeException("Can't find any source element on the TreePath to the error to place a "
-                            + "@SuppressWarnings on. This is a bug with suppressible-error-prone.\n"
-                            + "The path to the error is:\n"
-                            + "\n"
-                            + "\n"
-                            + StreamSupport.stream(pathToActualError.spliterator(), false)
-                                    .map(tree -> tree.getKind().name() + "\n===========================\n" + tree)
-                                    .collect(Collectors.joining("\n\n")));
-                })
-                .getLeaf();
+                .findFirst();
+
+        // If we can't find a suppressible parent, we can't add a suppression, so just give up.
+        // This happens when there's a suppression on an import or compilation unit.
+        // Imports should never be at error level as we can't suppress them. Or have an autofix that *always* works.
+        if (firstSuppressible.isEmpty()) {
+            log.warning("Couldn't find a suppressible parent for " + description.checkName + " at position "
+                    + description.position.getStartPosition() + " in "
+                    + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
+                    + " SuppressibleErrorProne will not be able to add a suppression for this error.");
+            return Description.NO_MATCH;
+        }
+
+        Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
 
         // Guess the indent if we can't find it for some reason. Formatter will fix.
         CharSequence indent =
