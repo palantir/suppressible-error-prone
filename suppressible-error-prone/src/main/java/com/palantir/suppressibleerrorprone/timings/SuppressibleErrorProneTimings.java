@@ -18,10 +18,8 @@ package com.palantir.suppressibleerrorprone.timings;
 
 import com.google.common.base.Stopwatch;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.matchers.Suppressible;
 import com.sun.tools.javac.util.Context;
 import java.lang.reflect.Field;
-import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,20 +58,18 @@ public final class SuppressibleErrorProneTimings {
         context.put(timingsKey, this);
     }
 
-    private final ConcurrentMap<URI, ConcurrentMap<String, Stopwatch>> timers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConcurrentMap<String, Stopwatch>> timers = new ConcurrentHashMap<>();
 
-    public AutoCloseable span(VisitorState visitorState, Suppressible suppressible) {
-        URI uri = visitorState.getPath().getCompilationUnit().getSourceFile().toUri();
-
+    public AutoCloseable span(String fileName, String checkName) {
         ConcurrentMap<String, Stopwatch> fileTimers =
-                timers.computeIfAbsent(uri, _ignored -> new ConcurrentHashMap<>());
+                timers.computeIfAbsent(fileName, _ignored -> new ConcurrentHashMap<>());
         Stopwatch sw = fileTimers
-                .computeIfAbsent(suppressible.canonicalName(), _ignored -> Stopwatch.createUnstarted())
+                .computeIfAbsent(checkName, _ignored -> Stopwatch.createUnstarted())
                 .start();
         return sw::stop;
     }
 
-    public Map<URI, Map<String, Duration>> timings() {
+    public Map<String, Map<String, Duration>> timings() {
         return timers.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().entrySet().stream()
                         .collect(Collectors.toMap(

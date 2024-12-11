@@ -16,9 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone.transform;
 
-import static org.objectweb.asm.Opcodes.GETFIELD;
 import static org.objectweb.asm.Opcodes.GETSTATIC;
-import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -53,8 +51,6 @@ final class VisitorStateClassVisitor extends ClassVisitor {
         if (name.equals("timingSpan")) {
             if (disableTimingSpan) {
                 return new DisableTimingSpanMethodVisitor(methodVisitor);
-            } else {
-                return new RedirectTimingSpanMethodVisitor(methodVisitor);
             }
         }
 
@@ -94,26 +90,11 @@ final class VisitorStateClassVisitor extends ClassVisitor {
 
         @Override
         public void visitCode() {
-            mv.visitVarInsn(Opcodes.ALOAD, 0);
             mv.visitFieldInsn(
-                    GETFIELD,
-                    "com/google/errorprone/VisitorState",
-                    "sharedState",
-                    "Lcom/google/errorprone/VisitorState$SharedState;");
-            mv.visitFieldInsn(
-                    GETFIELD,
-                    "com/google/errorprone/VisitorState$SharedState",
-                    "suppressibleErrorProneTimings",
-                    "Lcom/palantir/suppressibleerrorprone/timings/SuppressibleErrorProneTimings;");
-            mv.visitVarInsn(Opcodes.ALOAD, 0);
-            mv.visitVarInsn(Opcodes.ALOAD, 1);
-            mv.visitMethodInsn(
-                    INVOKEVIRTUAL,
-                    "com/palantir/suppressibleerrorprone/timings/SuppressibleErrorProneTimings",
-                    "span",
-                    "(Lcom/google/errorprone/VisitorState;Lcom/google/errorprone/matchers/Suppressible;)"
-                            + "Ljava/lang/AutoCloseable;",
-                    false);
+                    GETSTATIC,
+                    "com/palantir/suppressibleerrorprone/timings/NoopAutoCloseable",
+                    "INSTANCE",
+                    "Ljava/lang/AutoCloseable;");
             mv.visitInsn(Opcodes.ARETURN);
         }
     }

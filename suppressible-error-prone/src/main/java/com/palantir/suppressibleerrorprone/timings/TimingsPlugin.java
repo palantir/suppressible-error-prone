@@ -16,9 +16,8 @@
 
 package com.palantir.suppressibleerrorprone.timings;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.auto.service.AutoService;
+import com.google.errorprone.ErrorProneTimings;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
 import com.sun.source.util.TaskEvent;
@@ -26,11 +25,12 @@ import com.sun.source.util.TaskEvent.Kind;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 @AutoService(Plugin.class)
 public final class TimingsPlugin implements Plugin {
@@ -43,15 +43,15 @@ public final class TimingsPlugin implements Plugin {
     public void init(JavacTask task, String... args) {
         String path = args[0];
         task.addTaskListener(new TimingsTaskListener(
-                SuppressibleErrorProneTimings.instance(((BasicJavacTask) task).getContext()), Path.of(path)));
+                ErrorProneTimings.instance(((BasicJavacTask) task).getContext()), Path.of(path)));
     }
 
     private class TimingsTaskListener implements TaskListener {
-        private final SuppressibleErrorProneTimings suppressibleErrorProneTimings;
+        private final ErrorProneTimings errorProneTimings;
         private final Path output;
 
-        TimingsTaskListener(SuppressibleErrorProneTimings suppressibleErrorProneTimings, Path output) {
-            this.suppressibleErrorProneTimings = suppressibleErrorProneTimings;
+        TimingsTaskListener(ErrorProneTimings errorProneTimings, Path output) {
+            this.errorProneTimings = errorProneTimings;
             this.output = output;
         }
 
@@ -61,12 +61,20 @@ public final class TimingsPlugin implements Plugin {
                 return;
             }
 
-            Map<URI, Map<String, Duration>> timings = suppressibleErrorProneTimings.timings();
+            Map<String, Duration> timings = errorProneTimings.timings();
+
+            String total = "Total time: "
+                    + timings.values().stream()
+                            .reduce(Duration.ZERO, Duration::plus)
+                            .toString();
+
+            String perCheckOutput = timings.entrySet().stream()
+                    .sorted(Entry.<String, Duration>comparingByValue().reversed())
+                    .map(entry -> entry.getKey() + ": " + entry.getValue())
+                    .collect(Collectors.joining("\n"));
 
             try {
-                Files.writeString(
-                        output,
-                        new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(timings));
+                Files.writeString(output, total + "\n\n" + perCheckOutput);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

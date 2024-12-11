@@ -7,7 +7,6 @@ net.ltgt.gradle:gradle-errorprone-plugin = 4.1.0
 org.assertj:assertj-core = 3.26.3
 org.junit.jupiter:* = 5.11.3
 org.ow2.asm:asm = 9.7.1
-com.fasterxml.jackson.*:* = 2.17.3
 
 # dependency-upgrader:OFF
 # We want to avoid upgrading errorprone automatically as it will bring with it new checks.

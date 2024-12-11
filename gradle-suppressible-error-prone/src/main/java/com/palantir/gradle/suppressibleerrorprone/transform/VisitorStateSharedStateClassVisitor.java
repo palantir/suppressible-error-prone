@@ -36,7 +36,7 @@ final class VisitorStateSharedStateClassVisitor extends ClassVisitor {
     @Override
     public void visitEnd() {
         cv.visitField(
-                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL,
                 "suppressibleErrorProneTimings",
                 "Lcom/palantir/suppressibleerrorprone/timings/SuppressibleErrorProneTimings;",
                 null,
