@@ -32,3 +32,8 @@ javaVersion {
     runtime = 17
 }
 
+tasks.withType(JavaCompile) {
+    options.errorprone {
+        disable('StrictUnusedVariable')
+    }
+}

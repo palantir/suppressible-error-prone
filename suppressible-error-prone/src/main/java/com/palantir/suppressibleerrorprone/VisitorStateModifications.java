@@ -36,10 +36,12 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -119,8 +121,46 @@ public final class VisitorStateModifications {
             this.tree = tree;
 
             this.fixSupplier = Suppliers.memoize(() -> {
-                return SuggestedFix.replace(suppressWarnings.get(), "");
+                return suppressWarnings
+                        .map(suppressWarningsAnnotation -> {
+                            Set<String> existingValues = SuppressWarningsCoalesce.annotationStringValues(
+                                            suppressWarningsAnnotation)
+                                    .collect(Collectors.toSet());
+                            Set<String> toAdd = errors.stream()
+                                    .filter(Predicate.not(error -> existingValues.contains(error)
+                                            || existingValues.contains(
+                                                    CommonConstants.AUTOMATICALLY_ADDED_PREFIX + error)))
+                                    .collect(Collectors.toSet());
+
+                            List<String> warningsToSuppress = Stream.concat(
+                                            existingValues.stream(),
+                                            toAdd.stream()
+                                                    .sorted()
+                                                    .map(warning ->
+                                                            CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning))
+                                    .collect(Collectors.toList());
+
+                            String suppressWarningsString = suppressWarningsString(warningsToSuppress);
+
+                            return SuggestedFix.prefixWith(
+                                    suppressWarningsAnnotation, "@SuppressWarnings(" + suppressWarningsString + ")");
+                        })
+                        .orElseGet(() -> {
+                            List<String> warningsToSuppress = errors.stream()
+                                    .sorted()
+                                    .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning)
+                                    .collect(Collectors.toList());
+                        });
             });
+        }
+
+        private static String suppressWarningsString(List<String> warningsToSuppress) {
+            String suppressWarningsString = '"' + String.join("\", \"", warningsToSuppress) + '"';
+
+            if (warningsToSuppress.size() > 1) {
+                suppressWarningsString = "{" + suppressWarningsString + "}";
+            }
+            return suppressWarningsString;
         }
 
         private Fix fix() {

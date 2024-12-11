@@ -130,7 +130,7 @@ public final class SuppressWarningsCoalesce extends BugChecker
                 "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
     }
 
-    private static Stream<String> annotationStringValues(AnnotationTree annotation) {
+    static Stream<String> annotationStringValues(AnnotationTree annotation) {
         return annotation.getArguments().stream().flatMap(arg -> {
             if (!(arg instanceof AssignmentTree)) {
                 return Stream.empty();
