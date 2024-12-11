@@ -17,9 +17,7 @@
 package com.palantir.suppressibleerrorprone.timings;
 
 import com.google.common.base.Stopwatch;
-import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.util.Context;
-import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,23 +33,6 @@ public final class SuppressibleErrorProneTimings {
             instance = new SuppressibleErrorProneTimings(context);
         }
         return instance;
-    }
-
-    public static void initOnVisitorStateSharedState(Object visitorStateSharedStateInstance, Context context) {
-        try {
-            // Preferring to use reflection to reduce bytecode editing (even though bytecode editing may result
-            // in a "cleaner" result) as if the field name changes, the error should be much clearer here than if
-            // the bytecode version goes wrong.
-            Field timingsField = Class.forName(VisitorState.class.getCanonicalName() + "$SharedState")
-                    .getDeclaredField("suppressibleErrorProneTimings");
-            timingsField.setAccessible(true);
-            timingsField.set(visitorStateSharedStateInstance, instance(context));
-        } catch (NoSuchFieldException | IllegalAccessException | ClassNotFoundException e) {
-            throw new RuntimeException(
-                    "supressible-error-prone failed to modify the suppressibleErrorProneTimings "
-                            + "field of a VisitorState$SharedState",
-                    e);
-        }
     }
 
     private SuppressibleErrorProneTimings(Context context) {
