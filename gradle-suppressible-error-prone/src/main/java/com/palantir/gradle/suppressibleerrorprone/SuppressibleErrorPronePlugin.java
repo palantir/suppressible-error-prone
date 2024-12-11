@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
@@ -41,10 +40,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String SUPPRESS_STAGE_ONE = "errorProneSuppressStage1";
     private static final String SUPPRESS_STAGE_TWO = "errorProneSuppressStage2";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
-    private static final Set<String> ERROR_PRONE_DISABLE = Set.of(
-            "errorProneDisable",
-            // This is only here for backcompat from when all the errorprone code lived in baseline
-            "com.palantir.baseline-error-prone.disable");
+    private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
+
+    // This is only here for backcompat from when all the errorprone code lived in baseline
+    private static final String ERROR_PRONE_BASELINE_DISABLE = "com.palantir.baseline-error-prone.disable";
 
     @Override
     public void apply(Project project) {
@@ -187,8 +186,11 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             JavaCompile javaCompile,
             ErrorProneOptions errorProneOptions) {
 
-        errorProneOptions.getEnabled().set(project.provider(() -> ERROR_PRONE_DISABLE.stream()
-                .noneMatch(project::hasProperty)));
+        errorProneOptions.getEnabled().set(project.provider(() -> {
+            boolean newDisable = project.hasProperty(ERROR_PRONE_DISABLE);
+            boolean oldDisable = isDisabledViaLegacyBaselineProperty(project);
+            return !(newDisable || oldDisable);
+        }));
 
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
@@ -305,5 +307,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         // language=RegExp
         return ".*/(build|generated_.*[sS]rc|src/generated.*)/.*";
+    }
+
+    private static boolean isDisabledViaLegacyBaselineProperty(Project project) {
+        Object disable = project.findProperty(ERROR_PRONE_BASELINE_DISABLE);
+        return disable != null && !disable.equals("false");
     }
 }

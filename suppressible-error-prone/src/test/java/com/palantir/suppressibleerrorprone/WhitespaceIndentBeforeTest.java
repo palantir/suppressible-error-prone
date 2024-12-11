@@ -25,35 +25,22 @@ class WhitespaceIndentBeforeTest {
 
     @Test
     void empty_string() {
-        assertThat(whitespaceIndentBefore("""
-        |
-        """)).isEqualTo("");
+        assertThat(whitespaceIndentBefore("|")).isEmpty();
     }
 
     @Test
     void start_of_string() {
-        assertThat(whitespaceIndentBefore("""
-            |class Foo {
-        """))
-                .isEqualTo("    ");
+        assertThat(whitespaceIndentBefore("    |class Foo {")).isEqualTo("    ");
     }
 
     @Test
     void newline() {
-        assertThat(whitespaceIndentBefore("""
-
-
-          |public static void main() {
-        """))
-                .isEqualTo("  ");
+        assertThat(whitespaceIndentBefore("\n  |public static void main() {")).isEqualTo("  ");
     }
 
     @Test
     void something_else_is_before_on_the_same_line() {
-        assertThat(whitespaceIndentBefore("""
-        class Foo {} |class Bar {}
-        """))
-                .isEqualTo(" ");
+        assertThat(whitespaceIndentBefore("class Foo {} |class Bar {}")).isEqualTo(" ");
     }
 
     private CharSequence whitespaceIndentBefore(String testCase) {

@@ -21,14 +21,7 @@ import org.junit.jupiter.api.Test;
 class SuppressWarningsCoalesceTest {
     @Test
     void no_suppress_warnings_no_repeatable() {
-        fix().addInput(
-                        "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            void f() {}
-                        }
-                        """)
+        fix().addInput("Test.java", String.join("\n", "public class Test {", "    void f() {}", "}"))
                 .expectUnchanged()
                 .doTest();
     }
@@ -37,13 +30,12 @@ class SuppressWarningsCoalesceTest {
     void single_suppress_warnings_no_repeatable() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings("Something")
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings(\"Something\")",
+                                "    void f() {}",
+                                "}"))
                 .expectUnchanged()
                 .doTest();
     }
@@ -52,23 +44,21 @@ class SuppressWarningsCoalesceTest {
     void multiple_suppress_warnings_single_repeatable() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings({"A", "B"})
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\"})",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
+                                "    void f() {}",
+                                "}"))
                 .addOutput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings({"A", "B", "C"})
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\"})",
+                                "    void f() {}",
+                                "}"))
                 .doTest();
     }
 
@@ -76,24 +66,22 @@ class SuppressWarningsCoalesceTest {
     void single_suppress_warnings_multiple_repeatable_warnings() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("B")
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
-                            @SuppressWarnings("A")
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"B\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
+                                "    @SuppressWarnings(\"A\")",
+                                "    void f() {}",
+                                "}"))
                 .addOutput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings({"A", "B", "C"})
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\"})",
+                                "    void f() {}",
+                                "}"))
                 .doTest();
     }
 
@@ -101,22 +89,16 @@ class SuppressWarningsCoalesceTest {
     void no_suppressible_warnings_single_repeatable_warnings() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("A")
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"A\")",
+                                "    void f() {}",
+                                "}"))
                 .addOutput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings("A")
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n", "public class Test {", "    @SuppressWarnings(\"A\")", "    void f() {}", "}"))
                 .doTest();
     }
 
@@ -124,24 +106,47 @@ class SuppressWarningsCoalesceTest {
     void multiple_suppress_warnings_multiple_repeatable_warnings() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("D")
-                            @SuppressWarnings({"A", "B"})
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
+                                "    @SuppressWarnings({\"A\", \"B\"})",
+                                "    void f() {}",
+                                "}"))
                 .addOutput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings({"A", "B", "C", "D"})
-                            void f() {}
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})",
+                                "    void f() {}",
+                                "}"))
+                .doTest();
+    }
+
+    @Test
+    void same_warnings_multiple_times() {
+        fix().addInput(
+                        "Test.java",
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"A\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"A\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"B\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\"})",
+                                "    void f() {}",
+                                "}"))
+                .addOutput(
+                        "Test.java",
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})",
+                                "    void f() {}",
+                                "}"))
                 .doTest();
     }
 
@@ -149,24 +154,22 @@ class SuppressWarningsCoalesceTest {
     void field() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
-                            @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("D")
-                            @SuppressWarnings({"A", "B"})
-                            String field;
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
+                                "    @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
+                                "    @SuppressWarnings({\"A\", \"B\"})",
+                                "    String field;",
+                                "}"))
                 .addOutput(
                         "Test.java",
-                        // language=Java
-                        """
-                        public class Test {
-                            @SuppressWarnings({"A", "B", "C", "D"})
-                            String field;
-                        }
-                        """)
+                        String.join(
+                                "\n",
+                                "public class Test {",
+                                "    @SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})",
+                                "    String field;",
+                                "}"))
                 .doTest();
     }
 
@@ -174,20 +177,15 @@ class SuppressWarningsCoalesceTest {
     void klass() {
         fix().addInput(
                         "Test.java",
-                        // language=Java
-                        """
-                        @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("C")
-                        @com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings("D")
-                        @SuppressWarnings({"A", "B"})
-                        public class Test {}
-                        """)
+                        String.join(
+                                "\n",
+                                "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"C\")",
+                                "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\"D\")",
+                                "@SuppressWarnings({\"A\", \"B\"})",
+                                "public class Test {}"))
                 .addOutput(
                         "Test.java",
-                        // language=Java
-                        """
-                        @SuppressWarnings({"A", "B", "C", "D"})
-                        public class Test {}
-                        """)
+                        String.join("\n", "@SuppressWarnings({\"A\", \"B\", \"C\", \"D\"})", "public class Test {}"))
                 .doTest();
     }
 

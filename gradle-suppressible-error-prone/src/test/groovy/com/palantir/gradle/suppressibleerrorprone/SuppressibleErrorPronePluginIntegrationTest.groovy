@@ -449,7 +449,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     }
 
     def 'can disable errorprone using property'() {
-        when:
+        when: 'there is java code some that will fail an errorprone during compilation'
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -460,9 +460,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
         '''.stripIndent(true)
 
-        then:
+        then: 'compilation succeeds when errorprone is disabled'
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneDisable')
         runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable')
+        runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable=true')
+
+        then: 'compilation fails the legacy baseline errorprone disable property is set to false'
+        runTasksWithFailure('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable=false')
     }
 
     def 'should be able to refactor near usages of deprecated methods'() {
@@ -586,6 +590,86 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         stdout.contains(':compileOtherJava SKIPPED')
     }
 
+    def 'SUGGESTION level checks are not suppressed'() {
+        def originalBuildFile = buildFile.text
+
+        // The code below should hit the FieldCanBeFinal suggestion level check
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                private int field;
+                public App() {
+                    this.field = 3;
+                }
+                public int getField() {
+                    return field;
+                }
+            }
+        '''.stripIndent(true)
+
+        when: 'a suggestion check is made error level'
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.error('FieldCanBeFinal')
+            }
+        '''.stripIndent(true)
+
+        then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
+        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        stderr.contains('[FieldCanBeFinal]')
+
+        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are applied'
+        buildFile.text = originalBuildFile
+
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then: 'it is not suppressed'
+        appJavaTextNotContains("SuppressWarnings")
+    }
+
+    def 'WARNING level checks are suppressed'() {
+        when: 'the check is at warning level'
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.warn('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // The code below should hit the LongDoubleConversion warning level check
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String... args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        then: 'compilation does not fail'
+        runTasksSuccessfully('compileAllErrorProne')
+
+        when: 'the check is run at the default WARNING level, and then automated suppressions are applied'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then: 'it is suppressed'
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String... args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
     @Override
     ExecutionResult runTasksSuccessfully(String... tasks) {
         def result = runTasks(tasks)
@@ -610,6 +694,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     void appJavaTextContains(String substring) {
         assert file('app/App.java', mainSourceSet).text.contains(substring)
         assert file('app/App.java', otherSourceSet).text.contains(substring)
+    }
+
+    void appJavaTextNotContains(String substring) {
+        assert !file('app/App.java', mainSourceSet).text.contains(substring)
+        assert !file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
     void appJavaTextEquals(String substring) {
