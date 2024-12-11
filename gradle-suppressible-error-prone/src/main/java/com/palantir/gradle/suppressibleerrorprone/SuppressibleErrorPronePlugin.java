@@ -132,7 +132,6 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
             spec.getParameters().getSuppressionStage1().set(isSuppressingStageOne(project));
-            spec.getParameters().getRecordTimings().set(project.hasProperty("errorProneTimingsDisable"));
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);
             spec.getFrom().attribute(suppressible, false).attribute(artifactType, "jar");

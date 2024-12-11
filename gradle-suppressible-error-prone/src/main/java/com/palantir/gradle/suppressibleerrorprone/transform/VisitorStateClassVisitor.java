@@ -16,8 +16,6 @@
 
 package com.palantir.gradle.suppressibleerrorprone.transform;
 
-import static org.objectweb.asm.Opcodes.GETSTATIC;
-
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -30,13 +28,8 @@ import org.objectweb.asm.Opcodes;
  * description parameter to be the new value.
  */
 final class VisitorStateClassVisitor extends ClassVisitor {
-    private final boolean changeReportMatch;
-    private final boolean changeTimingSpan;
-
-    VisitorStateClassVisitor(ClassVisitor classVisitor, boolean changeReportMatch, boolean changeTimingSpan) {
+    VisitorStateClassVisitor(ClassVisitor classVisitor) {
         super(Opcodes.ASM9, classVisitor);
-        this.changeReportMatch = changeReportMatch;
-        this.changeTimingSpan = changeTimingSpan;
     }
 
     @Override
@@ -44,12 +37,8 @@ final class VisitorStateClassVisitor extends ClassVisitor {
             int access, String name, String descriptor, String signature, String[] exceptions) {
         MethodVisitor methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
 
-        if (name.equals("reportMatch") && changeReportMatch) {
+        if (name.equals("reportMatch")) {
             return new ReportMatchMethodVisitor(methodVisitor);
-        }
-
-        if (name.equals("timingSpan") && changeTimingSpan) {
-            return new TimingSpanMethodVisitor(methodVisitor);
         }
 
         return methodVisitor;
@@ -78,22 +67,6 @@ final class VisitorStateClassVisitor extends ClassVisitor {
                     false);
             // Move modified result from the stack back into the description parameter variable
             mv.visitVarInsn(Opcodes.ASTORE, 1);
-        }
-    }
-
-    private static class TimingSpanMethodVisitor extends MethodVisitor {
-        TimingSpanMethodVisitor(MethodVisitor methodVisitor) {
-            super(Opcodes.ASM9, methodVisitor);
-        }
-
-        @Override
-        public void visitCode() {
-            mv.visitFieldInsn(
-                    GETSTATIC,
-                    "com/palantir/suppressibleerrorprone/timings/NoopAutoCloseable",
-                    "INSTANCE",
-                    "Ljava/lang/AutoCloseable;");
-            mv.visitInsn(Opcodes.ARETURN);
         }
     }
 }

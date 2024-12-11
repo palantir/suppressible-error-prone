@@ -66,8 +66,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         visitJar(output, (classJarPath, inputStream) -> classVisitorFor(classJarPath)
                 .map(classVisitorFactory -> {
                     ClassReader classReader = newClassReader(inputStream);
-                    ClassWriter classWriter =
-                            new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                    ClassWriter classWriter = new ClassWriter(classReader, 0);
                     ClassVisitor classVisitor = classVisitorFactory.apply(classWriter);
 
                     classReader.accept(classVisitor, 0);
@@ -86,11 +85,9 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // We only want to modify the VisitorState class if we're in stage 1 of the suppression process, as
         // it intercepts all errors and changes them. So when we're just running normal compilation, we want
         // to avoid running our modifications at all, and let the errors continue on their way unchanged.
-        if (classJarPath.equals("com/google/errorprone/VisitorState.class")) {
-            return Optional.of(classVisitor -> new VisitorStateClassVisitor(
-                    classVisitor,
-                    getParameters().getSuppressionStage1().get(),
-                    getParameters().getRecordTimings().get()));
+        if (classJarPath.equals("com/google/errorprone/VisitorState.class")
+                && getParameters().getSuppressionStage1().get()) {
+            return Optional.of(VisitorStateClassVisitor::new);
         }
 
         return Optional.empty();
@@ -135,9 +132,6 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
     public abstract static class Params implements TransformParameters {
         @Input
         public abstract Property<Boolean> getSuppressionStage1();
-
-        @Input
-        public abstract Property<Boolean> getRecordTimings();
 
         @Input
         public abstract Property<String> getCacheBust();
