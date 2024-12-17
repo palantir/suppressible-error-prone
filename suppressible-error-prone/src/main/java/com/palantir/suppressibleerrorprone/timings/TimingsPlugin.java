@@ -100,7 +100,8 @@ public final class TimingsPlugin implements Plugin {
                             entry.getValue().toNanos() / ((double) totalTime.toNanos()) * 100))
                     .collect(Collectors.joining("\n"));
 
-            writeOutput(totalTimeString + "\n\n" + perCheckOutput);
+            writeOutput(totalTimeString + "\n\n"
+                    + "ErrorProneName: <time taken> (percentage of all errorprone time)\n\n" + perCheckOutput);
         }
 
         private void writeOutput(String string) {
