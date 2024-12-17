@@ -35,6 +35,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -92,7 +93,9 @@ public final class VisitorStateModifications {
         boolean containedKey = FIXES.containsKey(firstSuppressibleParent);
 
         OurFix ourFix = FIXES.computeIfAbsent(
-                firstSuppressibleParent, _ignored -> new OurFix(suppressWarnings, firstSuppressibleParent));
+                firstSuppressibleParent,
+                _ignored -> new OurFix(
+                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
 
         ourFix.addError(description.checkName);
 
@@ -110,13 +113,15 @@ public final class VisitorStateModifications {
     }
 
     private static final class OurFix implements Fix {
+        private final Optional<CharSequence> sourceCode;
         private final Optional<? extends AnnotationTree> suppressWarnings;
         private final Tree tree;
         private final Set<String> errors = new LinkedHashSet<>();
 
         private final Supplier<Fix> fixSupplier;
 
-        OurFix(Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+        OurFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+            this.sourceCode = sourceCode;
             this.suppressWarnings = suppressWarnings;
             this.tree = tree;
 
@@ -142,7 +147,7 @@ public final class VisitorStateModifications {
 
                             String suppressWarningsString = suppressWarningsString(warningsToSuppress);
 
-                            return SuggestedFix.prefixWith(
+                            return SuggestedFix.replace(
                                     suppressWarningsAnnotation, "@SuppressWarnings(" + suppressWarningsString + ")");
                         })
                         .orElseGet(() -> {
@@ -150,6 +155,11 @@ public final class VisitorStateModifications {
                                     .sorted()
                                     .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning)
                                     .collect(Collectors.toList());
+
+                            String suppressWarningsString = suppressWarningsString(warningsToSuppress);
+
+                            return SuggestedFix.prefixWith(
+                                    tree, "@SuppressWarnings(" + suppressWarningsString + ")\n" + indentForTree());
                         });
             });
         }
@@ -161,6 +171,13 @@ public final class VisitorStateModifications {
                 suppressWarningsString = "{" + suppressWarningsString + "}";
             }
             return suppressWarningsString;
+        }
+
+        private CharSequence indentForTree() {
+            return sourceCode
+                    .map(actualSourceCode ->
+                            whitespaceIndentBefore(actualSourceCode, ((DiagnosticPosition) tree).getStartPosition()))
+                    .orElse("    ");
         }
 
         private Fix fix() {
