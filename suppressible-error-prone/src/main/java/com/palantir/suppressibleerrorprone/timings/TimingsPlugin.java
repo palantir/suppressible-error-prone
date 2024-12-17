@@ -25,11 +25,15 @@ import com.sun.source.util.TaskEvent.Kind;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @AutoService(Plugin.class)
@@ -46,9 +50,10 @@ public final class TimingsPlugin implements Plugin {
                 ErrorProneTimings.instance(((BasicJavacTask) task).getContext()), Path.of(path)));
     }
 
-    private class TimingsTaskListener implements TaskListener {
+    private static class TimingsTaskListener implements TaskListener {
         private final ErrorProneTimings errorProneTimings;
         private final Path output;
+        private final Set<URI> files = new HashSet<>();
 
         TimingsTaskListener(ErrorProneTimings errorProneTimings, Path output) {
             this.errorProneTimings = errorProneTimings;
@@ -57,27 +62,60 @@ public final class TimingsPlugin implements Plugin {
 
         @Override
         public void finished(TaskEvent event) {
+            if (event.getKind().equals(Kind.ENTER)) {
+                Optional.ofNullable(event.getSourceFile()).ifPresent(sourceFile -> {
+                    files.add(sourceFile.toUri());
+                });
+            }
+
             if (!event.getKind().equals(Kind.COMPILATION)) {
                 return;
             }
 
             Map<String, Duration> timings = errorProneTimings.timings();
 
-            String total = "Total time: "
-                    + timings.values().stream()
-                            .reduce(Duration.ZERO, Duration::plus)
-                            .toString();
+            if (timings.isEmpty()) {
+                writeOutput("No errorprones ran");
+                return;
+            }
+
+            int maxNameLength =
+                    timings.keySet().stream().mapToInt(String::length).max().getAsInt();
+
+            int maxTimeLength = timings.values().stream()
+                    .map(TimingsTaskListener::humanReadable)
+                    .mapToInt(String::length)
+                    .max()
+                    .getAsInt();
+
+            Duration totalTime = timings.values().stream().reduce(Duration.ZERO, Duration::plus);
+            String total = "Total errorprone time: " + humanReadable(totalTime);
 
             String perCheckOutput = timings.entrySet().stream()
                     .sorted(Entry.<String, Duration>comparingByValue().reversed())
-                    .map(entry -> entry.getKey() + ": " + entry.getValue())
+                    .map(entry -> String.format(
+                            "%-" + maxNameLength + "s: %-" + maxTimeLength + "s (%.2f%%)",
+                            entry.getKey(),
+                            humanReadable(entry.getValue()),
+                            entry.getValue().toNanos() / ((double) totalTime.toNanos()) * 100))
                     .collect(Collectors.joining("\n"));
 
+            writeOutput(total + "\n\n" + perCheckOutput);
+        }
+
+        private void writeOutput(String string) {
             try {
-                Files.writeString(output, total + "\n\n" + perCheckOutput);
+                Files.writeString(output, string);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        private static String humanReadable(Duration duration) {
+            if (duration.toMillis() == 0) {
+                return duration.toNanos() / 1_000 + " micros";
+            }
+            return duration.toMillis() + " millis";
         }
     }
 }

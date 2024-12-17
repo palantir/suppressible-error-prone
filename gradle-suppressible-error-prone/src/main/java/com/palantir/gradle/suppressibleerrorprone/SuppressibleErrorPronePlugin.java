@@ -41,6 +41,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String SUPPRESS_STAGE_TWO = "errorProneSuppressStage2";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
+    private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
 
     // This is only here for backcompat from when all the errorprone code lived in baseline
     private static final String ERROR_PRONE_BASELINE_DISABLE = "com.palantir.baseline-error-prone.disable";
@@ -154,24 +155,30 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private void configureJavaCompile(Project project, JavaCompile javaCompile) {
-        Path outputAbsolute = project.getLayout()
-                .getBuildDirectory()
-                .file("errorprone-timings/" + javaCompile.getName())
-                .get()
-                .getAsFile()
-                .toPath();
+        if (project.hasProperty(ERROR_PRONE_TIMINGS)) {
+            // We can't control the working directory of the java compile task, as it actually runs inside some gradle
+            // worker. So we can't pass a relative path to the javac plugin; it has to be absolute. When we pass
+            // an absolute path, build caching no longer works between machines as the java compiler option args
+            // are different on each machine. So we can't have this on all the time, otherwise local/CI build would
+            // not cache from (other) CI builds. It's ok when hidden behind a flag, as then you don't generally don't
+            // even want build caching if you're measuring timings. But unfortunately we can't print out timings
+            // all the time.
+            Path outputAbsolute = project.getLayout()
+                    .getBuildDirectory()
+                    .file("errorprone-timings/" + javaCompile.getName())
+                    .get()
+                    .getAsFile()
+                    .toPath();
 
-        //        Path output =
-        //                project.getLayout().getProjectDirectory().getAsFile().toPath().relativize(outputAbsolute);
+            javaCompile.getOutputs().file(outputAbsolute.toFile());
 
-        javaCompile.getOutputs().file(outputAbsolute.toFile());
-
-        javaCompile.getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
-            @Override
-            public Iterable<String> asArguments() {
-                return List.of("-Xplugin:SuppressibleErrorProneTimings " + outputAbsolute);
-            }
-        });
+            javaCompile.getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
+                @Override
+                public Iterable<String> asArguments() {
+                    return List.of("-Xplugin:SuppressibleErrorProneTimings " + outputAbsolute);
+                }
+            });
+        }
 
         if (isAnyKindOfPatching(project)) {
             // Don't attempt to cache since it won't capture the source files that might be modified
