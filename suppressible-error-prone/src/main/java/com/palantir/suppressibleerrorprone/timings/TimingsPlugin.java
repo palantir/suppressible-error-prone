@@ -89,7 +89,7 @@ public final class TimingsPlugin implements Plugin {
                     .getAsInt();
 
             Duration totalTime = timings.values().stream().reduce(Duration.ZERO, Duration::plus);
-            String total = "Total errorprone time: " + humanReadable(totalTime);
+            String totalTimeString = "Total errorprone time: " + humanReadable(totalTime);
 
             String perCheckOutput = timings.entrySet().stream()
                     .sorted(Entry.<String, Duration>comparingByValue().reversed())
@@ -100,7 +100,7 @@ public final class TimingsPlugin implements Plugin {
                             entry.getValue().toNanos() / ((double) totalTime.toNanos()) * 100))
                     .collect(Collectors.joining("\n"));
 
-            writeOutput(total + "\n\n" + perCheckOutput);
+            writeOutput(totalTimeString + "\n\n" + perCheckOutput);
         }
 
         private void writeOutput(String string) {
