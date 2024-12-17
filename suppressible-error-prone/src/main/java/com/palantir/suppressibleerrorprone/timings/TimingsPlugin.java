@@ -116,7 +116,11 @@ public final class TimingsPlugin implements Plugin {
             if (duration.toMillis() == 0) {
                 return duration.toNanos() / 1_000 + " micros";
             }
-            return duration.toMillis() + " millis";
+            if (duration.toSeconds() == 0) {
+                return duration.toMillis() + " millis";
+            }
+
+            return String.format("%-2f seconds", duration.toMillis() / 1_000d);
         }
     }
 }
