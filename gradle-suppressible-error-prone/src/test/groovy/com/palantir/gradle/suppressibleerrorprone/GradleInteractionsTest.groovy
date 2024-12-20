@@ -223,8 +223,7 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
         runTasksSuccessfully('compileAllErrorProne')
