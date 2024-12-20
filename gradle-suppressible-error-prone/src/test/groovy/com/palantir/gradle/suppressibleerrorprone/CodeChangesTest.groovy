@@ -26,7 +26,7 @@ import java.util.stream.Collectors
 import java.util.stream.Stream
 
 @Unroll
-class SuppressionsTest extends AbstractSuppressibleErrorPronePluginIntegrationTest {
+class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTest {
     def '#testDescription'() {
         def testText = new File('src/test/resources/suppression-test', testFile).text
         def testLines = Splitter.on('\n').splitToList(testText)
