@@ -328,6 +328,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 .omitEmptyStrings()
                 .splitToList(firstLine.replace("// Args: ", ""))
 
+        def secondLine = testLines.get(1)
+        if (!secondLine.startsWith("// Type:")) {
+            throw new IllegalArgumentException("Second line of test file must start with '// Type: '")
+        }
+
+        def type = secondLine.replace("// Type: ", "")
+
         def beforeLines = testLines.stream()
                 .dropWhile { !it.startsWith('// Before:') }
                 .skip(1)

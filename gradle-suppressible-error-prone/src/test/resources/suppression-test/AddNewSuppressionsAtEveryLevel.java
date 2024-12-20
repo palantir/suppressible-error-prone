@@ -1,6 +1,6 @@
 // Args: -PerrorProneSuppress
+// Type: SingleClass
 // Before:
-package app;
 public final class App {
     public final String field = new int[3].toString();
 
@@ -24,7 +24,6 @@ public final class App {
     }
 }
 // After:
-package app;
 public final class App {
     @SuppressWarnings("for-rollout:ArrayToString")
     public final String field = new int[3].toString();
