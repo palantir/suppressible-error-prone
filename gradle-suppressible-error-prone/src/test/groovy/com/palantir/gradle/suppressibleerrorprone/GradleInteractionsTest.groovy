@@ -16,89 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone
 
-import com.google.common.base.Splitter
-import nebula.test.IntegrationSpec
-import nebula.test.functional.ExecutionResult
-import one.util.streamex.StreamEx
-import org.apache.commons.io.FileUtils
-import spock.lang.Unroll
-
-import java.nio.file.Files
-import java.nio.file.Path
-import java.util.stream.Collectors
-
-class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
-    // We need to put the source sets in a different directory that does not contain the any words that would hit
-    // the errorprone excludedPathRegex, ie build in build/nebulatest
-    static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
-    File sourceSetRoot
-    File mainSourceSet
-    File otherSourceSet
-
-    def setupSpec() {
-        FileUtils.deleteDirectory(nebulatestSourceSets)
-    }
-
-    def setup() {
-        sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
-        mainSourceSet = directory('src/main/java', sourceSetRoot)
-        otherSourceSet = directory('src/other/java', sourceSetRoot)
-
-        // language=Gradle
-        buildFile << '''
-            apply plugin: 'com.palantir.suppressible-error-prone'
-            apply plugin: 'java'
-            
-            repositories {
-                mavenCentral()
-                // Needed so that suppressible-error-prone and suppressible-error-prone-annotations can be added
-                // as jars to the various configurations. We make sure to publish these to maven local before the
-                // test task runs. 
-                mavenLocal()
-            }
-            
-            sourceSets {
-                other
-            }
-            
-            dependencies {
-                errorprone 'com.google.errorprone:error_prone_core:2.31.0'
-            }
-            
-            tasks.withType(JavaCompile).configureEach {
-                // This makes debugging the errorprone check code running inside the compiler (including the bytecode
-                // edited modifications we have made) "just work" from inside these tests.
-                // Change the variable below to true to enable it, after setting up the standalone debugger:
-                //   1. Make a new run configuration in IntelliJ of type JVM Debug
-                //   2. Change it to "Listen" rather than "Attach"
-                //   3. Select Auto-restart.
-                //   4. Run the debugger
-                //   5. Run the tests as well
-                // If the variable below is true the tests will fail as the compilation process will try to
-                // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = false
-                if (debuggingErrorPrones) {
-                    it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
-                        @Override
-                        public Iterable<String> asArguments() {
-                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5005")
-                        }
-                    })
-                }
-            }
-        '''.stripIndent(true)
-
-        buildFile << """
-            sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
-            sourceSets.other.java.srcDirs('${projectDir.relativePath(otherSourceSet)}')
-        """.stripIndent(true)
-
-        file('gradle.properties') << '''
-            __TESTING=true
-            __TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM=true
-        '''.stripIndent(true)
-    }
-
+class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegrationTest {
     def 'reports a failing error prone'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -314,54 +232,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
     }
 
-    @Unroll
-    def 'correctly suppresses: #testFile'() {
-        def testText = new File('src/test/resources/suppression-test', testFile).text
-        def testLines = Splitter.on('\n').splitToList(testText)
-
-        def firstLine = testLines.get(0)
-        if (!firstLine.startsWith('// Args: ')) {
-            throw new IllegalArgumentException("First line of test file must start with '// Args: '")
-        }
-
-        def args = Splitter.on(' ')
-                .omitEmptyStrings()
-                .splitToList(firstLine.replace("// Args: ", ""))
-
-        def secondLine = testLines.get(1)
-        if (!secondLine.startsWith("// Type:")) {
-            throw new IllegalArgumentException("Second line of test file must start with '// Type: '")
-        }
-
-        def type = secondLine.replace("// Type: ", "")
-
-        def beforeLines = testLines.stream()
-                .dropWhile { !it.startsWith('// Before:') }
-                .skip(1)
-                .takeWhile { !it.startsWith('// After:') }
-                .collect(Collectors.joining('\n'))
-                .strip()
-
-        def afterLines = testLines.stream()
-                .dropWhile { !it.startsWith('// After:') }
-                .skip(1)
-                .collect(Collectors.joining('\n'))
-                .strip()
-
-        writeJavaSourceFileToSourceSets beforeLines
-
-        when:
-        runTasksSuccessfully(StreamEx.of('compileAllErrorProne').append(args).toArray(String))
-
-        then:
-        runTasksSuccessfully('compileAllErrorProne')
-
-        appJavaTextEquals afterLines
-
-        where:
-        testFile << Files.list(Path.of("src/test/resources/suppression-test")).map { it.fileName.toString() }.toList()
-    }
-
     def 'can disable errorprone using property'() {
         when: 'there is java code some that will fail an errorprone during compilation'
         // language=Java
@@ -502,36 +372,5 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         stdout.contains(':compileJava SKIPPED')
         !stdout.contains(':compileTestJava SKIPPED')
         stdout.contains(':compileOtherJava SKIPPED')
-    }
-
-    @Override
-    ExecutionResult runTasksSuccessfully(String... tasks) {
-        def result = runTasks(tasks)
-        println result.standardError
-        println result.standardOutput
-        result.rethrowFailure()
-    }
-
-    @Override
-    ExecutionResult runTasks(String... tasks) {
-        def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
-        String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        return super.runTasks(strings)
-    }
-
-
-    void writeJavaSourceFileToSourceSets(String source) {
-        super.writeJavaSourceFile(source, 'src/main/java', sourceSetRoot)
-        super.writeJavaSourceFile(source, 'src/other/java', sourceSetRoot)
-    }
-
-    void appJavaTextContains(String substring) {
-        assert file('app/App.java', mainSourceSet).text.contains(substring)
-        assert file('app/App.java', otherSourceSet).text.contains(substring)
-    }
-
-    void appJavaTextEquals(String substring) {
-        assert file('app/App.java', mainSourceSet).text == substring
-        assert file('app/App.java', otherSourceSet).text == substring
     }
 }
