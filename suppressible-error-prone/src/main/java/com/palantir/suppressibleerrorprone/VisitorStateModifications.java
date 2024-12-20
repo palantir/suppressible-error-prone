@@ -147,8 +147,7 @@ public final class VisitorStateModifications {
 
                             String suppressWarningsString = suppressWarningsString(warningsToSuppress);
 
-                            return SuggestedFix.replace(
-                                    suppressWarningsAnnotation, "@SuppressWarnings(" + suppressWarningsString + ")");
+                            return SuggestedFix.replace(suppressWarningsAnnotation, suppressWarningsString);
                         })
                         .orElseGet(() -> {
                             List<String> warningsToSuppress = errors.stream()
@@ -158,8 +157,7 @@ public final class VisitorStateModifications {
 
                             String suppressWarningsString = suppressWarningsString(warningsToSuppress);
 
-                            return SuggestedFix.prefixWith(
-                                    tree, "@SuppressWarnings(" + suppressWarningsString + ")\n" + indentForTree());
+                            return SuggestedFix.prefixWith(tree, suppressWarningsString + "\n" + indentForTree());
                         });
             });
         }
@@ -170,7 +168,7 @@ public final class VisitorStateModifications {
             if (warningsToSuppress.size() > 1) {
                 suppressWarningsString = "{" + suppressWarningsString + "}";
             }
-            return suppressWarningsString;
+            return "@SuppressWarnings(" + suppressWarningsString + ")";
         }
 
         private CharSequence indentForTree() {

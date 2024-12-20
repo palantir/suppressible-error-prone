@@ -16,9 +16,16 @@
 
 package com.palantir.gradle.suppressibleerrorprone
 
+import com.google.common.base.Splitter
 import nebula.test.IntegrationSpec
 import nebula.test.functional.ExecutionResult
+import one.util.streamex.StreamEx
 import org.apache.commons.io.FileUtils
+import spock.lang.Unroll
+
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.stream.Collectors
 
 class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     // We need to put the source sets in a different directory that does not contain the any words that would hit
@@ -305,6 +312,47 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne')
 
         appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+    }
+
+    @Unroll
+    def 'blah: #testFile'() {
+        def testText = new File('src/test/resources/suppression-test', testFile).text
+        def testLines = Splitter.on('\n').splitToList(testText)
+
+        def firstLine = testLines.get(0)
+        if (!firstLine.startsWith('// Args: ')) {
+            throw new IllegalArgumentException("First line of test file must start with '// Args: '")
+        }
+
+        def args = Splitter.on(' ')
+                .omitEmptyStrings()
+                .splitToList(firstLine.replace("// Args: ", ""))
+
+        def beforeLines = testLines.stream()
+                .dropWhile { !it.startsWith('// Before:') }
+                .skip(1)
+                .takeWhile { !it.startsWith('// After:') }
+                .collect(Collectors.joining('\n'))
+                .strip()
+
+        def afterLines = testLines.stream()
+                .dropWhile { !it.startsWith('// After:') }
+                .skip(1)
+                .collect(Collectors.joining('\n'))
+                .strip()
+
+        writeJavaSourceFileToSourceSets beforeLines
+
+        when:
+        runTasksSuccessfully(StreamEx.of('compileAllErrorProne').append(args).toArray(String))
+
+        then:
+        runTasksSuccessfully('compileAllErrorProne')
+
+        appJavaTextEquals afterLines
+
+        where:
+        testFile << Files.list(Path.of("src/test/resources/suppression-test")).map { it.fileName.toString() }.toList()
     }
 
     def 'demonstrate suppressions on different source elements'() {
