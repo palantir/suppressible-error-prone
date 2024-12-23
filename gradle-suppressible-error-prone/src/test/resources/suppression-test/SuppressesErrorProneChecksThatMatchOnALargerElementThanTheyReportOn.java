@@ -12,9 +12,7 @@ public final class App {
 
     record provides(int cat) {}
 
-    enum to {
-        ;
-    }
+    enum to {}
 
     @interface module {}
 }
@@ -30,9 +28,7 @@ public final class App {
     record provides(int cat) {}
 
     @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-    enum to {
-        ;
-    }
+    enum to {}
 
     @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
     @interface module {}
