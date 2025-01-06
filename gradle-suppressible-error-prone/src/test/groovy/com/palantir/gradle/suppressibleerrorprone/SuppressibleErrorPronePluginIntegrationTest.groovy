@@ -670,6 +670,50 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    def 'makes no changes when there is an error on an import'() {
+        when: 'theres an illegal import'
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public class A {
+                public static class Inner {}
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public class B extends A {}
+        '''.stripIndent(true)
+
+        // This below hits the NonCanonicalStaticImport as it should refer to app.A.Inner, not app.B.Inner
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import static app.B.Inner;
+            public final class App {}
+        '''.stripIndent(true)
+
+        then: 'compilation fails'
+        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        stderr.contains('[NonCanonicalStaticImport]')
+
+        when: 'we try to suppress it'
+        println runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1').standardError
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then: 'nothing has changed as we cant put SuppressWarnings on an import'
+        def stderr2 = runTasksWithFailure('compileAllErrorProne').standardError
+        stderr2.contains('[NonCanonicalStaticImport]')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            import static app.B.Inner;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
     def 'timings are outputted'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
