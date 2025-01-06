@@ -372,4 +372,152 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         !stdout.contains(':compileTestJava SKIPPED')
         stdout.contains(':compileOtherJava SKIPPED')
     }
+
+    def 'SUGGESTION level checks are not suppressed'() {
+        def originalBuildFile = buildFile.text
+
+        // The code below should hit the FieldCanBeFinal suggestion level check
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                private int field;
+                public App() {
+                    this.field = 3;
+                }
+                public int getField() {
+                    return field;
+                }
+            }
+        '''.stripIndent(true)
+
+        when: 'a suggestion check is made error level'
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.error('FieldCanBeFinal')
+            }
+        '''.stripIndent(true)
+
+        then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
+        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        stderr.contains('[FieldCanBeFinal]')
+
+        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are applied'
+        buildFile.text = originalBuildFile
+
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then: 'it is not suppressed'
+        appJavaTextNotContains("SuppressWarnings")
+    }
+
+    def 'WARNING level checks are suppressed'() {
+        when: 'the check is at warning level'
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.warn('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // The code below should hit the LongDoubleConversion warning level check
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String... args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        then: 'compilation does not fail'
+        runTasksSuccessfully('compileAllErrorProne')
+
+        when: 'the check is run at the default WARNING level, and then automated suppressions are applied'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then: 'it is suppressed'
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String... args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'makes no changes when there is an error on an import'() {
+        when: 'theres an illegal import'
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public class A {
+                public static class Inner {}
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public class B extends A {}
+        '''.stripIndent(true)
+
+        // This below hits the NonCanonicalStaticImport as it should refer to app.A.Inner, not app.B.Inner
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import static app.B.Inner;
+            public final class App {}
+        '''.stripIndent(true)
+
+        then: 'compilation fails'
+        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        stderr.contains('[NonCanonicalStaticImport]')
+
+        when: 'we try to suppress it'
+        println runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1').standardError
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+
+        then: 'nothing has changed as we cant put SuppressWarnings on an import'
+        def stderr2 = runTasksWithFailure('compileAllErrorProne').standardError
+        stderr2.contains('[NonCanonicalStaticImport]')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            import static app.B.Inner;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'timings are outputted'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String... args) {}
+            }
+        '''.stripIndent(true)
+
+        when: 'a compilation happens but -PerrorProneTimings is not applied'
+        runTasksSuccessfully('compileAllErrorProne')
+
+        then: 'timings are not outputted'
+        !new File(projectDir, 'build/errorprone-timings/compileJava').exists()
+        !new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+
+        when: 'a compilation happens and -PerrorProneTimings is applied'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneTimings')
+
+        then: 'timings are outputted'
+        new File(projectDir, 'build/errorprone-timings/compileJava').exists()
+        new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+    }
 }
