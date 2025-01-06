@@ -714,6 +714,30 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    def 'timings are outputted'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String... args) {}
+            }
+        '''.stripIndent(true)
+
+        when: 'a compilation happens but -PerrorProneTimings is not applied'
+        runTasksSuccessfully('compileAllErrorProne')
+
+        then: 'timings are not outputted'
+        !new File(projectDir, 'build/errorprone-timings/compileJava').exists()
+        !new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+
+        when: 'a compilation happens and -PerrorProneTimings is applied'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneTimings')
+
+        then: 'timings are outputted'
+        new File(projectDir, 'build/errorprone-timings/compileJava').exists()
+        new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+    }
+
     @Override
     ExecutionResult runTasksSuccessfully(String... tasks) {
         def result = runTasks(tasks)

@@ -112,6 +112,12 @@ You can also run fixes for individual checks:
 
 Errorprone can be disabled by using the `-PerrorProneDisable` property.
 
+You can produce a timings report using `-PerrorProneTimings`. This will place a file with timings under `build/errorprone-timings/compileTaskName` in each project. You probably want to run with `--rerun-tasks` to compile all the code (unless you are purposefully seeing how fast errorprones are during incremental compile):
+
+```
+./gradlew compileAllErrorProne -PerrorProneTimings --rerun-tasks
+```
+
 ### Using directly from Gradle
 
 You can also use this directly in Gradle without making a plugin (not recommended if you are in a polyrepo environment - save yourself the future pain, don't copy and paste anything, make a plugin for it!):
