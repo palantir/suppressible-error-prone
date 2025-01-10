@@ -46,7 +46,7 @@ void auto_suppressions_are_alphabetically_ordered() {
 }
 // After:
 @SuppressWarnings({"A", "for-rollout:ArrayEquals", "for-rollout:ArrayToString"})
-void maintains_human_authored_ordering() {
+void auto_suppressions_are_alphabetically_ordered() {
     System.out.println(new int[3].toString());
     System.out.println(new int[3].equals(new int[3]));
 }

@@ -18,6 +18,7 @@ package com.palantir.gradle.suppressibleerrorprone
 
 import com.google.common.base.Splitter
 import one.util.streamex.StreamEx
+import spock.lang.Unroll
 
 import java.nio.file.Files
 import java.nio.file.Path
@@ -26,9 +27,11 @@ import java.util.stream.Stream
 
 class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTest {
     // Change this to be the filename of the test (copy from the file viewer) to run a single test
-    static String testOverride = 'AugmentExistingSuppresionsList.java'
+    // static String testOverride = 'AugmentExistingSuppresionsList.java'
+    static String testOverride = ''
 
-    def '#testDescription'() {
+    @Unroll
+    def '#testFile'() {
         def testText = new File('src/test/resources/suppression-test', testFile).text
         def testLines = Splitter.on('\n').splitToList(testText)
 
@@ -56,16 +59,12 @@ class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTes
         runTasksSuccessfully(StreamEx.of('compileAllErrorProne').append(args).toArray(String))
 
         then:
-        runTasksSuccessfully('compileAllErrorProne')
-
         appJavaTextEquals parser.after().strip()
 
+        runTasksSuccessfully('compileAllErrorProne')
 
         where:
         testFile << suppressionTestFileNames().toList()
-        testDescription << suppressionTestFileNames()
-                .map { it.replaceAll('([A-Z])', ' $1').strip().toLowerCase().replace('.java', '') }
-                .toList()
     }
 
     def 'test override should not be set and then merged into develop'() {
@@ -77,7 +76,7 @@ class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTes
     }
 
     private static Stream<String> suppressionTestFileNames() {
-        if (testOverride != 0) {
+        if (testOverride != '') {
             return Stream.of(testOverride)
         }
         return Files.list(Path.of("src/test/resources/suppression-test")).map { it.fileName.toString() }
@@ -194,12 +193,15 @@ class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTes
         }
 
         private static String fix(List<String> methodBlocks) {
-            return """
-                package app;
-                public final class App {
-                    ${methodBlocks.stream().map { "    " + it }.collect(Collectors.joining('\n\n'))}
-                }
-            """.stripIndent(true)
+            String joinedTogetherAndIndented = methodBlocks.stream()
+                    .map { it.indent(4) }
+                    .collect(Collectors.joining("\n"))
+
+            return String.join('\n',
+                    'package app;',
+                    'public final class App {',
+                    joinedTogetherAndIndented,
+                    '}')
         }
     }
 }
