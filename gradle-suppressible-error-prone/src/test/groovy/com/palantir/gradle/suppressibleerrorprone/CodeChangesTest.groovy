@@ -192,16 +192,26 @@ class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTes
             fix(afters)
         }
 
-        private static String fix(List<String> methodBlocks) {
-            String joinedTogetherAndIndented = methodBlocks.stream()
-                    .map { it.indent(4) }
-                    .collect(Collectors.joining("\n"))
+        private String fix(List<String> methodBlocks) {
+            String joinedTogetherAndIndented = StreamEx.of(befores)
+                    .map { prefixLinesWith(' // ', it) }
+                    .zipWith(
+                            methodBlocks.stream().map { prefixLinesWith('    ', it) },
+                            (before, block) -> " // Before:\n" + before + '\n // After:\n' + block)
+                    .joining('\n\n\n')
+
 
             return String.join('\n',
                     'package app;',
                     'public final class App {',
                     joinedTogetherAndIndented,
                     '}')
+        }
+
+        private String prefixLinesWith(String prefix, String block) {
+            return Splitter.on('\n').splitToStream(block)
+                    .map { prefix + it }
+                    .collect(Collectors.joining('\n'))
         }
     }
 }
