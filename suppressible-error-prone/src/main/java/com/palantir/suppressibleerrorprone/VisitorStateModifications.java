@@ -18,8 +18,8 @@ package com.palantir.suppressibleerrorprone;
 
 // CHECKSTYLE:OFF
 
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Range;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.Replacement;
@@ -119,54 +119,34 @@ public final class VisitorStateModifications {
                 .build();
     }
 
+    private static final class OurReplacement extends Replacement {
+        private final Supplier<Replacement> replacement;
+
+        OurReplacement(Supplier<Replacement> replacement) {
+            this.replacement = replacement;
+        }
+
+        @Override
+        public Range<Integer> range() {
+            return replacement.get().range();
+        }
+
+        @Override
+        public String replaceWith() {
+            return replacement.get().replaceWith();
+        }
+    }
+
     private static final class OurFix implements Fix {
         private final Optional<CharSequence> sourceCode;
         private final Optional<? extends AnnotationTree> suppressWarnings;
         private final Tree tree;
         private final Set<String> errors = new LinkedHashSet<>();
 
-        private final Supplier<Fix> fixSupplier;
-
         OurFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
             this.sourceCode = sourceCode;
             this.suppressWarnings = suppressWarnings;
             this.tree = tree;
-
-            this.fixSupplier = Suppliers.memoize(() -> {
-                return suppressWarnings
-                        .map(suppressWarningsAnnotation -> {
-                            Set<String> existingValues = SuppressWarningsCoalesce.annotationStringValues(
-                                            suppressWarningsAnnotation)
-                                    .collect(Collectors.toSet());
-                            Set<String> toAdd = errors.stream()
-                                    .filter(Predicate.not(error -> existingValues.contains(error)
-                                            || existingValues.contains(
-                                                    CommonConstants.AUTOMATICALLY_ADDED_PREFIX + error)))
-                                    .collect(Collectors.toSet());
-
-                            List<String> warningsToSuppress = Stream.concat(
-                                            existingValues.stream(),
-                                            toAdd.stream()
-                                                    .sorted()
-                                                    .map(warning ->
-                                                            CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning))
-                                    .collect(Collectors.toList());
-
-                            String suppressWarningsString = suppressWarningsString(warningsToSuppress);
-
-                            return SuggestedFix.replace(suppressWarningsAnnotation, suppressWarningsString);
-                        })
-                        .orElseGet(() -> {
-                            List<String> warningsToSuppress = errors.stream()
-                                    .sorted()
-                                    .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning)
-                                    .collect(Collectors.toList());
-
-                            String suppressWarningsString = suppressWarningsString(warningsToSuppress);
-
-                            return SuggestedFix.prefixWith(tree, suppressWarningsString + "\n" + indentForTree());
-                        });
-            });
         }
 
         private static String suppressWarningsString(List<String> warningsToSuppress) {
@@ -186,7 +166,37 @@ public final class VisitorStateModifications {
         }
 
         private Fix fix() {
-            return fixSupplier.get();
+            return suppressWarnings
+                    .map(suppressWarningsAnnotation -> {
+                        Set<String> existingValues = SuppressWarningsCoalesce.annotationStringValues(
+                                        suppressWarningsAnnotation)
+                                .collect(Collectors.toSet());
+                        Set<String> toAdd = errors.stream()
+                                .filter(Predicate.not(error -> existingValues.contains(error)
+                                        || existingValues.contains(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + error)))
+                                .collect(Collectors.toSet());
+
+                        List<String> warningsToSuppress = Stream.concat(
+                                        existingValues.stream(),
+                                        toAdd.stream()
+                                                .sorted()
+                                                .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning))
+                                .collect(Collectors.toList());
+
+                        String suppressWarningsString = suppressWarningsString(warningsToSuppress);
+
+                        return SuggestedFix.replace(suppressWarningsAnnotation, suppressWarningsString);
+                    })
+                    .orElseGet(() -> {
+                        List<String> warningsToSuppress = errors.stream()
+                                .sorted()
+                                .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning)
+                                .collect(Collectors.toList());
+
+                        String suppressWarningsString = suppressWarningsString(warningsToSuppress);
+
+                        return SuggestedFix.prefixWith(tree, suppressWarningsString + "\n" + indentForTree());
+                    });
         }
 
         public void addError(String error) {
@@ -205,27 +215,27 @@ public final class VisitorStateModifications {
 
         @Override
         public CoalescePolicy getCoalescePolicy() {
-            return fix().getCoalescePolicy();
+            return CoalescePolicy.REJECT;
         }
 
         @Override
         public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-            return fix().getReplacements(endPositions);
+            return ImmutableSet.of(new OurReplacement(() -> fix().getReplacements(endPositions).iterator().next()));
         }
 
         @Override
         public ImmutableSet<String> getImportsToAdd() {
-            return fix().getImportsToAdd();
+            return ImmutableSet.of();
         }
 
         @Override
         public ImmutableSet<String> getImportsToRemove() {
-            return fix().getImportsToRemove();
+            return ImmutableSet.of();
         }
 
         @Override
         public boolean isEmpty() {
-            return fix().isEmpty();
+            return false;
         }
     }
 
