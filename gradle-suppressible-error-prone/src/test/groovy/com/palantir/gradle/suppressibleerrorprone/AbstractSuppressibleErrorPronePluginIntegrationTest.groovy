@@ -44,9 +44,8 @@ class AbstractSuppressibleErrorPronePluginIntegrationTest extends IntegrationSpe
             
             repositories {
                 mavenCentral()
-                // Needed so that suppressible-error-prone and suppressible-error-prone-annotations can be added
-                // as jars to the various configurations. We make sure to publish these to maven local before the
-                // test task runs. 
+                // Needed so that suppressible-error-prone can be added as jars to the various configurations.
+                // We make sure to publish these to maven local before the test task runs. 
                 mavenLocal()
             }
             

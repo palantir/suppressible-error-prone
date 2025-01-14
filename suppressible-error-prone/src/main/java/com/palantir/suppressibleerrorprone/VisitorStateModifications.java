@@ -27,11 +27,15 @@ import com.google.errorprone.fixes.Replacements.CoalescePolicy;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -168,8 +172,7 @@ public final class VisitorStateModifications {
         private Fix fix() {
             return suppressWarnings
                     .map(suppressWarningsAnnotation -> {
-                        Set<String> existingValues = SuppressWarningsCoalesce.annotationStringValues(
-                                        suppressWarningsAnnotation)
+                        Set<String> existingValues = annotationStringValues(suppressWarningsAnnotation)
                                 .collect(Collectors.toSet());
                         Set<String> toAdd = errors.stream()
                                 .filter(Predicate.not(error -> existingValues.contains(error)
@@ -220,7 +223,8 @@ public final class VisitorStateModifications {
 
         @Override
         public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-            return ImmutableSet.of(new OurReplacement(() -> fix().getReplacements(endPositions).iterator().next()));
+            return ImmutableSet.of(new OurReplacement(
+                    () -> fix().getReplacements(endPositions).iterator().next()));
         }
 
         @Override
@@ -285,6 +289,33 @@ public final class VisitorStateModifications {
 
         throw new UnsupportedOperationException(
                 "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
+    }
+
+    static Stream<String> annotationStringValues(AnnotationTree annotation) {
+        return annotation.getArguments().stream().flatMap(arg -> {
+            if (!(arg instanceof AssignmentTree)) {
+                return Stream.empty();
+            }
+            AssignmentTree assignment = (AssignmentTree) arg;
+
+            ExpressionTree expression = assignment.getExpression();
+
+            if (expression instanceof LiteralTree) {
+                LiteralTree literalTree = (LiteralTree) expression;
+                return Stream.of((String) literalTree.getValue());
+            }
+
+            if (expression instanceof NewArrayTree) {
+                NewArrayTree newArray = (NewArrayTree) expression;
+                return newArray.getInitializers().stream()
+                        .map(LiteralTree.class::cast)
+                        .map(LiteralTree::getValue)
+                        .map(String.class::cast);
+            }
+
+            throw new UnsupportedOperationException("Unsupported assignment expression: "
+                    + expression.getClass().getCanonicalName());
+        });
     }
 
     private VisitorStateModifications() {}

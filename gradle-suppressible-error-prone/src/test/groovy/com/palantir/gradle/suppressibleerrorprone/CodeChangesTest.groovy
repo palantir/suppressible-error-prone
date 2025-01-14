@@ -79,7 +79,7 @@ class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTes
         if (testOverride != '') {
             return Stream.of(testOverride)
         }
-        return Files.list(Path.of("src/test/resources/suppression-test")).map { it.fileName.toString() }
+        return Files.list(Path.of("src/test/resources/suppression-test")).map { it.fileName.toString() }.sorted()
     }
 
     private static Parser parserForType(String type) {
