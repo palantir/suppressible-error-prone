@@ -40,52 +40,26 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-final class SuppressFix implements Fix {
+final class SuppressingFix implements Fix {
     private final Optional<CharSequence> sourceCode;
     private final Optional<? extends AnnotationTree> suppressWarnings;
     private final Tree tree;
     private final Set<String> errors = new LinkedHashSet<>();
 
-    SuppressFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+    SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
         this.sourceCode = sourceCode;
         this.suppressWarnings = suppressWarnings;
         this.tree = tree;
     }
 
-    @Override
-    public String toString(JCCompilationUnit compilationUnit) {
-        return fix().toString(compilationUnit);
-    }
-
-    @Override
-    public String getShortDescription() {
-        return fix().getShortDescription();
-    }
-
-    @Override
-    public CoalescePolicy getCoalescePolicy() {
-        return CoalescePolicy.REJECT;
+    public void suppressError(String error) {
+        errors.add(error);
     }
 
     @Override
     public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-        return ImmutableSet.of(new SuppressReplacement(
+        return ImmutableSet.of(new SuppressingReplacement(
                 () -> fix().getReplacements(endPositions).iterator().next()));
-    }
-
-    @Override
-    public ImmutableSet<String> getImportsToAdd() {
-        return ImmutableSet.of();
-    }
-
-    @Override
-    public ImmutableSet<String> getImportsToRemove() {
-        return ImmutableSet.of();
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return false;
     }
 
     private Fix fix() {
@@ -180,18 +154,44 @@ final class SuppressFix implements Fix {
                 .orElse("    ");
     }
 
-    public void addError(String error) {
-        errors.add(error);
+    @Override
+    public String toString(JCCompilationUnit compilationUnit) {
+        return fix().toString(compilationUnit);
     }
 
-    private static final class SuppressReplacement extends Replacement {
+    @Override
+    public String getShortDescription() {
+        return fix().getShortDescription();
+    }
+
+    @Override
+    public CoalescePolicy getCoalescePolicy() {
+        return CoalescePolicy.REJECT;
+    }
+
+    @Override
+    public ImmutableSet<String> getImportsToAdd() {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public ImmutableSet<String> getImportsToRemove() {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return false;
+    }
+
+    private static final class SuppressingReplacement extends Replacement {
         // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
         // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
         // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
         // at the same level.
         private final Supplier<Replacement> replacement;
 
-        SuppressReplacement(Supplier<Replacement> replacement) {
+        SuppressingReplacement(Supplier<Replacement> replacement) {
             this.replacement = replacement;
         }
 

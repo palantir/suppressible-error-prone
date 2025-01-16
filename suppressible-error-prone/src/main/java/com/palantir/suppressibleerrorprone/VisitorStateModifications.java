@@ -42,7 +42,7 @@ public final class VisitorStateModifications {
 
     // Weak map so that we don't leak memory by keeping our mutable fixes around forever, once error-prone has done
     // with them, they can be safely collected.
-    private static final Map<Tree, SuppressFix> FIXES = new WeakHashMap<>();
+    private static final Map<Tree, SuppressingFix> FIXES = new WeakHashMap<>();
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -91,12 +91,12 @@ public final class VisitorStateModifications {
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
         boolean containedKey = FIXES.containsKey(firstSuppressibleParent);
 
-        SuppressFix suppressFix = FIXES.computeIfAbsent(
+        SuppressingFix suppressingFix = FIXES.computeIfAbsent(
                 firstSuppressibleParent,
-                _ignored -> new SuppressFix(
+                _ignored -> new SuppressingFix(
                         Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
 
-        suppressFix.addError(description.checkName);
+        suppressingFix.suppressError(description.checkName);
 
         // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
         if (containedKey) {
@@ -108,7 +108,7 @@ public final class VisitorStateModifications {
                         description.checkName,
                         description.getLink(),
                         description.getMessageWithoutCheckName())
-                .addFix(suppressFix)
+                .addFix(suppressingFix)
                 .build();
     }
 
