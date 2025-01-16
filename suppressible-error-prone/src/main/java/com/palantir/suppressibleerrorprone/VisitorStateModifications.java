@@ -89,7 +89,7 @@ public final class VisitorStateModifications {
         // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
         // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
-        boolean containedKey = FIXES.containsKey(firstSuppressibleParent);
+        boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
 
         SuppressingFix suppressingFix = FIXES.computeIfAbsent(
                 firstSuppressibleParent,
@@ -99,7 +99,7 @@ public final class VisitorStateModifications {
         suppressingFix.suppressError(description.checkName);
 
         // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
-        if (containedKey) {
+        if (alreadyReportedFix) {
             return Description.NO_MATCH;
         }
 
