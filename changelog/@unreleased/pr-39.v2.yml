@@ -1,0 +1,10 @@
+type: break
+break:
+  description: |-
+    Suppression is now just a one step process rather than two commands:
+
+    ```
+    ./gradlew compileAllErrorProne -PerrorProneSuppress
+    ```
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/39
