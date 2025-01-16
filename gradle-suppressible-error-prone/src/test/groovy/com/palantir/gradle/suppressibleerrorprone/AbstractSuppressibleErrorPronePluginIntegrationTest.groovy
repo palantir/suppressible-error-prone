@@ -117,6 +117,11 @@ class AbstractSuppressibleErrorPronePluginIntegrationTest extends IntegrationSpe
         assert file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
+    void appJavaTextNotContains(String substring) {
+        assert !file('app/App.java', mainSourceSet).text.contains(substring)
+        assert !file('app/App.java', otherSourceSet).text.contains(substring)
+    }
+
     void appJavaTextEquals(String substring) {
         assert file('app/App.java', mainSourceSet).text == substring
         assert file('app/App.java', otherSourceSet).text == substring
