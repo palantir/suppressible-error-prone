@@ -1,35 +1,21 @@
 // Args: -PerrorProneSuppress
 // Type: SingleClass
 
-// The initial version of this plugin only matched on classes - other "class like" elements did not match.
-// This uses the NamedLikeContextualKeyword to fail on class like elements.
+// The UnusedVariable check implements CompilationUnitTreeMatcher, so will start with a whole
+// CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
+// This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
+// than where the diagnostic description was produced.
 
 // Before:
 public final class App {
-    static class exports {}
-
-    interface opens {}
-
-    record provides(int cat) {}
-
-    enum to {}
-
-    @interface module {}
+    public void variables() {
+        String variable;
+    }
 }
 // After:
 public final class App {
-    @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-    static class exports {}
-
-    @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-    interface opens {}
-
-    @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-    record provides(int cat) {}
-
-    @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-    enum to {}
-
-    @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-    @interface module {}
+    public void variables() {
+        @SuppressWarnings("for-rollout:UnusedVariable")
+        String variable;
+    }
 }
