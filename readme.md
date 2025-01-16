@@ -143,51 +143,6 @@ suppressibleErrorProne {
 }
 ```
 
-## Technical Details
-
-We achieve automatic suppression using a two stage process:
-
-1. Intercepting all the errors that errorprone produces, adding an `@RepeatableSuppressWarnings` annotation to the closest parent language element to erroring element that accepts `@SuppressWarnings`.
-2. The second stage comes and coalesces all the `@RepeatableSuppressWarnings` together with any existing `@SuppressWarnings` to produce a final `@SuppressWarnings` (this process happens via a regular old errorprone check).
-
-For example:
-
-```java
-class Example {
-    @SuppressWarnings("ArrayToString")
-    void example() {
-        // Fails CollectionStreamForEach
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
-Would have the `@RepeatableSuppressWarnings` annotation added after stage 1:
-
-```java
-class Example {
-    @RepeatableSuppressWarnings("CollectionStreamForEach")
-    @SuppressWarnings("ArrayToString")
-    void example() {
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
-Then stage 2 will coalesce the suppress warnings annotations into a single regular `@SuppressWarnings`. Note we prefix the automatically suppressed error with `for-rollout:` so it's easy to tell which suppressions happened because humans did it vs automation.
-
-```java
-class Example {
-    @SuppressWarnings({"ArrayToString", "for-rollout:CollectionStreamForEach"})
-    void example() {
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
 ### How do we intercept all the errorprone errors?
 
 We actually modify the core errorprone library to achieve this using a Gradle [Artifact Transform](https://docs.gradle.org/8.10.2/userguide/artifact_transforms.html). This allows us to minimally rewrite the bytecode in the jar that has [`VisitorState#reportMatch`](https://github.com/google/error-prone/blob/f0c3c1eb1b576ee9bc44f1f21c9379e7a02dd745/check_api/src/main/java/com/google/errorprone/VisitorState.java#L281) method and add a call to our own static method to modify the `description` as a first step and add our own fix for `@RepeatableSuppressWarnings`.
