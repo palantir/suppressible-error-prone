@@ -93,8 +93,7 @@ This plugin adds a marker task you can handily use that will run all the compile
 To actually suppress all the current failures, you need to run compilation twice:
 
 ```
-./gradlew compileAllErrorProne -PerrorProneSuppressStage1
-./gradlew compileAllErrorProne -PerrorProneSuppressStage2
+./gradlew compileAllErrorProne -PerrorProneSuppress
 ```
 
 If rolling out automatically to lots of repos, we'd recommend running the fixes first before suppressing:

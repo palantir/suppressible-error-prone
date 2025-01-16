@@ -406,8 +406,7 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         when: 'the check is run at the default SUGGESTION level, and then automated suppressions are applied'
         buildFile.text = originalBuildFile
 
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then: 'it is not suppressed'
         appJavaTextNotContains("SuppressWarnings")
@@ -437,8 +436,7 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         runTasksSuccessfully('compileAllErrorProne')
 
         when: 'the check is run at the default WARNING level, and then automated suppressions are applied'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1')
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then: 'it is suppressed'
         // language=Java
@@ -482,8 +480,7 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         stderr.contains('[NonCanonicalStaticImport]')
 
         when: 'we try to suppress it'
-        println runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage1').standardError
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppressStage2')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then: 'nothing has changed as we cant put SuppressWarnings on an import'
         def stderr2 = runTasksWithFailure('compileAllErrorProne').standardError
