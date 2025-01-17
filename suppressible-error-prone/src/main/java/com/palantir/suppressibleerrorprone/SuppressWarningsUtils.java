@@ -62,6 +62,10 @@ final class SuppressWarningsUtils {
     }
 
     public static String suppressWarningsString(List<String> warningsToSuppress) {
+        if (warningsToSuppress.isEmpty()) {
+            return "";
+        }
+
         String suppressWarningsString = '"' + String.join("\", \"", warningsToSuppress) + '"';
 
         if (warningsToSuppress.size() > 1) {

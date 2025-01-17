@@ -70,4 +70,24 @@ class SuppressWarningsUtilsTest {
                     .containsExactly("A", "for-rollout:ArrayToString");
         }
     }
+
+    @Nested
+    class SuppressWarningsString {
+        @Test
+        void zero_warnings_deletes_the_entire_suppresswarnings() {
+            assertThat(SuppressWarningsUtils.suppressWarningsString(List.of())).isEqualTo("");
+        }
+
+        @Test
+        void single_warning() {
+            assertThat(SuppressWarningsUtils.suppressWarningsString(List.of("Something")))
+                    .isEqualTo("@SuppressWarnings(\"Something\")");
+        }
+
+        @Test
+        void multiple_warnings() {
+            assertThat(SuppressWarningsUtils.suppressWarningsString(List.of("Something", "Another")))
+                    .isEqualTo("@SuppressWarnings({\"Something\", \"Another\"})");
+        }
+    }
 }
