@@ -16,7 +16,82 @@
 
 package com.palantir.gradle.suppressibleerrorprone
 
-class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegrationTest {
+import nebula.test.IntegrationSpec
+import nebula.test.functional.ExecutionResult
+import org.apache.commons.io.FileUtils
+
+class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
+    // We need to put the source sets in a different directory that does not contain the any words that would hit
+    // the errorprone excludedPathRegex, ie build in build/nebulatest
+    static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
+    File sourceSetRoot
+    File mainSourceSet
+    File otherSourceSet
+
+    def setupSpec() {
+        FileUtils.deleteDirectory(nebulatestSourceSets)
+    }
+
+    def setup() {
+        sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
+        mainSourceSet = directory('src/main/java', sourceSetRoot)
+        otherSourceSet = directory('src/other/java', sourceSetRoot)
+
+        // language=Gradle
+        buildFile << '''
+            apply plugin: 'com.palantir.suppressible-error-prone'
+            apply plugin: 'java'
+            
+            repositories {
+                mavenCentral()
+                // Needed so that suppressible-error-prone and suppressible-error-prone-annotations can be added
+                // as jars to the various configurations. We make sure to publish these to maven local before the
+                // test task runs. 
+                mavenLocal()
+            }
+            
+            sourceSets {
+                other
+            }
+            
+            dependencies {
+                errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+            }
+            
+            tasks.withType(JavaCompile).configureEach {
+                // This makes debugging the errorprone check code running inside the compiler (including the bytecode
+                // edited modifications we have made) "just work" from inside these tests.
+                // Change the variable below to true to enable it, after setting up the standalone debugger:
+                //   1. Make a new run configuration in IntelliJ of type JVM Debug
+                //   2. Change it to "Listen" rather than "Attach"
+                //   3. Select Auto-restart.
+                //   4. Run the debugger
+                //   5. Run the tests as well
+                // If the variable below is true the tests will fail as the compilation process will try to
+                // attach to a non-existent debugger. Set it to false before you push any code.
+                boolean debuggingErrorPrones = false
+                if (debuggingErrorPrones) {
+                    it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
+                        @Override
+                        public Iterable<String> asArguments() {
+                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5005")
+                        }
+                    })
+                }
+            }
+        '''.stripIndent(true)
+
+        buildFile << """
+            sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
+            sourceSets.other.java.srcDirs('${projectDir.relativePath(otherSourceSet)}')
+        """.stripIndent(true)
+
+        file('gradle.properties') << '''
+            __TESTING=true
+            __TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM=true
+        '''.stripIndent(true)
+    }
+
     def 'reports a failing error prone'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -229,6 +304,144 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         runTasksSuccessfully('compileAllErrorProne')
 
         appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+    }
+
+    def 'demonstrate suppressions on different source elements'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public final String field = new int[3].toString();
+
+                public App() {
+                    System.out.println(new int[3].toString());
+                }
+                
+                public void method() {
+                    System.out.println(new int[3].toString());
+                }
+
+                public void variables() {
+                    String variable = new int[3].toString();
+                    System.out.println(variable);
+                }
+                
+                public static class SomeClass {
+                    static {
+                        System.out.println(new int[3].toString());
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        runTasksSuccessfully('compileAllErrorProne')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public final String field = new int[3].toString();
+                
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public App() {
+                    System.out.println(new int[3].toString());
+                }
+                
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public void method() {
+                    System.out.println(new int[3].toString());
+                }
+
+                public void variables() {
+                    @SuppressWarnings("for-rollout:ArrayToString")
+                    String variable = new int[3].toString();
+                    System.out.println(variable);
+                }
+                
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static class SomeClass {
+                    static {
+                        System.out.println(new int[3].toString());
+                    }
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'supports errorprone checks that match on a larger element than they report errors on'() {
+        // The UnusedVariable check implements CompilationUnitTreeMatcher, so will start with a whole
+        // CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
+        // This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
+        // than where the diagnostic description was produced.
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public void variables() {
+                    String variable;
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        runTasksSuccessfully('compileAllErrorProne')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public void variables() {
+                    @SuppressWarnings("for-rollout:UnusedVariable")
+                    String variable;
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'supports suppressing errorprone checks on classes, interfaces, records, enums, etc'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                static class exports {}
+                interface opens {}
+                record provides(int cat) {}
+                enum to {;}
+                @interface module {}
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        runTasksSuccessfully('compileAllErrorProne')
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                static class exports {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                interface opens {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                record provides(int cat) {}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                enum to {;}
+                @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
+                @interface module {}
+            }
+        '''.stripIndent(true)
     }
 
     def 'can disable errorprone using property'() {
@@ -516,5 +729,41 @@ class GradleInteractionsTest extends AbstractSuppressibleErrorPronePluginIntegra
         then: 'timings are outputted'
         new File(projectDir, 'build/errorprone-timings/compileJava').exists()
         new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+    }
+
+    @Override
+    ExecutionResult runTasksSuccessfully(String... tasks) {
+        def result = runTasks(tasks)
+        println result.standardError
+        println result.standardOutput
+        result.rethrowFailure()
+    }
+
+    @Override
+    ExecutionResult runTasks(String... tasks) {
+        def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
+        String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
+        return super.runTasks(strings)
+    }
+
+
+    void writeJavaSourceFileToSourceSets(String source) {
+        super.writeJavaSourceFile(source, 'src/main/java', sourceSetRoot)
+        super.writeJavaSourceFile(source, 'src/other/java', sourceSetRoot)
+    }
+
+    void appJavaTextContains(String substring) {
+        assert file('app/App.java', mainSourceSet).text.contains(substring)
+        assert file('app/App.java', otherSourceSet).text.contains(substring)
+    }
+
+    void appJavaTextNotContains(String substring) {
+        assert !file('app/App.java', mainSourceSet).text.contains(substring)
+        assert !file('app/App.java', otherSourceSet).text.contains(substring)
+    }
+
+    void appJavaTextEquals(String substring) {
+        assert file('app/App.java', mainSourceSet).text == substring
+        assert file('app/App.java', otherSourceSet).text == substring
     }
 }
