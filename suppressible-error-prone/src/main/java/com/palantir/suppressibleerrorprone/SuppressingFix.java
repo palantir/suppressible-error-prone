@@ -17,6 +17,7 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.Replacement;
@@ -58,8 +59,8 @@ final class SuppressingFix implements Fix {
 
     @Override
     public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-        return ImmutableSet.of(new SuppressingReplacement(
-                () -> fix().getReplacements(endPositions).iterator().next()));
+        return ImmutableSet.of(
+                new SuppressingReplacement(() -> Iterables.getOnlyElement(fix().getReplacements(endPositions))));
     }
 
     private Fix fix() {
