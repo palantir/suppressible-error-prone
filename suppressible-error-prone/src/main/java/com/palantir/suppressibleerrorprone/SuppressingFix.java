@@ -189,6 +189,9 @@ final class SuppressingFix implements Fix {
         // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
         // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
         // at the same level.
+        // We *cannot* make this a memoized supplier. The first thing error-prone does with the Fix is to evaluate it
+        // to produce a nice error message, and we don't want to fix the number of suppression we make until we're
+        // ready to produce the Replacement after *all* the error-prone checks have been run.
         private final Supplier<Replacement> replacement;
 
         SuppressingReplacement(Supplier<Replacement> replacement) {
