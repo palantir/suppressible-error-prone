@@ -32,7 +32,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -44,7 +44,7 @@ final class SuppressingFix implements Fix {
     private final Optional<CharSequence> sourceCode;
     private final Optional<? extends AnnotationTree> suppressWarnings;
     private final Tree tree;
-    private final Set<String> errors = new LinkedHashSet<>();
+    private final Set<String> errors = new HashSet<>();
 
     SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
         this.sourceCode = sourceCode;
