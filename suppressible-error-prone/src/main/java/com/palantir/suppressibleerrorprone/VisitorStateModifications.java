@@ -75,7 +75,7 @@ public final class VisitorStateModifications {
 
         Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
 
-        ModifiersTree modifiersTree = isModifiersTree(firstSuppressibleParent).get();
+        ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
 
         Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
                 .filter(annotation -> {
@@ -113,10 +113,10 @@ public final class VisitorStateModifications {
     }
 
     private static boolean suppressibleTree(Tree tree) {
-        return isModifiersTree(tree).isPresent();
+        return modifiersTree(tree).isPresent();
     }
 
-    private static Optional<ModifiersTree> isModifiersTree(Tree tree) {
+    private static Optional<ModifiersTree> modifiersTree(Tree tree) {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
         if (tree instanceof ClassTree) {
