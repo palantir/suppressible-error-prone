@@ -27,8 +27,8 @@ import java.util.stream.Stream
 
 class CodeChangesTest extends AbstractSuppressibleErrorPronePluginIntegrationTest {
     // Change this to be the filename of the test (copy from the file viewer) to run a single test
-    // static String testOverride = 'AugmentExistingSuppresionsList.java'
-    static String testOverride = ''
+     static String testOverride = 'AugmentExistingSuppresionsList.java'
+//    static String testOverride = ''
 
     @Unroll
     def '#testFile'() {

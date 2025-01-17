@@ -36,7 +36,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,31 +69,19 @@ final class SuppressingFix implements Fix {
     }
 
     private SuggestedFix fixWithExistingSuppressWarnings(AnnotationTree suppressWarningsAnnotation) {
-        Set<String> existingValues =
-                annotationStringValues(suppressWarningsAnnotation).collect(Collectors.toSet());
+        List<String> existingSuppressions =
+                annotationStringValues(suppressWarningsAnnotation).collect(Collectors.toList());
 
-        Set<String> toAdd = errors.stream()
-                .filter(Predicate.not(error -> existingValues.contains(error)
-                        || existingValues.contains(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + error)))
-                .collect(Collectors.toSet());
+        List<String> warningsToSuppress = SuppressWarningsUtils.modifySuppressions(existingSuppressions, errors);
 
-        List<String> warningsToSuppress = Stream.concat(
-                        existingValues.stream(),
-                        toAdd.stream().sorted().map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning))
-                .collect(Collectors.toList());
-
-        String suppressWarningsString = suppressWarningsString(warningsToSuppress);
+        String suppressWarningsString = SuppressWarningsUtils.suppressWarningsString(warningsToSuppress);
 
         return SuggestedFix.replace(suppressWarningsAnnotation, suppressWarningsString);
     }
 
     private SuggestedFix fixWithoutExistingSuppressWarnings() {
-        List<String> warningsToSuppress = errors.stream()
-                .sorted()
-                .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning)
-                .collect(Collectors.toList());
-
-        String suppressWarningsString = suppressWarningsString(warningsToSuppress);
+        String suppressWarningsString = SuppressWarningsUtils.suppressWarningsString(
+                SuppressWarningsUtils.modifySuppressions(List.of(), errors));
 
         return SuggestedFix.prefixWith(tree, suppressWarningsString + "\n" + indentForTree());
     }
@@ -139,15 +126,6 @@ final class SuppressingFix implements Fix {
         return sourceCode.subSequence(pos + 1, sourceElementPosition);
     }
 
-    private static String suppressWarningsString(List<String> warningsToSuppress) {
-        String suppressWarningsString = '"' + String.join("\", \"", warningsToSuppress) + '"';
-
-        if (warningsToSuppress.size() > 1) {
-            suppressWarningsString = "{" + suppressWarningsString + "}";
-        }
-        return "@SuppressWarnings(" + suppressWarningsString + ")";
-    }
-
     private CharSequence indentForTree() {
         return sourceCode
                 .map(actualSourceCode ->
@@ -157,12 +135,12 @@ final class SuppressingFix implements Fix {
 
     @Override
     public String toString(JCCompilationUnit compilationUnit) {
-        return fix().toString(compilationUnit);
+        return "SuppressingFix";
     }
 
     @Override
     public String getShortDescription() {
-        return fix().getShortDescription();
+        return "Adding automatic suppressions";
     }
 
     @Override
