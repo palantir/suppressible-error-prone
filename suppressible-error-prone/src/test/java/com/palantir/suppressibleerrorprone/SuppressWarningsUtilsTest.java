@@ -69,6 +69,13 @@ class SuppressWarningsUtilsTest {
             assertThat(SuppressWarningsUtils.modifySuppressions(List.of("A", "for-rollout:A"), Set.of("ArrayToString")))
                     .containsExactly("A", "for-rollout:ArrayToString");
         }
+
+        @Test
+        void puts_human_authored_suppression_that_has_been_placed_after_automated_suppression_back_in_order() {
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            List.of("for-rollout:Something", "HumanAuthored"), Set.of("ArrayToString")))
+                    .containsExactly("HumanAuthored", "for-rollout:ArrayToString", "for-rollout:Something");
+        }
     }
 
     @Nested
