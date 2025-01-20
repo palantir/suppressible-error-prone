@@ -93,8 +93,7 @@ This plugin adds a marker task you can handily use that will run all the compile
 To actually suppress all the current failures, you need to run compilation twice:
 
 ```
-./gradlew compileAllErrorProne -PerrorProneSuppressStage1
-./gradlew compileAllErrorProne -PerrorProneSuppressStage2
+./gradlew compileAllErrorProne -PerrorProneSuppress
 ```
 
 If rolling out automatically to lots of repos, we'd recommend running the fixes first before suppressing:
@@ -141,51 +140,6 @@ dependencies {
 
 suppressibleErrorProne {
     patchChecks.add('SomeCheck')
-}
-```
-
-## Technical Details
-
-We achieve automatic suppression using a two stage process:
-
-1. Intercepting all the errors that errorprone produces, adding an `@RepeatableSuppressWarnings` annotation to the closest parent language element to erroring element that accepts `@SuppressWarnings`.
-2. The second stage comes and coalesces all the `@RepeatableSuppressWarnings` together with any existing `@SuppressWarnings` to produce a final `@SuppressWarnings` (this process happens via a regular old errorprone check).
-
-For example:
-
-```java
-class Example {
-    @SuppressWarnings("ArrayToString")
-    void example() {
-        // Fails CollectionStreamForEach
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
-Would have the `@RepeatableSuppressWarnings` annotation added after stage 1:
-
-```java
-class Example {
-    @RepeatableSuppressWarnings("CollectionStreamForEach")
-    @SuppressWarnings("ArrayToString")
-    void example() {
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
-Then stage 2 will coalesce the suppress warnings annotations into a single regular `@SuppressWarnings`. Note we prefix the automatically suppressed error with `for-rollout:` so it's easy to tell which suppressions happened because humans did it vs automation.
-
-```java
-class Example {
-    @SuppressWarnings({"ArrayToString", "for-rollout:CollectionStreamForEach"})
-    void example() {
-        List.of(1).stream().forEach(...)
-        // ...
-    }
 }
 ```
 

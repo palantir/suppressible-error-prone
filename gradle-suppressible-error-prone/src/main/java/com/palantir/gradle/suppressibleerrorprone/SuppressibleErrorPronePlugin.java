@@ -37,8 +37,7 @@ import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.process.CommandLineArgumentProvider;
 
 public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
-    private static final String SUPPRESS_STAGE_ONE = "errorProneSuppressStage1";
-    private static final String SUPPRESS_STAGE_TWO = "errorProneSuppressStage2";
+    private static final String SUPPRESS_STAGE = "errorProneSuppress";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
     private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
@@ -92,8 +91,6 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             });
         });
 
-        addAnnotationDependencyForSuppressingStage2(project, version);
-
         if (isAnyKindOfPatching(project)) {
             project.afterEvaluate(_ignored -> {
                 // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
@@ -132,7 +129,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .attribute(suppressible, false);
 
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
-            spec.getParameters().getSuppressionStage1().set(isSuppressingStageOne(project));
+            spec.getParameters().getSuppressing().set(isSuppressing(project));
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);
             spec.getFrom().attribute(suppressible, false).attribute(artifactType, "jar");
@@ -204,22 +201,12 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
-        if (isSuppressingStageOne(project)) {
+        if (isSuppressing(project)) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
                     // "-XepPatchChecks:" patches *all* the checks that are enabled
                     return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:");
-                }
-            });
-            return;
-        }
-
-        if (isSuppressingStageTwo(project)) {
-            errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
-                @Override
-                public Iterable<String> asArguments() {
-                    return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:SuppressWarningsCoalesce");
                 }
             });
             return;
@@ -266,22 +253,6 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private static void addAnnotationDependencyForSuppressingStage2(Project project, String version) {
-        // We don't want to add the annotations every time as otherwise people would be able to see it IntelliJ
-        // and might use it. Better to just hide it forever.
-        if (isSuppressingStageTwo(project)) {
-            // Just before stage two of suppression starts compilation, we now have @RepeateableSuppressWarnings in
-            // the code, so we need to include the jar that has this type to each source set.
-            project.getExtensions().getByType(SourceSetContainer.class).configureEach(sourceSet -> {
-                project.getDependencies()
-                        .add(
-                                sourceSet.getCompileOnlyConfigurationName(),
-                                "com.palantir.suppressible-error-prone:suppressible-error-prone-annotations:"
-                                        + version);
-            });
-        }
-    }
-
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {
         return ((ExtensionAware) javaCompile.getOptions()).getExtensions().getByType(ErrorProneOptions.class);
     }
@@ -291,19 +262,15 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static boolean isAnyKindOfPatching(Project project) {
-        return isApplyingSuggestedPatches(project) || isSuppressingStageOne(project) || isSuppressingStageTwo(project);
+        return isApplyingSuggestedPatches(project) || isSuppressing(project);
     }
 
     private static boolean isApplyingSuggestedPatches(Project project) {
         return project.hasProperty(ERROR_PRONE_APPLY);
     }
 
-    private static boolean isSuppressingStageOne(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.SUPPRESS_STAGE_ONE);
-    }
-
-    private static boolean isSuppressingStageTwo(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.SUPPRESS_STAGE_TWO);
+    private static boolean isSuppressing(Project project) {
+        return project.hasProperty(SuppressibleErrorPronePlugin.SUPPRESS_STAGE);
     }
 
     static String excludedPathsRegex() {

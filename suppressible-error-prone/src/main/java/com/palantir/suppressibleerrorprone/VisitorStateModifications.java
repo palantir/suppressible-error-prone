@@ -17,25 +17,39 @@
 package com.palantir.suppressibleerrorprone;
 
 // CHECKSTYLE:OFF
+
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import java.util.Map;
 import java.util.Optional;
+import java.util.WeakHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
+import javax.lang.model.element.Name;
 // CHECKSTYLE:ON
 
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
+    // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
+    // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
+    // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
+    // garbage collected.
+    private static final Map<Tree, SuppressingFix> FIXES = new WeakHashMap<>();
+
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         if (description == Description.NO_MATCH) {
-            return Description.NO_MATCH;
+            return description;
         }
 
         // We can't just use visitorState.getPath() because there are checks that do not emit Descriptions
@@ -47,7 +61,7 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleKind(path.getLeaf().getKind()))
+                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
                 .findFirst();
 
         // If we can't find a suppressible parent, we can't add a suppression, so just give up.
@@ -63,60 +77,76 @@ public final class VisitorStateModifications {
 
         Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
 
-        // Guess the indent if we can't find it for some reason. Formatter will fix.
-        CharSequence indent =
-                indentForTree(visitorState, firstSuppressibleParent).orElse("    ");
+        ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
+
+        Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
+                .filter(annotation -> {
+                    Name annotationName = annotationName(annotation.getAnnotationType());
+                    return annotationName.contentEquals("SuppressWarnings");
+                })
+                .findFirst();
+
+        // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
+        // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
+        // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
+        // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
+        // the error-prone checks it will then produce a replacement with all the checks suppressed.
+        boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
+
+        SuppressingFix suppressingFix = FIXES.computeIfAbsent(
+                firstSuppressibleParent,
+                _ignored -> new SuppressingFix(
+                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+
+        suppressingFix.suppressError(description.checkName);
+
+        // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
+        if (alreadyReportedFix) {
+            return Description.NO_MATCH;
+        }
 
         return Description.builder(
                         description.position,
                         description.checkName,
                         description.getLink(),
                         description.getMessageWithoutCheckName())
-                .addFix(SuggestedFix.builder()
-                        .prefixWith(
-                                firstSuppressibleParent,
-                                "@com.palantir.suppressibleerrorprone.RepeatableSuppressWarnings(\""
-                                        + CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName
-                                        + "\")\n"
-                                        + indent)
-                        .build())
+                .addFix(suppressingFix)
                 .build();
     }
 
-    private static Optional<CharSequence> indentForTree(VisitorState visitorState, Tree firstSuppressibleParent) {
-        return Optional.ofNullable(visitorState.getSourceCode())
-                .map(sourceCode -> whitespaceIndentBefore(
-                        sourceCode, ((DiagnosticPosition) firstSuppressibleParent).getStartPosition()));
+    private static boolean suppressibleTree(Tree tree) {
+        return modifiersTree(tree).isPresent();
     }
 
-    static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
-        int pos = sourceElementPosition - 1;
-
-        for (; pos >= 0; pos--) {
-            char character = sourceCode.charAt(pos);
-            if (character == '\n' || !Character.isWhitespace(character)) {
-                break;
-            }
-        }
-
-        return sourceCode.subSequence(pos + 1, sourceElementPosition);
-    }
-
-    private static boolean suppressibleKind(Tree.Kind kind) {
+    private static Optional<ModifiersTree> modifiersTree(Tree tree) {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
-        if (kind.asInterface().equals(ClassTree.class)) {
-            return true;
+        if (tree instanceof ClassTree) {
+            return Optional.of(((ClassTree) tree).getModifiers());
         }
 
-        // VARIABLE includes fields
-        switch (kind) {
-            case METHOD:
-            case VARIABLE:
-                return true;
-            default:
-                return false;
+        if (tree instanceof MethodTree) {
+            return Optional.of(((MethodTree) tree).getModifiers());
         }
+
+        if (tree instanceof VariableTree) {
+            return Optional.of(((VariableTree) tree).getModifiers());
+        }
+
+        return Optional.empty();
+    }
+
+    private static Name annotationName(Tree annotationType) {
+        if (annotationType instanceof IdentifierTree) {
+            return ((IdentifierTree) annotationType).getName();
+        }
+
+        if (annotationType instanceof MemberSelectTree) {
+            return ((MemberSelectTree) annotationType).getIdentifier();
+        }
+
+        throw new UnsupportedOperationException(
+                "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
     }
 
     private VisitorStateModifications() {}

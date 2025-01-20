@@ -1,9 +1,0 @@
-apply plugin: 'java-library'
-apply plugin: 'com.palantir.external-publish-jar'
-
-// Unfortunately, a few internal products are still compiling with Java 11. Remove this entirely once this is no
-// longer the case.
-javaVersion {
-    target = 11
-    runtime = 17
-}

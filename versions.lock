@@ -35,6 +35,7 @@ com.palantir.gradle.plugintesting:plugin-testing-core:0.2.0 (1 constraints: 0405
 commons-io:commons-io:2.18.0 (1 constraints: 3d05473b)
 junit:junit:4.13.2 (4 constraints: 873fce86)
 net.bytebuddy:byte-buddy:1.14.18 (1 constraints: 850bccea)
+one.util:streamex:0.8.3 (1 constraints: 0d050636)
 org.apiguardian:apiguardian-api:1.1.2 (5 constraints: 105480ac)
 org.assertj:assertj-core:3.26.3 (1 constraints: 40054e3b)
 org.codehaus.groovy:groovy:3.0.12 (2 constraints: 781b1f9d)
