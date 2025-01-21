@@ -301,9 +301,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        runTasksSuccessfully('compileAllErrorProne')
-
         appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+
+
+        runTasksSuccessfully('compileAllErrorProne')
     }
 
     def 'demonstrate suppressions on different source elements'() {
@@ -338,8 +339,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        runTasksSuccessfully('compileAllErrorProne')
-
         // language=Java
         appJavaTextEquals '''
             package app;
@@ -371,6 +370,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 }
             }
         '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
     }
 
     def 'supports errorprone checks that match on a larger element than they report errors on'() {
@@ -393,8 +394,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        runTasksSuccessfully('compileAllErrorProne')
-
         // language=Java
         appJavaTextEquals '''
             package app;
@@ -405,6 +404,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 }
             }
         '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
     }
 
     def 'supports suppressing errorprone checks on classes, interfaces, records, enums, etc'() {
@@ -424,8 +425,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        runTasksSuccessfully('compileAllErrorProne')
-
         // language=Java
         appJavaTextEquals '''
             package app;
@@ -442,6 +441,45 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 @interface module {}
             }
         '''.stripIndent(true)
+
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'does not place suppress warnings annotation in the middle of a Type.Builder variables reference'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    App.Builder builder = new App.Builder(new int[3].toString());
+                }
+                static class Builder {
+                    Builder(Object object) {}
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    @SuppressWarnings("for-rollout:ArrayToString")
+                    App.Builder builder = new App.Builder(new int[3].toString());
+                }
+                static class Builder {
+                    Builder(Object object) {}
+                }
+            }
+        '''.stripIndent(true)
+
+
+        runTasksSuccessfully('compileAllErrorProne')
     }
 
     def 'can disable errorprone using property'() {
