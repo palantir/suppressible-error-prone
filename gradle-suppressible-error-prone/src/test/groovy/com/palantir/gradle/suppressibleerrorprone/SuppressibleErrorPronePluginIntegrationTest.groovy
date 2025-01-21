@@ -451,6 +451,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
+                @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     App.Builder builder = new App.Builder(new int[3].toString());
                 }
@@ -468,6 +469,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         appJavaTextEquals '''
             package app;
             public final class App {
+                @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     @SuppressWarnings("for-rollout:ArrayToString")
                     App.Builder builder = new App.Builder(new int[3].toString());
