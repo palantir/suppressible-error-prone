@@ -17,120 +17,43 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Range;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.Replacement;
 import com.google.errorprone.fixes.Replacements.CoalescePolicy;
-import com.google.errorprone.fixes.SuggestedFix;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.AssignmentTree;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.function.Function;
 
 final class SuppressingFix implements Fix {
-    private final Optional<CharSequence> sourceCode;
-    private final Optional<? extends AnnotationTree> suppressWarnings;
-    private final Tree tree;
-    private final Set<String> errors = new HashSet<>();
+    private final Set<String> newSuppressions = new HashSet<>();
+    private final Function<EndPosTable, ImmutableSet<Replacement>> replacement;
 
     SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
-        this.sourceCode = sourceCode;
-        this.suppressWarnings = suppressWarnings;
-        this.tree = tree;
+        // See note in SuppressingReplacement about when we have to calculate stuff
+        // We *cannot* simply make this a memoized supplier. The first thing error-prone does with the Fix is to
+        // evaluate it to produce a nice error message, and we don't want to fix the number of suppression we make
+        // until we're ready to produce the Replacement after *all* the error-prone checks have been run.
+        // In order for SuppressingReplacement to calculate source code positions elements when it's constructed, it
+        // needs an EndPosTable. However, we don't get the EndPosTable until getReplacements is called. So we have
+        // to use this FirstTimeMemoizingFunction thing, that will allow use to defer creating the Replacement until
+        // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
+        // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
+        this.replacement = new FirstTimeMemoizingFunction<>((EndPosTable endPositions) -> ImmutableSet.of(
+                new SuppressingReplacement(endPositions, newSuppressions, sourceCode, suppressWarnings, tree)));
     }
 
-    public void suppressError(String error) {
-        errors.add(error);
+    public void addSuppression(String suppression) {
+        newSuppressions.add(suppression);
     }
 
     @Override
     public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-        return ImmutableSet.of(
-                new SuppressingReplacement(() -> Iterables.getOnlyElement(fix().getReplacements(endPositions))));
-    }
-
-    private Fix fix() {
-        return suppressWarnings
-                .map(this::fixWithExistingSuppressWarnings)
-                .orElseGet(this::fixWithoutExistingSuppressWarnings);
-    }
-
-    private SuggestedFix fixWithExistingSuppressWarnings(AnnotationTree suppressWarningsAnnotation) {
-        List<String> existingSuppressions =
-                annotationStringValues(suppressWarningsAnnotation).collect(Collectors.toList());
-
-        List<String> warningsToSuppress = SuppressWarningsUtils.modifySuppressions(existingSuppressions, errors);
-
-        String suppressWarningsString = SuppressWarningsUtils.suppressWarningsString(warningsToSuppress);
-
-        return SuggestedFix.replace(suppressWarningsAnnotation, suppressWarningsString);
-    }
-
-    private SuggestedFix fixWithoutExistingSuppressWarnings() {
-        String suppressWarningsString = SuppressWarningsUtils.suppressWarningsString(
-                SuppressWarningsUtils.modifySuppressions(List.of(), errors));
-
-        return SuggestedFix.prefixWith(tree, suppressWarningsString + "\n" + indentForTree());
-    }
-
-    private static Stream<String> annotationStringValues(AnnotationTree annotation) {
-        return annotation.getArguments().stream().flatMap(arg -> {
-            if (!(arg instanceof AssignmentTree)) {
-                return Stream.empty();
-            }
-            AssignmentTree assignment = (AssignmentTree) arg;
-
-            ExpressionTree expression = assignment.getExpression();
-
-            if (expression instanceof LiteralTree) {
-                LiteralTree literalTree = (LiteralTree) expression;
-                return Stream.of((String) literalTree.getValue());
-            }
-
-            if (expression instanceof NewArrayTree) {
-                NewArrayTree newArray = (NewArrayTree) expression;
-                return newArray.getInitializers().stream()
-                        .map(LiteralTree.class::cast)
-                        .map(LiteralTree::getValue)
-                        .map(String.class::cast);
-            }
-
-            throw new UnsupportedOperationException("Unsupported assignment expression: "
-                    + expression.getClass().getCanonicalName());
-        });
-    }
-
-    static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
-        int pos = sourceElementPosition - 1;
-
-        for (; pos >= 0; pos--) {
-            char character = sourceCode.charAt(pos);
-            if (character == '\n' || !Character.isWhitespace(character)) {
-                break;
-            }
-        }
-
-        return sourceCode.subSequence(pos + 1, sourceElementPosition);
-    }
-
-    private CharSequence indentForTree() {
-        return sourceCode
-                .map(actualSourceCode ->
-                        whitespaceIndentBefore(actualSourceCode, ((DiagnosticPosition) tree).getStartPosition()))
-                .orElse("    ");
+        return replacement.apply(endPositions);
     }
 
     @Override
@@ -161,30 +84,5 @@ final class SuppressingFix implements Fix {
     @Override
     public boolean isEmpty() {
         return false;
-    }
-
-    private static final class SuppressingReplacement extends Replacement {
-        // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
-        // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
-        // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
-        // at the same level.
-        // We *cannot* make this a memoized supplier. The first thing error-prone does with the Fix is to evaluate it
-        // to produce a nice error message, and we don't want to fix the number of suppression we make until we're
-        // ready to produce the Replacement after *all* the error-prone checks have been run.
-        private final Supplier<Replacement> replacement;
-
-        SuppressingReplacement(Supplier<Replacement> replacement) {
-            this.replacement = replacement;
-        }
-
-        @Override
-        public Range<Integer> range() {
-            return replacement.get().range();
-        }
-
-        @Override
-        public String replaceWith() {
-            return replacement.get().replaceWith();
-        }
     }
 }

@@ -98,7 +98,7 @@ public final class VisitorStateModifications {
                 _ignored -> new SuppressingFix(
                         Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
 
-        suppressingFix.suppressError(description.checkName);
+        suppressingFix.addSuppression(description.checkName);
 
         // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
         if (alreadyReportedFix) {
