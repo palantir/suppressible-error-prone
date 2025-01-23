@@ -19,10 +19,6 @@ package com.palantir.suppressibleerrorprone;
 import com.google.common.collect.Range;
 import com.google.errorprone.fixes.Replacement;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.AssignmentTree;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -54,11 +50,15 @@ final class SuppressingReplacement extends Replacement {
             Tree tree) {
         this.newSuppressions = newSuppressions;
         this.range = calculateRange(endPositions, suppressWarnings, tree);
+
         this.existingSuppressions = suppressWarnings
-                .map(SuppressingReplacement::annotationStringValues)
+                .map(AnnotationUtils::annotationStringValues)
                 .orElseGet(Stream::of)
                 .collect(Collectors.toList());
-        this.suffix = suppressWarnings.map(_ignored -> "").orElseGet(() -> "\n" + indentForTree(sourceCode, tree));
+
+        this.suffix = suppressWarnings
+                .map(_ignored -> "")
+                .orElseGet(() -> "\n" + SourceCodeUtils.indentForTree(sourceCode, tree));
     }
 
     @Override
@@ -86,52 +86,5 @@ final class SuppressingReplacement extends Replacement {
                     int startPosition = ((DiagnosticPosition) tree).getStartPosition();
                     return Range.closedOpen(startPosition, startPosition);
                 });
-    }
-
-    private static CharSequence indentForTree(Optional<CharSequence> sourceCode, Tree tree) {
-        return sourceCode
-                .map(actualSourceCode ->
-                        whitespaceIndentBefore(actualSourceCode, ((DiagnosticPosition) tree).getStartPosition()))
-                .orElse("    ");
-    }
-
-    private static Stream<String> annotationStringValues(AnnotationTree annotation) {
-        return annotation.getArguments().stream().flatMap(arg -> {
-            if (!(arg instanceof AssignmentTree)) {
-                return Stream.empty();
-            }
-            AssignmentTree assignment = (AssignmentTree) arg;
-
-            ExpressionTree expression = assignment.getExpression();
-
-            if (expression instanceof LiteralTree) {
-                LiteralTree literalTree = (LiteralTree) expression;
-                return Stream.of((String) literalTree.getValue());
-            }
-
-            if (expression instanceof NewArrayTree) {
-                NewArrayTree newArray = (NewArrayTree) expression;
-                return newArray.getInitializers().stream()
-                        .map(LiteralTree.class::cast)
-                        .map(LiteralTree::getValue)
-                        .map(String.class::cast);
-            }
-
-            throw new UnsupportedOperationException("Unsupported assignment expression: "
-                    + expression.getClass().getCanonicalName());
-        });
-    }
-
-    private static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
-        int pos = sourceElementPosition - 1;
-
-        for (; pos >= 0; pos--) {
-            char character = sourceCode.charAt(pos);
-            if (character == '\n' || !Character.isWhitespace(character)) {
-                break;
-            }
-        }
-
-        return sourceCode.subSequence(pos + 1, sourceElementPosition);
     }
 }

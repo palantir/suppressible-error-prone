@@ -44,6 +44,6 @@ class WhitespaceIndentBeforeTest {
     }
 
     private CharSequence whitespaceIndentBefore(String testCase) {
-        return SuppressingReplacement.whitespaceIndentBefore(testCase.replace("|", ""), testCase.indexOf('|'));
+        return SourceCodeUtils.whitespaceIndentBefore(testCase.replace("|", ""), testCase.indexOf('|'));
     }
 }
