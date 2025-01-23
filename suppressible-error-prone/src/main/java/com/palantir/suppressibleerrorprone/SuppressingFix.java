@@ -35,6 +35,9 @@ final class SuppressingFix implements Fix {
 
     SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
         // See note in SuppressingReplacement about when we have to calculate stuff
+        // We *cannot* simply make this a memoized supplier. The first thing error-prone does with the Fix is to
+        // evaluate it to produce a nice error message, and we don't want to fix the number of suppression we make
+        // until we're ready to produce the Replacement after *all* the error-prone checks have been run.
         // In order for SuppressingReplacement to calculate source code positions elements when it's constructed, it
         // needs an EndPosTable. However, we don't get the EndPosTable until getReplacements is called. So we have
         // to use this FirstTimeMemoizingFunction thing, that will allow use to defer creating the Replacement until

@@ -34,10 +34,6 @@ final class SuppressingReplacement extends Replacement {
     // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
     // at the same level.
     //
-    // We *cannot* simply make this a memoized supplier. The first thing error-prone does with the Fix is to evaluate it
-    // to produce a nice error message, and we don't want to fix the number of suppression we make until we're
-    // ready to produce the Replacement after *all* the error-prone checks have been run.
-    //
     // There is an additional issue that by the time error-prone comes around to apply the replacements, the compiler
     // seems to change the representation of the tree for another phase - `App.Builder` becomes `App$Builder` etc and
     // the start position for the expression changes to be after `App` rather than at the start of `App`.
