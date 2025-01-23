@@ -40,11 +40,11 @@ final class SuppressingReplacement extends Replacement {
     //
     // There is an additional issue that by the time error-prone comes around to apply the replacements, the compiler
     // seems to change the representation of the tree for another phase - `App.Builder` becomes `App$Builder` etc and
-    // all the source code positions change. If we calculate the replacement range too late, we insert our
-    // @SuppressWarnings at the wrong location, and the indentation is miscalculated. But we can't calculate the
-    // replacement string straight away, as we might not have all the new suppressions added yet. So we have to
-    // immediately calculate the replacement range and indentation, but hold off building the final replacement
-    // string until we have all the new suppressions.
+    // the start position for the expression changes to be after `App` rather than at the start of `App`.
+    // If we calculate the replacement range too late, we insert our @SuppressWarnings at the wrong location, and
+    // the indentation is miscalculated. But we can't calculate the replacement string straight away, as we might not
+    // have all the new suppressions added yet. So we have to immediately calculate the replacement range and
+    // indentation, but hold off building the final replacement string until we have all the new suppressions.
 
     private final Range<Integer> range;
     private final List<String> existingSuppressions;
