@@ -34,6 +34,12 @@ final class SuppressingFix implements Fix {
     private final Function<EndPosTable, ImmutableSet<Replacement>> replacement;
 
     SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+        // See note in SuppressingReplacement about when we have to calculate stuff
+        // In order for SuppressingReplacement to calculate source code positions elements when it's constructed, it
+        // needs an EndPosTable. However, we don't get the EndPosTable until getReplacements is called. So we have
+        // to use this FirstTimeMemoizingFunction thing, that will allow use to defer creating the Replacement until
+        // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
+        // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
         this.replacement = new FirstTimeMemoizingFunction<>((EndPosTable endPositions) -> ImmutableSet.of(
                 new SuppressingReplacement(endPositions, newSuppressions, sourceCode, suppressWarnings, tree)));
     }
