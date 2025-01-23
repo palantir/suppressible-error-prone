@@ -1,0 +1,137 @@
+/*
+ * (c) Copyright 2025 Palantir Technologies Inc. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.palantir.suppressibleerrorprone;
+
+import com.google.common.collect.Range;
+import com.google.errorprone.fixes.Replacement;
+import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.Tree;
+import com.sun.tools.javac.tree.EndPosTable;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+final class SuppressingReplacement extends Replacement {
+    // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
+    // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
+    // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
+    // at the same level.
+    // We *cannot* make this a memoized supplier. The first thing error-prone does with the Fix is to evaluate it
+    // to produce a nice error message, and we don't want to fix the number of suppression we make until we're
+    // ready to produce the Replacement after *all* the error-prone checks have been run.
+
+    private final Range<Integer> range;
+    private final List<String> existingSuppressions;
+    private final String suffix;
+    private final Set<String> newSuppressions;
+
+    SuppressingReplacement(
+            EndPosTable endPositions,
+            Set<String> newSuppressions,
+            Optional<CharSequence> sourceCode,
+            Optional<? extends AnnotationTree> suppressWarnings,
+            Tree tree) {
+        this.newSuppressions = newSuppressions;
+        this.range = calculateRange(endPositions, suppressWarnings, tree);
+        this.existingSuppressions = suppressWarnings
+                .map(SuppressingReplacement::annotationStringValues)
+                .orElseGet(Stream::of)
+                .collect(Collectors.toList());
+        this.suffix = suppressWarnings.map(_ignored -> "").orElseGet(() -> "\n" + indentForTree(sourceCode, tree));
+    }
+
+    @Override
+    public Range<Integer> range() {
+        return range;
+    }
+
+    @Override
+    public String replaceWith() {
+        return SuppressWarningsUtils.suppressWarningsString(
+                        SuppressWarningsUtils.modifySuppressions(existingSuppressions, newSuppressions))
+                + suffix;
+    }
+
+    private static Range<Integer> calculateRange(
+            EndPosTable endPositions, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+        return suppressWarnings
+                .map(annotationTree -> {
+                    // @SuppressWarnings already exists, we need to replace the whole expression with our own
+                    DiagnosticPosition position = (DiagnosticPosition) annotationTree;
+                    return Range.closedOpen(position.getStartPosition(), position.getEndPosition(endPositions));
+                })
+                .orElseGet(() -> {
+                    // No @SuppressWarnings, we want to prefix a new one before the start of the tree
+                    int startPosition = ((DiagnosticPosition) tree).getStartPosition();
+                    return Range.closedOpen(startPosition, startPosition);
+                });
+    }
+
+    private static CharSequence indentForTree(Optional<CharSequence> sourceCode, Tree tree) {
+        return sourceCode
+                .map(actualSourceCode ->
+                        whitespaceIndentBefore(actualSourceCode, ((DiagnosticPosition) tree).getStartPosition()))
+                .orElse("    ");
+    }
+
+    private static Stream<String> annotationStringValues(AnnotationTree annotation) {
+        return annotation.getArguments().stream().flatMap(arg -> {
+            if (!(arg instanceof AssignmentTree)) {
+                return Stream.empty();
+            }
+            AssignmentTree assignment = (AssignmentTree) arg;
+
+            ExpressionTree expression = assignment.getExpression();
+
+            if (expression instanceof LiteralTree) {
+                LiteralTree literalTree = (LiteralTree) expression;
+                return Stream.of((String) literalTree.getValue());
+            }
+
+            if (expression instanceof NewArrayTree) {
+                NewArrayTree newArray = (NewArrayTree) expression;
+                return newArray.getInitializers().stream()
+                        .map(LiteralTree.class::cast)
+                        .map(LiteralTree::getValue)
+                        .map(String.class::cast);
+            }
+
+            throw new UnsupportedOperationException("Unsupported assignment expression: "
+                    + expression.getClass().getCanonicalName());
+        });
+    }
+
+    private static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
+        int pos = sourceElementPosition - 1;
+
+        for (; pos >= 0; pos--) {
+            char character = sourceCode.charAt(pos);
+            if (character == '\n' || !Character.isWhitespace(character)) {
+                break;
+            }
+        }
+
+        return sourceCode.subSequence(pos + 1, sourceElementPosition);
+    }
+}
