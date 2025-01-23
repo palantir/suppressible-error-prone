@@ -26,21 +26,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 final class SuppressingReplacement extends Replacement {
     // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
     // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
     // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
     // at the same level.
-    //
-    // There is an additional issue that by the time error-prone comes around to apply the replacements, the compiler
-    // seems to change the representation of the tree for another phase - `App.Builder` becomes `App$Builder` etc and
-    // the start position for the expression changes to be after `App` rather than at the start of `App`.
-    // If we calculate the replacement range too late, we insert our @SuppressWarnings at the wrong location, and
-    // the indentation is miscalculated. But we can't calculate the replacement string straight away, as we might not
-    // have all the new suppressions added yet. So we have to immediately calculate the replacement range and
-    // indentation, but hold off building the final replacement string until we have all the new suppressions.
 
     private final Range<Integer> range;
     private final List<String> existingSuppressions;
@@ -53,19 +44,29 @@ final class SuppressingReplacement extends Replacement {
             Optional<CharSequence> sourceCode,
             Optional<? extends AnnotationTree> suppressWarnings,
             Tree tree) {
+        // Note this is a *mutable* set from SuppressingFix, we need to able to add a new suppression before this
+        // instance is instantiated
         this.newSuppressions = newSuppressions;
-        this.range = calculateRange(endPositions, suppressWarnings, tree);
 
-        this.existingSuppressions = suppressWarnings
-                .map(AnnotationUtils::annotationStringValues)
-                .orElseGet(Stream::of)
-                .collect(Collectors.toList());
+        // There is an additional issue that by the time error-prone comes around to apply the replacements, the
+        // compiler seems to change the representation of the tree for another phase - `App.Builder` becomes
+        // `App$Builder` etc and the start position for the expression changes to be after `App` rather than at the
+        // start of `App`. If we calculate the replacement range too late, we insert our @SuppressWarnings at the
+        // wrong location, and the indentation is miscalculated. But we can't calculate the replacement string
+        // straight away, as we might not have all the new suppressions added yet. So we have to immediately
+        // calculate the replacement range and indentation/suffix, but hold off building the final replacement
+        // string until we have all the new suppressions.
+        this.range = calculateRange(endPositions, suppressWarnings, tree);
 
         this.suffix = suppressWarnings
                 // If we're replacing an existing @SuppressWarnings, there's no need to add an indent
                 .map(_ignored -> "")
                 // If we're adding a new @SuppressWarnings, we need to indent the next line correctly
                 .orElseGet(() -> "\n" + SourceCodeUtils.indentForTree(sourceCode, tree));
+
+        this.existingSuppressions = suppressWarnings.stream()
+                .flatMap(AnnotationUtils::annotationStringValues)
+                .collect(Collectors.toList());
     }
 
     @Override
