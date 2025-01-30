@@ -61,9 +61,10 @@ public final class VisitorStateModifications {
         Set<String> patchChecks =
                 visitorState.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:PreferPatchChecks");
 
-        boolean shouldPreferPatching = patchChecks.contains(description.checkName);
+        boolean shouldPreferDefaultSuggestedFixesForThisCheck = patchChecks.contains(description.checkName);
+        boolean checkHasSuggestedFixes = !description.fixes.isEmpty();
 
-        if (shouldPreferPatching && !description.fixes.isEmpty()) {
+        if (shouldPreferDefaultSuggestedFixesForThisCheck && checkHasSuggestedFixes) {
             return description;
         }
 

@@ -90,24 +90,30 @@ This plugin adds a marker task you can handily use that will run all the compile
 ./gradlew compileAllErrorProne
 ```
 
-To actually suppress all the current failures, you need to run compilation twice:
+To actually suppress all the current failure run:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneSuppress
 ```
 
-If rolling out automatically to lots of repos, we'd recommend running the fixes first before suppressing:
+To apply suggested fixes to all the checks you have opted into via `patchChecks`:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneApply
 ```
 
-You can also run fixes for individual checks:
+You can also apply suggested fixes for individual checks:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneApply=Check
 ./gradlew compileAllErrorProne -PerrorProneApply=Check,OtherCheck
 ```
+
+Both applying suggested fixes and suppressing errors can be done in one go:
+
+```
+./gradlew compileAllErrorProne -PerrorProneSuppress -PerrorProneApply
+``` 
 
 Errorprone can be disabled by using the `-PerrorProneDisable` property.
 
