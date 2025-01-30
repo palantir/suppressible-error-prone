@@ -31,6 +31,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -49,6 +50,21 @@ public final class VisitorStateModifications {
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         if (description == Description.NO_MATCH) {
+            return description;
+        }
+
+        // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
+        // "patchChecks" in the extension we need to use their suggested fixes instead of suppressing, so we can do
+        // both in one pass as if you'd run -PerrorProneApply and -PerrorProneSuppress separately. We pass the checks
+        // we prefer patching in this flag, as we still need errorprone to allow patching every check, so we can add
+        // our suppressions.
+        Set<String> patchChecks =
+                visitorState.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:PreferPatchChecks");
+
+        boolean shouldPreferDefaultSuggestedFixesForThisCheck = patchChecks.contains(description.checkName);
+        boolean checkHasSuggestedFixes = !description.fixes.isEmpty();
+
+        if (shouldPreferDefaultSuggestedFixesForThisCheck && checkHasSuggestedFixes) {
             return description;
         }
 
