@@ -37,7 +37,7 @@ import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.process.CommandLineArgumentProvider;
 
 public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
-    private static final String SUPPRESS_STAGE = "errorProneSuppress";
+    private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
     private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
@@ -291,7 +291,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static boolean isSuppressing(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.SUPPRESS_STAGE);
+        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_SUPPRESS);
     }
 
     static String excludedPathsRegex() {
