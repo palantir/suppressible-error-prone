@@ -205,10 +205,30 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
-                    // "-XepPatchChecks:" patches *all* the checks that are enabled
+                    // "-XepPatchChecks:" patches *all* the checks that are enabled, allowing us to suppress any check
                     return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:");
                 }
             });
+
+            if (isApplyingSuggestedPatches(project)) {
+                // If we're applying suggested patches at the same time as suppressing, we still need to tell
+                // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.
+                // However, inside our changes to errorprone, we need to get the list of checks that we're going
+                // to use the default suggested fixes for, so we can work out which ones to use the suggested
+                // fixes for and which to suppress. So we add the PreferPatchChecks argument here, which we can
+                // use inside error-prone/the compiler.
+                errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
+                    @Override
+                    public Iterable<String> asArguments() {
+                        List<String> patchChecks =
+                                checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
+
+                        return List.of(
+                                "-XepOpt:SuppressibleErrorProne:PreferPatchChecks=" + String.join(",", patchChecks));
+                    }
+                });
+            }
+
             return;
         }
 
@@ -216,29 +236,8 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
-                    String possibleSpecificPatchChecks = (String) project.property(ERROR_PRONE_APPLY);
-
-                    boolean hasSpecificPatchChecks =
-                            possibleSpecificPatchChecks != null && !possibleSpecificPatchChecks.isBlank();
-
-                    if (hasSpecificPatchChecks) {
-                        List<String> specificPatchChecks = Arrays.stream(possibleSpecificPatchChecks.split(","))
-                                .map(String::trim)
-                                .filter(Predicate.not(String::isEmpty))
-                                .toList();
-
-                        return List.of(
-                                "-XepPatchLocation:IN_PLACE",
-                                "-XepPatchChecks:" + String.join(",", specificPatchChecks));
-                    }
-
-                    List<String> patchChecks = extension.patchChecksForCompilation(javaCompile).stream()
-                            // Do not patch checks that have been explicitly disabled
-                            .filter(check ->
-                                    errorProneOptions.getChecks().getting(check).getOrNull() != CheckSeverity.OFF)
-                            // Sorted so that we maintain arg ordering and continue to get cache hits
-                            .sorted()
-                            .collect(Collectors.toList());
+                    List<String> patchChecks =
+                            checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
 
                     // If there are no checks to patch, we don't patch anything and just do a regular compile.
                     // The behaviour of "-XepPatchChecks:" is to patch *all* checks that are enabled, so we can't
@@ -251,6 +250,28 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 }
             });
         }
+    }
+
+    private static List<String> checksToApplySuggestedPatchesFor(
+            SuppressibleErrorProneExtension extension, JavaCompile javaCompile, ErrorProneOptions errorProneOptions) {
+
+        String possibleSpecificPatchChecks = (String) javaCompile.getProject().property(ERROR_PRONE_APPLY);
+
+        boolean hasSpecificPatchChecks = possibleSpecificPatchChecks != null && !possibleSpecificPatchChecks.isBlank();
+
+        if (hasSpecificPatchChecks) {
+            return Arrays.stream(possibleSpecificPatchChecks.split(","))
+                    .map(String::trim)
+                    .filter(Predicate.not(String::isEmpty))
+                    .toList();
+        }
+
+        return extension.patchChecksForCompilation(javaCompile).stream()
+                // Do not patch checks that have been explicitly disabled
+                .filter(check -> errorProneOptions.getChecks().getting(check).getOrNull() != CheckSeverity.OFF)
+                // Sorted so that we maintain arg ordering and continue to get cache hits
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {

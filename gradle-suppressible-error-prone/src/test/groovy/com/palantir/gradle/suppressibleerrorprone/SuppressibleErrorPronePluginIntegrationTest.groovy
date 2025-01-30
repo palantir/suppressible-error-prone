@@ -484,6 +484,46 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         runTasksSuccessfully('compileAllErrorProne')
     }
 
+    def 'can run apply and suppress at the same time - it uses the suggested fix if a patch check, suppresses otherwise'() {
+        // language=Gradle
+        buildFile << '''
+            suppressibleErrorProne {
+                patchChecks.add('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                    System.out.println(new int[3].equals(new int[3]));
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import java.util.Arrays;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayEquals")
+                public static void main(String[] args) {
+                    System.out.println(Arrays.toString(new int[3]));
+                    System.out.println(new int[3].equals(new int[3]));
+                }
+            }
+        '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
     def 'can disable errorprone using property'() {
         when: 'there is java code some that will fail an errorprone during compilation'
         // language=Java
