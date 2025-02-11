@@ -178,8 +178,9 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
 
         if (isAnyKindOfPatching(project)) {
-            // Don't attempt to cache since it won't capture the source files that might be modified
+            // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
             javaCompile.getOutputs().cacheIf(t -> false);
+            javaCompile.getOutputs().upToDateWhen(t -> false);
         }
     }
 
