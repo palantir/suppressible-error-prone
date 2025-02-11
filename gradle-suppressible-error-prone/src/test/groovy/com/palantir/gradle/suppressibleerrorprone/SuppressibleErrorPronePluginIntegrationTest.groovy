@@ -19,6 +19,7 @@ package com.palantir.gradle.suppressibleerrorprone
 import nebula.test.IntegrationSpec
 import nebula.test.functional.ExecutionResult
 import org.apache.commons.io.FileUtils
+import spock.lang.Unroll
 
 class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     // We need to put the source sets in a different directory that does not contain the any words that would hit
@@ -811,6 +812,47 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
     }
 
+    @Unroll
+    def 'compile tasks are never up-to-date when applying changes under #mode'() {
+        // language=Gradle
+        buildFile << '''
+            suppressibleErrorProne {
+                patchChecks.add('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        def originalSource = '''
+            package app;
+            public final class App {
+                public static void main(String... args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        writeJavaSourceFileToSourceSets originalSource
+
+        when: 'a compilation with code changes happens'
+        runTasksSuccessfully('compileAllErrorProne', *mode)
+
+        then: 'the source code is reset back to the original state'
+        writeJavaSourceFileToSourceSets originalSource
+
+        when: 'compilation with changes runs again'
+        runTasksSuccessfully('compileAllErrorProne', *mode)
+
+        then: 'changes are actually made, it was not up-to-date'
+        appJavaTextNotEquals originalSource
+
+        where:
+        mode << [
+                ['-PerrorProneApply'],
+                ['-PerrorProneSuppress'],
+                ['-PerrorProneApply', '-PerrorProneSuppress']
+        ]
+    }
+
     @Override
     ExecutionResult runTasksSuccessfully(String... tasks) {
         def result = runTasks(tasks)
@@ -842,8 +884,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         assert !file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
-    void appJavaTextEquals(String substring) {
-        assert file('app/App.java', mainSourceSet).text == substring
-        assert file('app/App.java', otherSourceSet).text == substring
+    void appJavaTextEquals(String source) {
+        assert file('app/App.java', mainSourceSet).text == source
+        assert file('app/App.java', otherSourceSet).text == source
+    }
+
+    void appJavaTextNotEquals(String source) {
+        assert file('app/App.java', mainSourceSet).text != source
+        assert file('app/App.java', otherSourceSet).text != source
     }
 }
