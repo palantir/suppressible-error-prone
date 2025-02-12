@@ -53,6 +53,11 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private void applyToJavaProject(Project project) {
+        if (isDisabled(project) && isAnyKindOfPatching(project)) {
+            throw new IllegalStateException(
+                    "-PerrorProneDisable cannot be used at the same time as -PerrorProneApply or -PerrorProneSuppress");
+        }
+
         project.getPluginManager().apply(ErrorPronePlugin.class);
 
         SuppressibleErrorProneExtension extension =
@@ -190,11 +195,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             JavaCompile javaCompile,
             ErrorProneOptions errorProneOptions) {
 
-        errorProneOptions.getEnabled().set(project.provider(() -> {
-            boolean newDisable = project.hasProperty(ERROR_PRONE_DISABLE);
-            boolean oldDisable = isDisabledViaLegacyBaselineProperty(project);
-            return !(newDisable || oldDisable);
-        }));
+        errorProneOptions.getEnabled().set(project.provider(() -> !isDisabled(project)));
 
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
@@ -302,6 +303,12 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         // language=RegExp
         return ".*/(build|generated_.*[sS]rc|src/generated.*)/.*";
+    }
+
+    private static boolean isDisabled(Project project) {
+        boolean newDisable = project.hasProperty(ERROR_PRONE_DISABLE);
+        boolean oldDisable = isDisabledViaLegacyBaselineProperty(project);
+        return newDisable || oldDisable;
     }
 
     private static boolean isDisabledViaLegacyBaselineProperty(Project project) {
