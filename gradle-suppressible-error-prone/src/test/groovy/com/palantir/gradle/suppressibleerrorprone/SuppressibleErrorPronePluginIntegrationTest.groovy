@@ -19,6 +19,7 @@ package com.palantir.gradle.suppressibleerrorprone
 import nebula.test.IntegrationSpec
 import nebula.test.functional.ExecutionResult
 import org.apache.commons.io.FileUtils
+import org.assertj.core.util.Throwables
 import spock.lang.Unroll
 
 class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
@@ -851,6 +852,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 ['-PerrorProneSuppress'],
                 ['-PerrorProneApply', '-PerrorProneSuppress']
         ]
+    }
+
+    def 'throws exception when -PerrorProneDisable is combined with -PerrorProneApply or -PerrorProneSuppress'() {
+        when:
+        def applyMessage = Throwables.getRootCause(runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneApply').failure).message
+
+        then:
+        applyMessage.contains '-PerrorProneDisable'
+
+        when:
+        def suppressMessage = Throwables.getRootCause(runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneSuppress').failure).message
+
+        then:
+        suppressMessage.contains '-PerrorProneDisable'
     }
 
     @Override

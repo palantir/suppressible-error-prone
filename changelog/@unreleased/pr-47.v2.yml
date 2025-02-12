@@ -1,0 +1,6 @@
+type: fix
+fix:
+  description: Throw exception when `-PerrorProneDisable` is combined with `-PerrorProneApply`
+    or `-PerrorProneSuppress`
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/47
