@@ -94,6 +94,40 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    def 'supports removing error prone checks'() {
+        // The UnusedVariable check implements CompilationUnitTreeMatcher, so will start with a whole
+        // CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
+        // This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
+        // than where the diagnostic description was produced.
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public void variables() {
+                    @SuppressWarnings("for-rollout:Test")
+                    String variable;
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemove=Test')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public void variables() {
+                    String variable;
+                }
+            }
+        '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
     def 'reports a failing error prone'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''

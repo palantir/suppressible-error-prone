@@ -28,52 +28,57 @@ class SuppressWarningsUtilsTest {
     class ModifySuppressions {
         @Test
         void no_human_authored_suppressions() {
-            assertThat(SuppressWarningsUtils.modifySuppressions(List.of(), Set.of("New")))
+            assertThat(SuppressWarningsUtils.modifySuppressions(Set.of(), List.of(), Set.of("New")))
                     .containsExactly("for-rollout:New");
         }
 
         @Test
         void automatic_suppresions_go_after_human_authored_suppressions() {
-            assertThat(SuppressWarningsUtils.modifySuppressions(List.of("Something"), Set.of("New")))
+            assertThat(SuppressWarningsUtils.modifySuppressions(Set.of(), List.of("Something"), Set.of("New")))
                     .containsExactly("Something", "for-rollout:New");
         }
 
         @Test
         void maintains_human_authored_ordering() {
-            assertThat(SuppressWarningsUtils.modifySuppressions(List.of("C", "A", "B"), Set.of("ArrayToString")))
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            Set.of(), List.of("C", "A", "B"), Set.of("ArrayToString")))
                     .containsExactly("C", "A", "B", "for-rollout:ArrayToString");
         }
 
         @Test
         void auto_suppressions_are_initially_alphabetically_ordered() {
-            assertThat(SuppressWarningsUtils.modifySuppressions(List.of("A"), Set.of("ArrayEquals", "ArrayToString")))
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            Set.of(), List.of("A"), Set.of("ArrayEquals", "ArrayToString")))
                     .containsExactly("A", "for-rollout:ArrayEquals", "for-rollout:ArrayToString");
         }
 
         @Test
         void maintains_alphabetical_order_for_automated_suppressions() {
             assertThat(SuppressWarningsUtils.modifySuppressions(
-                            List.of("Blah", "for-rollout:A", "for-rollout:Something"), Set.of("ArrayToString")))
+                            Set.of(),
+                            List.of("Blah", "for-rollout:A", "for-rollout:Something"),
+                            Set.of("ArrayToString")))
                     .containsExactly("Blah", "for-rollout:A", "for-rollout:ArrayToString", "for-rollout:Something");
         }
 
         @Test
         void reorders_automated_suppresions_to_the_end() {
             assertThat(SuppressWarningsUtils.modifySuppressions(
-                            List.of("for-rollout:Something", "Derp"), Set.of("ArrayToString")))
+                            Set.of(), List.of("for-rollout:Something", "Derp"), Set.of("ArrayToString")))
                     .containsExactly("Derp", "for-rollout:ArrayToString", "for-rollout:Something");
         }
 
         @Test
         void tidies_up_same_authored_and_human_suppression() {
-            assertThat(SuppressWarningsUtils.modifySuppressions(List.of("A", "for-rollout:A"), Set.of("ArrayToString")))
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            Set.of(), List.of("A", "for-rollout:A"), Set.of("ArrayToString")))
                     .containsExactly("A", "for-rollout:ArrayToString");
         }
 
         @Test
         void puts_human_authored_suppression_that_has_been_placed_after_automated_suppression_back_in_order() {
             assertThat(SuppressWarningsUtils.modifySuppressions(
-                            List.of("for-rollout:Something", "HumanAuthored"), Set.of("ArrayToString")))
+                            Set.of(), List.of("for-rollout:Something", "HumanAuthored"), Set.of("ArrayToString")))
                     .containsExactly("HumanAuthored", "for-rollout:ArrayToString", "for-rollout:Something");
         }
     }

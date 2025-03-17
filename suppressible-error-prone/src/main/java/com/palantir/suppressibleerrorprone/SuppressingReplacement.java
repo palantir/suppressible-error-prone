@@ -33,17 +33,21 @@ final class SuppressingReplacement extends Replacement {
     // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
     // at the same level.
 
+    private final Set<String> suppressionsToRemove;
     private final Range<Integer> range;
     private final List<String> existingSuppressions;
-    private final String suffix;
+    private final String prefix;
     private final Set<String> newSuppressions;
 
     SuppressingReplacement(
+            Set<String> suppressionsToRemove,
             EndPosTable endPositions,
             Set<String> newSuppressions,
             Optional<CharSequence> sourceCode,
             Optional<? extends AnnotationTree> suppressWarnings,
             Tree tree) {
+        this.suppressionsToRemove = suppressionsToRemove;
+
         // Note this is a *mutable* set from SuppressingFix, we need to able to add a new suppression before this
         // instance is instantiated
         this.newSuppressions = newSuppressions;
@@ -56,11 +60,11 @@ final class SuppressingReplacement extends Replacement {
         // straight away, as we might not have all the new suppressions added yet. So we have to immediately
         // calculate the replacement range and indentation/suffix, but hold off building the final replacement
         // string until we have all the new suppressions.
-        this.range = calculateRange(endPositions, suppressWarnings, tree);
+        this.range = calculateRange(sourceCode, endPositions, suppressWarnings, tree);
 
-        this.suffix = suppressWarnings
+        this.prefix = suppressWarnings
                 // If we're replacing an existing @SuppressWarnings, there's no need to add an indent
-                .map(_ignored -> "")
+                .map(annotationTree -> "\n" + SourceCodeUtils.indentForTree(sourceCode, annotationTree))
                 // If we're adding a new @SuppressWarnings, we need to indent the next line correctly
                 .orElseGet(() -> "\n" + SourceCodeUtils.indentForTree(sourceCode, tree));
 
@@ -76,22 +80,38 @@ final class SuppressingReplacement extends Replacement {
 
     @Override
     public String replaceWith() {
-        return SuppressWarningsUtils.suppressWarningsString(
-                        SuppressWarningsUtils.modifySuppressions(existingSuppressions, newSuppressions))
-                + suffix;
+        List<String> updatedSuppressions =
+                SuppressWarningsUtils.modifySuppressions(suppressionsToRemove, existingSuppressions, newSuppressions);
+        if (updatedSuppressions.isEmpty()) {
+            return "";
+        }
+
+        return prefix + SuppressWarningsUtils.suppressWarningsString(updatedSuppressions);
     }
 
     private static Range<Integer> calculateRange(
-            EndPosTable endPositions, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+            Optional<CharSequence> sourceCode,
+            EndPosTable endPositions,
+            Optional<? extends AnnotationTree> suppressWarnings,
+            Tree tree) {
         return suppressWarnings
                 .map(annotationTree -> {
                     // @SuppressWarnings already exists, we need to replace the whole expression with our own
                     DiagnosticPosition position = (DiagnosticPosition) annotationTree;
-                    return Range.closedOpen(position.getStartPosition(), position.getEndPosition(endPositions));
+                    int startPosition = sourceCode
+                            // TODO: what if this is going before the start of the file? Or if it's not a newline?
+                            .map(code ->
+                                    SourceCodeUtils.startPositionWithWhitespace(code, position.getStartPosition()) - 1)
+                            .orElseGet(position::getStartPosition);
+                    return Range.closedOpen(startPosition, position.getEndPosition(endPositions));
                 })
                 .orElseGet(() -> {
                     // No @SuppressWarnings, we want to prefix a new one before the start of the tree
-                    int startPosition = ((DiagnosticPosition) tree).getStartPosition();
+                    DiagnosticPosition position = (DiagnosticPosition) tree;
+                    int startPosition = sourceCode
+                            .map(code ->
+                                    SourceCodeUtils.startPositionWithWhitespace(code, position.getStartPosition()) - 1)
+                            .orElseGet(position::getStartPosition);
                     return Range.closedOpen(startPosition, startPosition);
                 });
     }

@@ -38,6 +38,7 @@ import org.gradle.process.CommandLineArgumentProvider;
 
 public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
+    private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemove";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
     private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
@@ -54,8 +55,13 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private void applyToJavaProject(Project project) {
         if (isDisabled(project) && isAnyKindOfPatching(project)) {
+            throw new IllegalStateException("-PerrorProneDisable cannot be used at the same time as "
+                    + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemove");
+        }
+
+        if (isRemovingSuppressions(project) && (isSuppressing(project) || isApplyingSuggestedPatches(project))) {
             throw new IllegalStateException(
-                    "-PerrorProneDisable cannot be used at the same time as -PerrorProneApply or -PerrorProneSuppress");
+                    "-PerrorProneRemove cannot be used at the same time as -PerrorProneSuppress or -PerrorProneApply");
         }
 
         project.getPluginManager().apply(ErrorPronePlugin.class);
@@ -203,6 +209,28 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
+        if (isRemovingSuppressions(project)) {
+            errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
+                @Override
+                public Iterable<String> asArguments() {
+                    String argument = (String) javaCompile.getProject().property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+
+                    List<String> suppressionsToRemove = Arrays.stream(argument.split(","))
+                            .map(String::trim)
+                            .filter(Predicate.not(String::isEmpty))
+                            .toList();
+
+                    return List.of(
+                            "-XepPatchLocation:IN_PLACE",
+                            "-XepPatchChecks:RemoveSuppressions",
+                            "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings="
+                                    + String.join(",", suppressionsToRemove));
+                }
+            });
+
+            return;
+        }
+
         if (isSuppressing(project)) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
@@ -285,7 +313,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static boolean isAnyKindOfPatching(Project project) {
-        return isApplyingSuggestedPatches(project) || isSuppressing(project);
+        return isApplyingSuggestedPatches(project) || isSuppressing(project) || isRemovingSuppressions(project);
     }
 
     private static boolean isApplyingSuggestedPatches(Project project) {
@@ -294,6 +322,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private static boolean isSuppressing(Project project) {
         return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_SUPPRESS);
+    }
+
+    private static boolean isRemovingSuppressions(Project project) {
+        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_REMOVE_SUPPRESSIONS);
     }
 
     static String excludedPathsRegex() {
