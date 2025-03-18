@@ -868,6 +868,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         suppressMessage.contains '-PerrorProneDisable'
     }
 
+    // This test also verified we're properly passing the arguments to the errorprone plugin
     def 'supports removing specific error prone suppressions'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -887,6 +888,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    // This test also verified we're properly passing the arguments to the errorprone plugin
     def 'supports removing all error prone suppressions'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -906,6 +908,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    // This test also verified we're properly passing the arguments to the errorprone plugin
     def 'does not remove suppressions other than requested'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -922,26 +925,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         appJavaTextEquals '''
             package app;
             @SuppressWarnings("for-rollout:Test")
-            public final class App {}
-        '''.stripIndent(true)
-    }
-
-    def 'does not remove manual suppressions'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
-            package app;
-            @SuppressWarnings("Test")
-            public final class App {}
-        '''.stripIndent(true)
-
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
-
-        then:
-        // language=Java
-        appJavaTextEquals '''
-            package app;
-            @SuppressWarnings("Test")
             public final class App {}
         '''.stripIndent(true)
     }

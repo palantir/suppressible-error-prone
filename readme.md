@@ -113,7 +113,7 @@ Both applying suggested fixes and suppressing errors can be done in one go:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneSuppress -PerrorProneApply
-``` 
+```
 
 Errorprone can be disabled by using the `-PerrorProneDisable` property.
 
@@ -122,6 +122,14 @@ You can produce a timings report using `-PerrorProneTimings`. This will place a 
 ```
 ./gradlew compileAllErrorProne -PerrorProneTimings --rerun-tasks
 ```
+
+You can also use to remove all or some of the for-rollout suppression warnings:
+
+```
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout=Check,OtherCheck
+```
+
 
 ### Using directly from Gradle
 

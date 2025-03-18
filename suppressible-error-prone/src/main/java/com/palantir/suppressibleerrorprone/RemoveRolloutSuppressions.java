@@ -41,12 +41,15 @@ import javax.lang.model.element.Name;
  */
 @AutoService(BugChecker.class)
 @BugPattern(
-        // TODO(aldexis): add docs to readme and link to it
         link = "https://github.com/palantir/suppressible-error-prone",
         linkType = BugPattern.LinkType.CUSTOM,
-        severity = BugPattern.SeverityLevel.ERROR,
+        // This needs to be SUGGESTION so that error prone won't try to apply the check in normal operations
+        // When requested, we will directly enable it in the command line arguments
+        severity = BugPattern.SeverityLevel.SUGGESTION,
         summary = "Remove for-rollout suppression warnings")
 public final class RemoveRolloutSuppressions extends BugChecker implements BugChecker.AnnotationTreeMatcher {
+
+    public static final String ARGUMENT = "SuppressibleErrorProne:RemoveForRolloutWarnings";
 
     @Override
     public Description matchAnnotation(AnnotationTree tree, VisitorState state) {
@@ -55,11 +58,7 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
             return Description.NO_MATCH;
         }
 
-        Set<String> suppressionsToRemove = state
-                .errorProneOptions()
-                .getFlags()
-                .getSetOrEmpty("SuppressibleErrorProne:RemoveForRolloutWarnings")
-                .stream()
+        Set<String> suppressionsToRemove = state.errorProneOptions().getFlags().getSetOrEmpty(ARGUMENT).stream()
                 // If no check is specified in the command line argument, the error prone option will look like
                 //   "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings=" which will match to just an empty string
                 // In this case, we actually want to remove all the suppressions
