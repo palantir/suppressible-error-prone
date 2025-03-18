@@ -39,7 +39,7 @@ import javax.lang.model.element.Name;
 
 @AutoService(BugChecker.class)
 @BugPattern(
-        // TODO: fill in
+        // TODO(aldexis): add docs to readme and link to it
         link = "https://github.com/palantir/suppressible-error-prone",
         linkType = BugPattern.LinkType.CUSTOM,
         severity = BugPattern.SeverityLevel.ERROR,
@@ -79,7 +79,7 @@ public final class RemoveSuppressions extends BugChecker implements BugChecker.A
                 .build();
     }
 
-    // TODO: extract (see identical method in VisitorStateModifications)
+    // TODO(aldexis): extract (see identical method in VisitorStateModifications)
     private static Name annotationName(Tree annotationType) {
         if (annotationType instanceof IdentifierTree) {
             return ((IdentifierTree) annotationType).getName();
@@ -122,7 +122,7 @@ public final class RemoveSuppressions extends BugChecker implements BugChecker.A
         @Override
         public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
             if (replacementText.isEmpty() && sourceCode != null) {
-                // TODO: handle case of not a newline
+                // TODO(aldexis): handle case of not a newline
                 int start = SourceCodeUtils.startPositionWithWhitespace(sourceCode, position.getStartPosition()) - 1;
                 return ImmutableSet.of(Replacement.create(start, position.getEndPosition(endPositions), ""));
             }
