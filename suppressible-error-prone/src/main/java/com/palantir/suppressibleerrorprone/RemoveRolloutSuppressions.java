@@ -135,6 +135,8 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
 
         @Override
         public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
+            // If we are looking to delete the entire element, we should also remove whitespace before it,
+            //   up to and including the newline
             if (replacementText.isEmpty() && sourceCode != null) {
                 int start = SourceCodeUtils.startPositionWithWhitespaceIncludingNewLine(
                         sourceCode, position.getStartPosition());

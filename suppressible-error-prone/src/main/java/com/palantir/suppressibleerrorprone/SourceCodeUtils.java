@@ -38,7 +38,7 @@ final class SourceCodeUtils {
         int pos = startPositionWithWhitespace(sourceCode, sourceElementPosition);
 
         // If the character just before the position is a new line, we return the position of the new line, so it can
-        //   be included in the replacement.
+        //   be replaced as well.
         if (pos > 0 && sourceCode.charAt(pos - 1) == '\n') {
             return pos - 1;
         }

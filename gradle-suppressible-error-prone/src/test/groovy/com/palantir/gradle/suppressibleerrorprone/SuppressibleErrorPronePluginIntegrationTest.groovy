@@ -868,7 +868,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         suppressMessage.contains '-PerrorProneDisable'
     }
 
-    // This test also verified we're properly passing the arguments to the errorprone plugin
+    // This test also verifies we're properly passing the arguments to the errorprone plugin
     def 'supports removing specific error prone suppressions'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -888,7 +888,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    // This test also verified we're properly passing the arguments to the errorprone plugin
+    // This test also verifies we're properly passing the arguments to the errorprone plugin
     def 'supports removing all error prone suppressions'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -908,7 +908,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    // This test also verified we're properly passing the arguments to the errorprone plugin
+    // This test also verifies we're properly passing the arguments to the errorprone plugin
     def 'does not remove suppressions other than requested'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''

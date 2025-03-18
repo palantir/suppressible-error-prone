@@ -113,7 +113,7 @@ Both applying suggested fixes and suppressing errors can be done in one go:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneSuppress -PerrorProneApply
-```
+``` 
 
 Errorprone can be disabled by using the `-PerrorProneDisable` property.
 
