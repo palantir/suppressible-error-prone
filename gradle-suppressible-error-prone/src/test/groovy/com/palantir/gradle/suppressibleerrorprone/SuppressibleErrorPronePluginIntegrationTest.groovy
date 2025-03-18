@@ -112,7 +112,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemove=Test')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
 
         then:
         // language=Java

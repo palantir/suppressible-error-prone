@@ -20,5 +20,7 @@ final class CommonConstants {
 
     static final String AUTOMATICALLY_ADDED_PREFIX = "for-rollout:";
 
+    static final String SUPPRESS_WARNINGS_ANNOTATION = "SuppressWarnings";
+
     private CommonConstants() {}
 }

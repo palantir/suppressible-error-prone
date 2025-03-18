@@ -38,7 +38,7 @@ import org.gradle.process.CommandLineArgumentProvider;
 
 public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
-    private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemove";
+    private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemoveRollout";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
     private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
@@ -213,16 +213,11 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
-                    String argument = (String) javaCompile.getProject().property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
-
-                    List<String> suppressionsToRemove = Arrays.stream(argument.split(","))
-                            .map(String::trim)
-                            .filter(Predicate.not(String::isEmpty))
-                            .toList();
+                    List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(javaCompile);
 
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
-                            "-XepPatchChecks:RemoveSuppressions",
+                            "-XepPatchChecks:RemoveRolloutSuppressions",
                             "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings="
                                     + String.join(",", suppressionsToRemove));
                 }
@@ -302,6 +297,22 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 // Sorted so that we maintain arg ordering and continue to get cache hits
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    private static List<String> checksToRemoveSuppressionsFor(JavaCompile javaCompile) {
+        String possibleChecksToRemove = (String) javaCompile.getProject().property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+
+        // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
+        // We can't explicitly list all possible checks, because some might not exist anymore
+        // The logic itself needs to consider an empty list as "remove all"
+        if (possibleChecksToRemove == null) {
+            return List.of();
+        }
+
+        return Arrays.stream(possibleChecksToRemove.split(","))
+                .map(String::trim)
+                .filter(Predicate.not(String::isEmpty))
+                .toList();
     }
 
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {

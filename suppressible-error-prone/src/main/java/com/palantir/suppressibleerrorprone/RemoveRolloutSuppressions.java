@@ -44,12 +44,12 @@ import javax.lang.model.element.Name;
         linkType = BugPattern.LinkType.CUSTOM,
         severity = BugPattern.SeverityLevel.ERROR,
         summary = "Remove specific suppression warnings")
-public final class RemoveSuppressions extends BugChecker implements BugChecker.AnnotationTreeMatcher {
+public final class RemoveRolloutSuppressions extends BugChecker implements BugChecker.AnnotationTreeMatcher {
 
     @Override
     public Description matchAnnotation(AnnotationTree tree, VisitorState state) {
         Name annotationName = annotationName(tree.getAnnotationType());
-        if (!annotationName.contentEquals("SuppressWarnings")) {
+        if (!annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION)) {
             return Description.NO_MATCH;
         }
 
@@ -64,9 +64,15 @@ public final class RemoveSuppressions extends BugChecker implements BugChecker.A
         List<String> existingSuppressions =
                 AnnotationUtils.annotationStringValues(tree).collect(Collectors.toList());
 
-        List<String> updatedSuppressions = existingSuppressions.stream()
-                .filter(suppression -> !suppressionsToRemove.contains(suppression))
-                .collect(Collectors.toList());
+        final List<String> updatedSuppressions;
+        if (suppressionsToRemove.isEmpty()) {
+            // We want to remove all automated suppressions if no specific argument is passed
+            updatedSuppressions = existingSuppressions;
+        } else {
+            updatedSuppressions = existingSuppressions.stream()
+                    .filter(suppression -> !suppressionsToRemove.contains(suppression))
+                    .collect(Collectors.toList());
+        }
 
         if (existingSuppressions.size() == updatedSuppressions.size()) {
             return Description.NO_MATCH;

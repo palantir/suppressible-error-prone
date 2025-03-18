@@ -71,7 +71,7 @@ final class SuppressWarningsUtils {
         if (warningsToSuppress.size() > 1) {
             suppressWarningsString = "{" + suppressWarningsString + "}";
         }
-        return "@SuppressWarnings(" + suppressWarningsString + ")";
+        return "@" + CommonConstants.SUPPRESS_WARNINGS_ANNOTATION + "(" + suppressWarningsString + ")";
     }
 
     private SuppressWarningsUtils() {}

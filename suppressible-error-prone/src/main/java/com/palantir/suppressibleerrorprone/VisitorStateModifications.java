@@ -98,7 +98,7 @@ public final class VisitorStateModifications {
         Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
                 .filter(annotation -> {
                     Name annotationName = annotationName(annotation.getAnnotationType());
-                    return annotationName.contentEquals("SuppressWarnings");
+                    return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
                 })
                 .findFirst();
 
