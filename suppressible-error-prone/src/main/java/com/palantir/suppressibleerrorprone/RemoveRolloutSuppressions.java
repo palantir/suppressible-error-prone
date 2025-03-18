@@ -60,6 +60,10 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
                 .getFlags()
                 .getSetOrEmpty("SuppressibleErrorProne:RemoveForRolloutWarnings")
                 .stream()
+                // If no check is specified in the command line argument, the error prone option will look like
+                //   "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings=" which will match to just an empty string
+                // In this case, we actually want to remove all the suppressions
+                .filter(s -> !s.isEmpty())
                 .map(s -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + s)
                 .collect(Collectors.toSet());
 
@@ -69,7 +73,9 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
         final List<String> updatedSuppressions;
         if (suppressionsToRemove.isEmpty()) {
             // We want to remove all automated suppressions if no specific argument is passed
-            updatedSuppressions = existingSuppressions;
+            updatedSuppressions = existingSuppressions.stream()
+                    .filter(suppression -> !suppression.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX))
+                    .collect(Collectors.toList());
         } else {
             updatedSuppressions = existingSuppressions.stream()
                     .filter(suppression -> !suppressionsToRemove.contains(suppression))

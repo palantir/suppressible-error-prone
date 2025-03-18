@@ -94,40 +94,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    def 'supports removing error prone checks'() {
-        // The UnusedVariable check implements CompilationUnitTreeMatcher, so will start with a whole
-        // CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
-        // This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
-        // than where the diagnostic description was produced.
-
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
-            package app;
-            public final class App {
-                public void variables() {
-                    @SuppressWarnings("for-rollout:Test")
-                    String variable;
-                }
-            }
-        '''.stripIndent(true)
-
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
-
-        then:
-        // language=Java
-        appJavaTextEquals '''
-            package app;
-            public final class App {
-                public void variables() {
-                    String variable;
-                }
-            }
-        '''.stripIndent(true)
-
-        runTasksSuccessfully('compileAllErrorProne')
-    }
-
     def 'reports a failing error prone'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -900,6 +866,84 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         then:
         suppressMessage.contains '-PerrorProneDisable'
+    }
+
+    def 'supports removing specific error prone suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'supports removing all error prone suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'does not remove suppressions other than requested'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Other')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'does not remove manual suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            @SuppressWarnings("Test")
+            public final class App {}
+        '''.stripIndent(true)
     }
 
     @Override

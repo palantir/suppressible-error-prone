@@ -56,12 +56,12 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private void applyToJavaProject(Project project) {
         if (isDisabled(project) && isAnyKindOfPatching(project)) {
             throw new IllegalStateException("-PerrorProneDisable cannot be used at the same time as "
-                    + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemove");
+                    + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemoveRollout");
         }
 
         if (isRemovingSuppressions(project) && (isSuppressing(project) || isApplyingSuggestedPatches(project))) {
-            throw new IllegalStateException(
-                    "-PerrorProneRemove cannot be used at the same time as -PerrorProneSuppress or -PerrorProneApply");
+            throw new IllegalStateException("-PerrorProneRemoveRollout cannot be used at the same time as "
+                    + "-PerrorProneApply or -PerrorProneSuppress");
         }
 
         project.getPluginManager().apply(ErrorPronePlugin.class);
