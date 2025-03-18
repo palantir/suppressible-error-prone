@@ -26,9 +26,6 @@ import com.google.errorprone.fixes.Replacement;
 import com.google.errorprone.fixes.Replacements.CoalescePolicy;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -37,18 +34,23 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Name;
 
+/**
+ * This error-prone check is meant to flag and remove specific for-rollout: suppression warnings that the
+ *   main gradle plugin would have introduced, as a way to help open pull requests flagging where they might still
+ *   need to be fixed.
+ */
 @AutoService(BugChecker.class)
 @BugPattern(
         // TODO(aldexis): add docs to readme and link to it
         link = "https://github.com/palantir/suppressible-error-prone",
         linkType = BugPattern.LinkType.CUSTOM,
         severity = BugPattern.SeverityLevel.ERROR,
-        summary = "Remove specific suppression warnings")
+        summary = "Remove for-rollout suppression warnings")
 public final class RemoveRolloutSuppressions extends BugChecker implements BugChecker.AnnotationTreeMatcher {
 
     @Override
     public Description matchAnnotation(AnnotationTree tree, VisitorState state) {
-        Name annotationName = annotationName(tree.getAnnotationType());
+        Name annotationName = AnnotationUtils.annotationName(tree.getAnnotationType());
         if (!annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION)) {
             return Description.NO_MATCH;
         }
@@ -81,43 +83,44 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
         String updatedText = SuppressWarningsUtils.suppressWarningsString(updatedSuppressions);
 
         return buildDescription(tree)
-                .addFix(new SuppressionFix(state.getSourceCode(), (DiagnosticPosition) tree, updatedText))
+                .addFix(new LineRemovingReplacementFix(state.getSourceCode(), (DiagnosticPosition) tree, updatedText))
                 .build();
     }
 
-    // TODO(aldexis): extract (see identical method in VisitorStateModifications)
-    private static Name annotationName(Tree annotationType) {
-        if (annotationType instanceof IdentifierTree) {
-            return ((IdentifierTree) annotationType).getName();
-        }
-
-        if (annotationType instanceof MemberSelectTree) {
-            return ((MemberSelectTree) annotationType).getIdentifier();
-        }
-
-        throw new UnsupportedOperationException(
-                "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
-    }
-
-    private static final class SuppressionFix implements Fix {
+    /**
+     * This class has been introduced because the normal {@link com.google.errorprone.fixes.SuggestedFix} does not
+     *   allow us to introduce a Replacement which has a different start position than the tree's normal start position.
+     * Here we want to:
+     *   - replace the element defined by the provided position
+     *   - also replace the whitespace before the element, up to and including the newline
+     * This way, if e.g. @SuppressWarnings("foo") must be removed entirely, we can remove the entire line, rather than
+     *   just the annotation, leaving us with an empty line.
+     *
+     * Note that this will only delete the whitespace before the element if the entire element is removed
+     *   (i.e. if the replacement text is null or empty).
+     */
+    private static final class LineRemovingReplacementFix implements Fix {
         private final CharSequence sourceCode;
         private final DiagnosticPosition position;
         private final String replacementText;
 
-        private SuppressionFix(CharSequence sourceCode, DiagnosticPosition position, String replacementText) {
+        private LineRemovingReplacementFix(
+                CharSequence sourceCode, DiagnosticPosition position, String replacementText) {
             this.sourceCode = sourceCode;
             this.position = position;
-            this.replacementText = replacementText;
+            // Guarantee replacementText isn't empty to simplify the checks below
+            this.replacementText = replacementText == null ? "" : replacementText;
         }
 
         @Override
         public String toString(JCCompilationUnit compilationUnit) {
-            return "SuppressionFix";
+            return "LineRemovingReplacementFix";
         }
 
         @Override
         public String getShortDescription() {
-            return "TODO";
+            return "Replace text at the position with the provided text, "
+                    + "or remove the text and all preceding whitespace";
         }
 
         @Override
@@ -128,8 +131,8 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
         @Override
         public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
             if (replacementText.isEmpty() && sourceCode != null) {
-                // TODO(aldexis): handle case of not a newline
-                int start = SourceCodeUtils.startPositionWithWhitespace(sourceCode, position.getStartPosition()) - 1;
+                int start = SourceCodeUtils.startPositionWithWhitespaceIncludingNewLine(
+                        sourceCode, position.getStartPosition());
                 return ImmutableSet.of(Replacement.create(start, position.getEndPosition(endPositions), ""));
             }
             return ImmutableSet.of(Replacement.create(

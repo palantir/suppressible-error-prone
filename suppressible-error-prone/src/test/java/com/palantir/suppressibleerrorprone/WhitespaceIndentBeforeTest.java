@@ -43,6 +43,28 @@ class WhitespaceIndentBeforeTest {
         assertThat(whitespaceIndentBefore("class Foo {} |class Bar {}")).isEqualTo(" ");
     }
 
+    @Test
+    void startPositionWithNewline() {
+        assertThat(startPositionIncludingNewLine("\n  |public static void main() {"))
+                .isEqualTo(0);
+    }
+
+    @Test
+    void startPositionWithPrecedingLine() {
+        assertThat(startPositionIncludingNewLine("1234\n  |public static void main() {"))
+                .isEqualTo(4);
+    }
+
+    @Test
+    void startPositionWithoutNewline() {
+        assertThat(startPositionIncludingNewLine("class Foo {} |class Bar {}")).isEqualTo(12);
+    }
+
+    private int startPositionIncludingNewLine(String testCase) {
+        return SourceCodeUtils.startPositionWithWhitespaceIncludingNewLine(
+                testCase.replace("|", ""), testCase.indexOf('|'));
+    }
+
     private CharSequence whitespaceIndentBefore(String testCase) {
         return SourceCodeUtils.whitespaceIndentBefore(testCase.replace("|", ""), testCase.indexOf('|'));
     }
