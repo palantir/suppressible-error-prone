@@ -34,7 +34,7 @@ final class SuppressWarningsUtils {
     }
 
     public static List<String> modifySuppressions(
-            Set<String> suppressionsToRemove, List<String> existingSuppressions, Set<String> newAutomatedSuppressions) {
+            List<String> existingSuppressions, Set<String> newAutomatedSuppressions) {
         Map<SuppressionsType, List<String>> automaticallyAddedOrNotSuppressions = existingSuppressions.stream()
                 .collect(Collectors.groupingBy(SuppressionsType::fromName, Collectors.toList()));
 
@@ -52,8 +52,6 @@ final class SuppressWarningsUtils {
         List<String> modifiedAutomaticallyAddedSuppressions = Stream.concat(
                         existingAutomaticallyAddedSuppressionsWithoutPrefix.stream(), newAutomatedSuppressions.stream())
                 .filter(Predicate.not(humanAuthoredSuppressions::contains))
-                // Remove any automatic suppressions that we want to remove
-                .filter(Predicate.not(suppressionsToRemove::contains))
                 .distinct()
                 .sorted()
                 .map(warning -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + warning)
