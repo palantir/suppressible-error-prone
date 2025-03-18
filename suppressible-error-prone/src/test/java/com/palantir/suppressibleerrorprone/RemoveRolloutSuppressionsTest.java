@@ -22,13 +22,11 @@ import org.junit.jupiter.api.Test;
 class RemoveRolloutSuppressionsTest {
 
     @Test
-    void testRemoveAllForRollout() {
+    void no_check_argument_means_all_rollout_suppressions_are_removed() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("for-rollout:Test")
                         public final class App {}
                         """)
@@ -36,21 +34,17 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         public final class App {}
                         """)
                 .doTest();
     }
 
     @Test
-    void testRemoveAllForRolloutWithEmptyArgument() {
+    void no_specific_checks_means_all_rollout_suppressions_are_removed() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("for-rollout:Test")
                         public final class App {}
                         """)
@@ -58,8 +52,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         public final class App {}
                         """)
                 .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=")
@@ -67,13 +59,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testRemoveSpecificForRollout() {
+    void specific_checks_are_being_properly_removed() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("for-rollout:Test")
                         public final class App {}
                         """)
@@ -81,8 +71,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         public final class App {}
                         """)
                 .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=Test")
@@ -90,13 +78,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testRemoveSingleArrayAnnotation() {
+    void annotations_with_single_array_argument_can_be_removed() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings({"for-rollout:Test"})
                         public final class App {}
                         """)
@@ -104,8 +90,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         public final class App {}
                         """)
                 .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=Test")
@@ -113,13 +97,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testDoNotRemoveUnspecifiedSuppression() {
+    void do_not_remove_unspecified_suppression() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("for-rollout:Test")
                         public final class App {}
                         """)
@@ -127,8 +109,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("for-rollout:Test")
                         public final class App {}
                         """)
@@ -137,13 +117,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testDoNotRemoveManualSuppression() {
+    void do_not_remove_manual_suppression() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("Test")
                         public final class App {}
                         """)
@@ -151,8 +129,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings("Test")
                         public final class App {}
                         """)
@@ -161,13 +137,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testOnlyRemoveTargetedSuppressions() {
+    void only_remove_targeted_suppression_when_there_are_multiple() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings({"Test", "for-rollout:Test", "for-rollout:Other"})
                         public final class App {}
                         """)
@@ -175,8 +149,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings({"Test", "for-rollout:Other"})
                         public final class App {}
                         """)
@@ -185,13 +157,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testRemovePartialLine() {
+    void remove_only_annotation_when_there_is_more_on_the_same_line() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @Deprecated @SuppressWarnings("for-rollout:Test") // comment
                         public final class App {}
                         """)
@@ -199,8 +169,6 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @Deprecated // comment
                         public final class App {}
                         """)
@@ -209,13 +177,11 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void testDoNotReorder() {
+    void do_not_reorder_existing_annotations() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings({"for-rollout:3", "for-rollout:2", "1"})
                         public final class App {}
                         """)
@@ -223,12 +189,75 @@ class RemoveRolloutSuppressionsTest {
                         "App.java",
                         // language=Java
                         """
-                        package app;
-
                         @SuppressWarnings({"for-rollout:3", "1"})
                         public final class App {}
                         """)
                 .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=2")
+                .doTest();
+    }
+
+    @Test
+    void removes_annotations_on_vaious_elements() {
+        fix().addInputLines(
+                        "App.java",
+                        // language=Java
+                        """
+                        public final class App {
+                            @SuppressWarnings("for-rollout:Test")
+                            public final String field = new int[3].toString();
+
+                            @SuppressWarnings("for-rollout:Test")
+                            public App() {
+                                System.out.println(new int[3].toString());
+                            }
+
+                            @SuppressWarnings("for-rollout:Test")
+                            public void method() {
+                                System.out.println(new int[3].toString());
+                            }
+
+                            public void variables() {
+                                @SuppressWarnings("for-rollout:Test")
+                                String variable = new int[3].toString();
+                                System.out.println(variable);
+                            }
+
+                            @SuppressWarnings("for-rollout:Test")
+                            public static class SomeClass {
+                                static {
+                                    System.out.println(new int[3].toString());
+                                }
+                            }
+                        }
+                        """)
+                .addOutputLines(
+                        "App.java",
+                        // language=Java
+                        """
+                        public final class App {
+                            public final String field = new int[3].toString();
+
+                            public App() {
+                                System.out.println(new int[3].toString());
+                            }
+
+                            public void method() {
+                                System.out.println(new int[3].toString());
+                            }
+
+                            public void variables() {
+                                String variable = new int[3].toString();
+                                System.out.println(variable);
+                            }
+
+                            public static class SomeClass {
+                                static {
+                                    System.out.println(new int[3].toString());
+                                }
+                            }
+                        }
+                        """)
+                .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=Test")
                 .doTest();
     }
 

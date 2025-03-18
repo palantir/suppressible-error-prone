@@ -213,7 +213,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
-                    List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(javaCompile);
+                    List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(project);
 
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
@@ -299,8 +299,8 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .collect(Collectors.toList());
     }
 
-    private static List<String> checksToRemoveSuppressionsFor(JavaCompile javaCompile) {
-        String possibleChecksToRemove = (String) javaCompile.getProject().property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+    private static List<String> checksToRemoveSuppressionsFor(Project project) {
+        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
 
         // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
         // We can't explicitly list all possible checks, because some might not exist anymore

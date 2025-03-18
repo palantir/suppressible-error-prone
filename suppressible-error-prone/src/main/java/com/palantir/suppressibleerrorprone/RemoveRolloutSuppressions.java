@@ -67,7 +67,7 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
                 .collect(Collectors.toSet());
 
         List<String> existingSuppressions =
-                AnnotationUtils.annotationStringValues(tree).collect(Collectors.toList());
+                AnnotationUtils.annotationStringValues(tree).toList();
 
         final List<String> updatedSuppressions;
         if (suppressionsToRemove.isEmpty()) {
@@ -113,8 +113,7 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
                 CharSequence sourceCode, DiagnosticPosition position, String replacementText) {
             this.sourceCode = sourceCode;
             this.position = position;
-            // Guarantee replacementText isn't empty to simplify the checks below
-            this.replacementText = replacementText == null ? "" : replacementText;
+            this.replacementText = replacementText;
         }
 
         @Override
