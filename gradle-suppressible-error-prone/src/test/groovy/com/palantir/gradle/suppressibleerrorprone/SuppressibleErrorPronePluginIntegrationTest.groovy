@@ -71,7 +71,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 //   5. Run the tests as well
                 // If the variable below is true the tests will fail as the compilation process will try to
                 // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = true
+                boolean debuggingErrorPrones = false
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -700,6 +700,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         when: 'the check is run at the default SUGGESTION level, and then automated suppressions are not applied'
         buildFile.text = originalBuildFile
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                // This is disabled by default in error-prone, so enable it
+                //   https://github.com/google/error-prone/blob/04f05c24882152d3c84f4caf9345efd15859b928/core/src/main/java/com/google/errorprone/scanner/BuiltInCheckerSuppliers.java#L1191
+                options.errorprone.enable('FieldCanBeFinal')
+            }
+        '''.stripIndent(true)
 
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 

@@ -18,6 +18,7 @@ package com.palantir.suppressibleerrorprone;
 
 // CHECKSTYLE:OFF
 
+import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
@@ -64,6 +65,12 @@ public final class VisitorStateModifications {
 
         if (shouldPreferDefaultSuggestedFixesForThisCheck && checkHasSuggestedFixes) {
             return description;
+        }
+
+        // If the check is a suggestion, we don't want to auto-suppress it, so we return no match (such that it also
+        //    doesn't auto-fix it if not requested, which is caught in the above)
+        if (visitorState.severityMap().get(description.checkName).equals(SeverityLevel.SUGGESTION)) {
+            return Description.NO_MATCH;
         }
 
         // We can't just use visitorState.getPath() because there are checks that do not emit Descriptions
