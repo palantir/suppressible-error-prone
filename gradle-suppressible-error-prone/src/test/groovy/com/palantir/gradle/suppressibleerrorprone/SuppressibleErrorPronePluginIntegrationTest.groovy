@@ -957,6 +957,25 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    def 'RemoveRolloutSuppressions can remove itself'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:RemoveRolloutSuppressions")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=RemoveRolloutSuppressions')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
     @Override
     ExecutionResult runTasksSuccessfully(String... tasks) {
         def result = runTasks(tasks)

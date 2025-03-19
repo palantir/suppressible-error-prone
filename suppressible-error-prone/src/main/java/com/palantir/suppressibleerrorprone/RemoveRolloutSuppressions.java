@@ -46,7 +46,9 @@ import javax.lang.model.element.Name;
         // This needs to be SUGGESTION so that error prone won't try to apply the check in normal operations
         // When requested, we will directly enable it in the command line arguments
         severity = BugPattern.SeverityLevel.SUGGESTION,
-        summary = "Remove for-rollout suppression warnings")
+        summary = "Remove for-rollout suppression warnings",
+        // Make it unsuppressible so that it can actually remove itself
+        suppressionAnnotations = {})
 public final class RemoveRolloutSuppressions extends BugChecker implements BugChecker.AnnotationTreeMatcher {
 
     public static final String ARGUMENT = "SuppressibleErrorProne:RemoveForRolloutWarnings";
