@@ -71,7 +71,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 //   5. Run the tests as well
                 // If the variable below is true the tests will fail as the compilation process will try to
                 // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = false
+                boolean debuggingErrorPrones = true
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -698,7 +698,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         def stderr = runTasksWithFailure('compileAllErrorProne').standardError
         stderr.contains('[FieldCanBeFinal]')
 
-        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are applied'
+        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are not applied'
         buildFile.text = originalBuildFile
 
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
@@ -919,6 +919,26 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         when:
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Other')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'does not suppress RemoveRolloutSuppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
         // language=Java
