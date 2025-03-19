@@ -29,6 +29,28 @@ final class SourceCodeUtils {
     }
 
     static CharSequence whitespaceIndentBefore(CharSequence sourceCode, int sourceElementPosition) {
+        int pos = startPositionWithWhitespace(sourceCode, sourceElementPosition);
+
+        return sourceCode.subSequence(pos, sourceElementPosition);
+    }
+
+    static int startPositionWithWhitespaceIncludingNewLine(CharSequence sourceCode, int sourceElementPosition) {
+        int pos = startPositionWithWhitespace(sourceCode, sourceElementPosition);
+
+        // If the character just before the position is a new line, we return the position of the new line, so it can
+        //   be replaced as well.
+        if (pos > 0 && sourceCode.charAt(pos - 1) == '\n') {
+            return pos - 1;
+        }
+
+        return pos;
+    }
+
+    /**
+     * Returns the position of either the start of the line or wherever non-whitespace starts before the given
+     *  source element's position.
+     */
+    private static int startPositionWithWhitespace(CharSequence sourceCode, int sourceElementPosition) {
         int pos = sourceElementPosition - 1;
 
         for (; pos >= 0; pos--) {
@@ -38,7 +60,7 @@ final class SourceCodeUtils {
             }
         }
 
-        return sourceCode.subSequence(pos + 1, sourceElementPosition);
+        return pos + 1;
     }
 
     private SourceCodeUtils() {}

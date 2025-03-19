@@ -38,6 +38,7 @@ import org.gradle.process.CommandLineArgumentProvider;
 
 public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
+    private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemoveRollout";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
     private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
@@ -54,8 +55,13 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private void applyToJavaProject(Project project) {
         if (isDisabled(project) && isAnyKindOfPatching(project)) {
-            throw new IllegalStateException(
-                    "-PerrorProneDisable cannot be used at the same time as -PerrorProneApply or -PerrorProneSuppress");
+            throw new IllegalStateException("-PerrorProneDisable cannot be used at the same time as "
+                    + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemoveRollout");
+        }
+
+        if (isRemovingSuppressions(project) && (isSuppressing(project) || isApplyingSuggestedPatches(project))) {
+            throw new IllegalStateException("-PerrorProneRemoveRollout cannot be used at the same time as "
+                    + "-PerrorProneApply or -PerrorProneSuppress");
         }
 
         project.getPluginManager().apply(ErrorPronePlugin.class);
@@ -203,6 +209,23 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
+        if (isRemovingSuppressions(project)) {
+            errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
+                @Override
+                public Iterable<String> asArguments() {
+                    List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(project);
+
+                    return List.of(
+                            "-XepPatchLocation:IN_PLACE",
+                            "-XepPatchChecks:RemoveRolloutSuppressions",
+                            "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings="
+                                    + String.join(",", suppressionsToRemove));
+                }
+            });
+
+            return;
+        }
+
         if (isSuppressing(project)) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
@@ -276,6 +299,22 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .collect(Collectors.toList());
     }
 
+    private static List<String> checksToRemoveSuppressionsFor(Project project) {
+        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+
+        // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
+        // We can't explicitly list all possible checks, because some might not exist anymore
+        // The logic itself needs to consider an empty list as "remove all"
+        if (possibleChecksToRemove == null) {
+            return List.of();
+        }
+
+        return Arrays.stream(possibleChecksToRemove.split(","))
+                .map(String::trim)
+                .filter(Predicate.not(String::isEmpty))
+                .toList();
+    }
+
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {
         return ((ExtensionAware) javaCompile.getOptions()).getExtensions().getByType(ErrorProneOptions.class);
     }
@@ -285,7 +324,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static boolean isAnyKindOfPatching(Project project) {
-        return isApplyingSuggestedPatches(project) || isSuppressing(project);
+        return isApplyingSuggestedPatches(project) || isSuppressing(project) || isRemovingSuppressions(project);
     }
 
     private static boolean isApplyingSuggestedPatches(Project project) {
@@ -294,6 +333,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private static boolean isSuppressing(Project project) {
         return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_SUPPRESS);
+    }
+
+    private static boolean isRemovingSuppressions(Project project) {
+        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_REMOVE_SUPPRESSIONS);
     }
 
     static String excludedPathsRegex() {

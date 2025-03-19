@@ -19,9 +19,13 @@ package com.palantir.suppressibleerrorprone;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.Tree;
 import java.util.stream.Stream;
+import javax.lang.model.element.Name;
 
 final class AnnotationUtils {
     static Stream<String> annotationStringValues(AnnotationTree annotation) {
@@ -49,6 +53,19 @@ final class AnnotationUtils {
             throw new UnsupportedOperationException("Unsupported assignment expression: "
                     + expression.getClass().getCanonicalName());
         });
+    }
+
+    static Name annotationName(Tree annotationType) {
+        if (annotationType instanceof IdentifierTree) {
+            return ((IdentifierTree) annotationType).getName();
+        }
+
+        if (annotationType instanceof MemberSelectTree) {
+            return ((MemberSelectTree) annotationType).getIdentifier();
+        }
+
+        throw new UnsupportedOperationException(
+                "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
     }
 
     private AnnotationUtils() {}

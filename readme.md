@@ -123,6 +123,14 @@ You can produce a timings report using `-PerrorProneTimings`. This will place a 
 ./gradlew compileAllErrorProne -PerrorProneTimings --rerun-tasks
 ```
 
+You can also use to remove all or some of the for-rollout suppression warnings:
+
+```
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout=Check,OtherCheck
+```
+
+
 ### Using directly from Gradle
 
 You can also use this directly in Gradle without making a plugin (not recommended if you are in a polyrepo environment - save yourself the future pain, don't copy and paste anything, make a plugin for it!):

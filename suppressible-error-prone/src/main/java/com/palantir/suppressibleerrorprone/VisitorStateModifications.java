@@ -22,8 +22,6 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
@@ -97,8 +95,8 @@ public final class VisitorStateModifications {
 
         Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
                 .filter(annotation -> {
-                    Name annotationName = annotationName(annotation.getAnnotationType());
-                    return annotationName.contentEquals("SuppressWarnings");
+                    Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
+                    return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
                 })
                 .findFirst();
 
@@ -150,19 +148,6 @@ public final class VisitorStateModifications {
         }
 
         return Optional.empty();
-    }
-
-    private static Name annotationName(Tree annotationType) {
-        if (annotationType instanceof IdentifierTree) {
-            return ((IdentifierTree) annotationType).getName();
-        }
-
-        if (annotationType instanceof MemberSelectTree) {
-            return ((MemberSelectTree) annotationType).getIdentifier();
-        }
-
-        throw new UnsupportedOperationException(
-                "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
     }
 
     private VisitorStateModifications() {}

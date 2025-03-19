@@ -868,6 +868,67 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         suppressMessage.contains '-PerrorProneDisable'
     }
 
+    // This test also verifies we're properly passing the arguments to the errorprone plugin
+    def 'supports removing specific error prone suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    // This test also verifies we're properly passing the arguments to the errorprone plugin
+    def 'supports removing all error prone suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    // This test also verifies we're properly passing the arguments to the errorprone plugin
+    def 'does not remove suppressions other than requested'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Other')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
     @Override
     ExecutionResult runTasksSuccessfully(String... tasks) {
         def result = runTasks(tasks)
