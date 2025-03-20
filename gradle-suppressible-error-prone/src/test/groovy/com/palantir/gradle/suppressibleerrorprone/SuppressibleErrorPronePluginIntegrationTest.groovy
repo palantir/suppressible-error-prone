@@ -698,8 +698,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         def stderr = runTasksWithFailure('compileAllErrorProne').standardError
         stderr.contains('[FieldCanBeFinal]')
 
-        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are applied'
+        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are not applied'
         buildFile.text = originalBuildFile
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                // This is disabled by default in error-prone, so enable it
+                //   https://github.com/google/error-prone/blob/04f05c24882152d3c84f4caf9345efd15859b928/core/src/main/java/com/google/errorprone/scanner/BuiltInCheckerSuppliers.java#L1191
+                options.errorprone.enable('FieldCanBeFinal')
+            }
+        '''.stripIndent(true)
 
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
@@ -925,6 +933,45 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         appJavaTextEquals '''
             package app;
             @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'does not suppress RemoveRolloutSuppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {}
+        '''.stripIndent(true)
+    }
+
+    def 'RemoveRolloutSuppressions can remove itself'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:RemoveRolloutSuppressions")
+            public final class App {}
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=RemoveRolloutSuppressions')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
             public final class App {}
         '''.stripIndent(true)
     }
