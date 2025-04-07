@@ -218,13 +218,17 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
                             "-XepPatchChecks:RemoveRolloutSuppressions",
-                            "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings="
+                            "-XepOpt:SuppressibleErrorProne:RemoveRolloutSuppressions="
                                     + String.join(",", suppressionsToRemove));
                 }
             });
 
             return;
         }
+
+        // If we're not removing suppressions, disable it to avoid having `Note: [RemoveRolloutSuppressions]` in
+        // unrelated error messages as it's a suggestion level check.
+        errorProneOptions.disable("RemoveRolloutSuppressions");
 
         if (isSuppressing(project)) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {

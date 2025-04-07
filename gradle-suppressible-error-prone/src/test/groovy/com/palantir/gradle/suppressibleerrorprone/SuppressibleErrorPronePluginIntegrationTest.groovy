@@ -16,10 +16,10 @@
 
 package com.palantir.gradle.suppressibleerrorprone
 
+import com.google.common.base.Throwables
 import nebula.test.IntegrationSpec
 import nebula.test.functional.ExecutionResult
 import org.apache.commons.io.FileUtils
-import org.assertj.core.util.Throwables
 import spock.lang.Unroll
 
 class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
@@ -974,6 +974,25 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {}
         '''.stripIndent(true)
+    }
+
+    def 'RemoveRolloutSuppressions does not appear as a Note: [RemoveRolloutSuppressions] in unrelated errors'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:NullAway")
+                public static void method() {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def rootCauseMessage = Throwables.getRootCause(runTasksWithFailure('compileAllErrorProne').failure).message
+
+        then:
+        !rootCauseMessage.contains('[RemoveRolloutSuppressions]')
     }
 
     @Override
