@@ -51,7 +51,7 @@ import javax.lang.model.element.Name;
         suppressionAnnotations = {})
 public final class RemoveRolloutSuppressions extends BugChecker implements BugChecker.AnnotationTreeMatcher {
 
-    public static final String ARGUMENT = "SuppressibleErrorProne:RemoveForRolloutWarnings";
+    public static final String ARGUMENT = "SuppressibleErrorProne:RemoveRolloutSuppressions";
 
     @Override
     public Description matchAnnotation(AnnotationTree tree, VisitorState state) {
@@ -62,8 +62,8 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
 
         Set<String> suppressionsToRemove = state.errorProneOptions().getFlags().getSetOrEmpty(ARGUMENT).stream()
                 // If no check is specified in the command line argument, the error prone option will look like
-                //   "-XepOpt:SuppressibleErrorProne:RemoveForRolloutWarnings=" which will match to just an empty string
-                // In this case, we actually want to remove all the suppressions
+                //   "-XepOpt:SuppressibleErrorProne:RemoveRolloutSuppressions=" which will match to just an empty
+                // string. In this case, we actually want to remove all the suppressions
                 .filter(s -> !s.isEmpty())
                 .map(s -> CommonConstants.AUTOMATICALLY_ADDED_PREFIX + s)
                 .collect(Collectors.toSet());
