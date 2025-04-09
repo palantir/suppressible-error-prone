@@ -976,7 +976,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    def 'can patch targeted patchable checks using -PerrorProneRemoveRollout, even if suppressed for rollout'() {
+    def 'can patch checks while using -PerrorProneRemoveRollout, even if suppressed for rollout'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -989,7 +989,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
 
         then:
         // language=Java
@@ -1005,7 +1005,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    def 'does not patch patchable checks using -PerrorProneRemoveRollout, if suppressed normally'() {
+    def 'does not patch checks while using -PerrorProneRemoveRollout, if suppressed normally'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -1018,7 +1018,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
 
         then:
         // language=Java
@@ -1033,7 +1033,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    def 'can patch patchable checks using -PerrorProneRemoveRollout, if not suppressed'() {
+    def 'can patch checks while using -PerrorProneRemoveRollout, if not suppressed'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -1045,7 +1045,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
 
         then:
         // language=Java
@@ -1073,7 +1073,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=NullAway')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=NullAway', '-PerrorProneApply=NullAway')
 
         then:
         // language=Java
@@ -1087,7 +1087,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
-    def 'errorProneRemoveRollout does not patch if no specific check is targeted'() {
+    def 'errorProneRemoveRollout does not patch by itself'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -1100,7 +1100,35 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveRollout does not patch if specific check is not selected'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString,Test', '-PerrorProneApply=Test')
 
         then:
         // language=Java

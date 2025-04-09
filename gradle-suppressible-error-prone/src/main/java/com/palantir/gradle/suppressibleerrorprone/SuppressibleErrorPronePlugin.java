@@ -61,9 +61,9 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                     + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemoveRollout");
         }
 
-        if (isRemovingSuppressions(project) && (isSuppressing(project) || isApplyingSuggestedPatches(project))) {
-            throw new IllegalStateException("-PerrorProneRemoveRollout cannot be used at the same time as "
-                    + "-PerrorProneApply or -PerrorProneSuppress");
+        if (isRemovingSuppressions(project) && isSuppressing(project)) {
+            throw new IllegalStateException(
+                    "-PerrorProneRemoveRollout cannot be used at the same time as " + "-PerrorProneSuppress");
         }
 
         project.getPluginManager().apply(ErrorPronePlugin.class);
@@ -219,10 +219,24 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 @Override
                 public Iterable<String> asArguments() {
                     List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(project);
+
                     Set<String> checksToPatch = new HashSet<>();
                     checksToPatch.add("RemoveRolloutSuppressions");
-                    // TODO(aldexis): Should we only do this if a specific argument is present?
-                    checksToPatch.addAll(suppressionsToRemove);
+
+                    // If we're also applying suggested patches, we want to make sure that these are a subset of
+                    //   the checks we're removing suppressions for.
+                    // Otherwise, we might apply fixes for a check that we're not removing the suppression for, if
+                    //   suppressed using a for-rollout suppression (because we're not applying the for-rollout hack)
+                    if (isApplyingSuggestedPatches(project)) {
+                        Set<String> suppressionsToRemoveSet = new HashSet<>(suppressionsToRemove);
+                        List<String> extraChecksToPatch =
+                                checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
+                        if (extraChecksToPatch.stream().anyMatch(check -> !suppressionsToRemoveSet.contains(check))) {
+                            throw new IllegalStateException(
+                                    "Checks to patch must be a subset of the checks to remove suppressions for");
+                        }
+                        checksToPatch.addAll(extraChecksToPatch);
+                    }
 
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
