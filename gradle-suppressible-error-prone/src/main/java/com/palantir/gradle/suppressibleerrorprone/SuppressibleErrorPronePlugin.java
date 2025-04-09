@@ -63,7 +63,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         if (isRemovingSuppressions(project) && isSuppressing(project)) {
             throw new IllegalStateException(
-                    "-PerrorProneRemoveRollout cannot be used at the same time as " + "-PerrorProneSuppress");
+                    "-PerrorProneRemoveRollout cannot be used at the same time as -PerrorProneSuppress");
         }
 
         project.getPluginManager().apply(ErrorPronePlugin.class);
@@ -77,7 +77,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        // Don't need to consider the custom suppression logic if we're going to remove the suppressions anyway
+        // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
+        //   logic for for-rollout suppressions.
+        // Note that this means we need to handle the requested patches with care, so as to not apply patches to
+        //   checks that are suppressed with for-rollout, but for which we're not going to remove the suppressions.
         if (!isRemovingSuppressions(project)) {
             // When auto-suppressing, there are two stages:
             // 1. The first runs a bytecode patched version of errorprone (via an
