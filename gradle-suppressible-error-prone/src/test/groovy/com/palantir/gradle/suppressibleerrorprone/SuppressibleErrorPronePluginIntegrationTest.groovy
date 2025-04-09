@@ -976,6 +976,237 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    def 'can patch checks while using -PerrorProneRemoveRollout, even if suppressed for rollout'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import java.util.Arrays;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(Arrays.toString(new int[3]));
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'does not patch checks while using -PerrorProneRemoveRollout, if suppressed normally'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'can patch checks while using -PerrorProneRemoveRollout, if not suppressed'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import java.util.Arrays;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(Arrays.toString(new int[3]));
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveRollout does not patch unrelated checks'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=NullAway', '-PerrorProneApply=NullAway')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveRollout does not patch by itself'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveRollout does not patch if specific check is not selected'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("for-rollout:Test")
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString,Test', '-PerrorProneApply=Test')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'can patch specific checks even if errorProneRemoveRollout argument is empty'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout', '-PerrorProneApply=ArrayToString')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import java.util.Arrays;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(Arrays.toString(new int[3]));
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'can patch configured checks even if errorProneRemoveRollout argument is empty'() {
+        // language=Gradle
+        buildFile << '''
+            suppressibleErrorProne {
+                patchChecks.add('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout', '-PerrorProneApply')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import java.util.Arrays;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println(Arrays.toString(new int[3]));
+                }
+            }
+        '''.stripIndent(true)
+    }
+
     def 'RemoveRolloutSuppressions does not appear as a Note: [RemoveRolloutSuppressions] in unrelated errors'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''

@@ -130,6 +130,12 @@ You can also use to remove all or some of the for-rollout suppression warnings:
 ./gradlew compileAllErrorProne -PerrorProneRemoveRollout=Check,OtherCheck
 ```
 
+This can also be combined with `-PerrorProneApply` to apply suggested fixes for the checks you are removing the suppressions for:
+
+```
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout=Check,OtherCheck -PerrorProneApply=Check
+```
+
 
 ### Using directly from Gradle
 

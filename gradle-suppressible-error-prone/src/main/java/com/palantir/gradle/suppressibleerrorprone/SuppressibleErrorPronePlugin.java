@@ -19,8 +19,10 @@ package com.palantir.gradle.suppressibleerrorprone;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
@@ -59,9 +61,9 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                     + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemoveRollout");
         }
 
-        if (isRemovingSuppressions(project) && (isSuppressing(project) || isApplyingSuggestedPatches(project))) {
-            throw new IllegalStateException("-PerrorProneRemoveRollout cannot be used at the same time as "
-                    + "-PerrorProneApply or -PerrorProneSuppress");
+        if (isRemovingSuppressions(project) && isSuppressing(project)) {
+            throw new IllegalStateException(
+                    "-PerrorProneRemoveRollout cannot be used at the same time as -PerrorProneSuppress");
         }
 
         project.getPluginManager().apply(ErrorPronePlugin.class);
@@ -75,15 +77,15 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        // When auto-suppressing, there are two stages:
-        // 1. The first runs a bytecode patched version of errorprone (via an
-        //    artifact transform) that intercepts every error from every check and adds a custom fix, a
-        //    @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class.
-        // 2. The second stage runs a single errorprone check: SuppressWarningsCoalesce, which will combine all
-        //    the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one normal @SuppressWarnings
-        //    annotation.
-
-        setupErrorProneArtifactTransform(project);
+        // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
+        //   logic for for-rollout suppressions.
+        // Note that this means we need to handle the requested patches with care, so as to not apply patches to
+        //   checks that are suppressed with for-rollout, but for which we're not going to remove the suppressions.
+        if (!isRemovingSuppressions(project)) {
+            // When auto-suppressing, the logic will run a bytecode patched version of errorprone
+            // (via an artifact transform) that intercepts every error from every check and adds a custom fix
+            setupErrorProneArtifactTransform(project);
+        }
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
             // Required so that we can run the runtime parts of the errorprone patching in suppressing stage 1 and
@@ -215,9 +217,38 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 public Iterable<String> asArguments() {
                     List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(project);
 
+                    Set<String> checksToPatch = new HashSet<>();
+                    checksToPatch.add("RemoveRolloutSuppressions");
+
+                    if (isApplyingSuggestedPatches(project)) {
+                        List<String> extraChecksToPatch =
+                                checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
+
+                        // If we're also applying suggested patches, we want to make sure that these are a subset of
+                        //   the checks we're removing suppressions for.
+                        // Otherwise, we might apply fixes for a check that we're not removing the suppression for, if
+                        //   suppressed using a for-rollout suppression (because we're not applying the for-rollout fix)
+                        // However, if we're not specifiying specific checks to remove the suppressions for, we're
+                        //   going to remove all the for-rollout suppressions, thus can accept any and all checks to
+                        //   apply patches for
+                        if (!suppressionsToRemove.isEmpty()) {
+                            Set<String> suppressionsToRemoveSet = new HashSet<>(suppressionsToRemove);
+                            List<String> checksNotInSuppressionRemovals = extraChecksToPatch.stream()
+                                    .filter(check -> !suppressionsToRemoveSet.contains(check))
+                                    .toList();
+                            if (!checksNotInSuppressionRemovals.isEmpty()) {
+                                throw new IllegalStateException(
+                                        "Checks to patch must be a subset of the checks to remove suppressions for. "
+                                                + "Checks not in the errorProneRemoveRollout list: "
+                                                + checksNotInSuppressionRemovals);
+                            }
+                        }
+                        checksToPatch.addAll(extraChecksToPatch);
+                    }
+
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
-                            "-XepPatchChecks:RemoveRolloutSuppressions",
+                            "-XepPatchChecks:" + String.join(",", checksToPatch),
                             "-XepOpt:SuppressibleErrorProne:RemoveRolloutSuppressions="
                                     + String.join(",", suppressionsToRemove));
                 }
