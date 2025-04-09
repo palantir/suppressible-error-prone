@@ -19,8 +19,10 @@ package com.palantir.gradle.suppressibleerrorprone;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
@@ -75,15 +77,18 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        // When auto-suppressing, there are two stages:
-        // 1. The first runs a bytecode patched version of errorprone (via an
-        //    artifact transform) that intercepts every error from every check and adds a custom fix, a
-        //    @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class.
-        // 2. The second stage runs a single errorprone check: SuppressWarningsCoalesce, which will combine all
-        //    the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one normal @SuppressWarnings
-        //    annotation.
+        // Don't need to consider the custom suppression logic if we're going to remove the suppressions anyway
+        if (!isRemovingSuppressions(project)) {
+            // When auto-suppressing, there are two stages:
+            // 1. The first runs a bytecode patched version of errorprone (via an
+            //    artifact transform) that intercepts every error from every check and adds a custom fix, a
+            //    @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class.
+            // 2. The second stage runs a single errorprone check: SuppressWarningsCoalesce, which will combine all
+            //    the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one normal @SuppressWarnings
+            //    annotation.
 
-        setupErrorProneArtifactTransform(project);
+            setupErrorProneArtifactTransform(project);
+        }
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
             // Required so that we can run the runtime parts of the errorprone patching in suppressing stage 1 and
@@ -214,10 +219,14 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 @Override
                 public Iterable<String> asArguments() {
                     List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(project);
+                    Set<String> checksToPatch = new HashSet<>();
+                    checksToPatch.add("RemoveRolloutSuppressions");
+                    // TODO(aldexis): Should we only do this if a specific argument is present?
+                    checksToPatch.addAll(suppressionsToRemove);
 
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
-                            "-XepPatchChecks:RemoveRolloutSuppressions",
+                            "-XepPatchChecks:" + String.join(",", checksToPatch),
                             "-XepOpt:SuppressibleErrorProne:RemoveRolloutSuppressions="
                                     + String.join(",", suppressionsToRemove));
                 }
