@@ -82,14 +82,8 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // Note that this means we need to handle the requested patches with care, so as to not apply patches to
         //   checks that are suppressed with for-rollout, but for which we're not going to remove the suppressions.
         if (!isRemovingSuppressions(project)) {
-            // When auto-suppressing, there are two stages:
-            // 1. The first runs a bytecode patched version of errorprone (via an
-            //    artifact transform) that intercepts every error from every check and adds a custom fix, a
-            //    @RepeatableSuppressWarnings annotation to the relevant statement/method/field/class.
-            // 2. The second stage runs a single errorprone check: SuppressWarningsCoalesce, which will combine all
-            //    the @RepeatableSuppressWarnings and @SuppressWarnings annotations into one normal @SuppressWarnings
-            //    annotation.
-
+            // When auto-suppressing, the logic will run a bytecode patched version of errorprone
+            // (via an artifact transform) that intercepts every error from every check and adds a custom fix
             setupErrorProneArtifactTransform(project);
         }
 
@@ -226,17 +220,28 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                     Set<String> checksToPatch = new HashSet<>();
                     checksToPatch.add("RemoveRolloutSuppressions");
 
-                    // If we're also applying suggested patches, we want to make sure that these are a subset of
-                    //   the checks we're removing suppressions for.
-                    // Otherwise, we might apply fixes for a check that we're not removing the suppression for, if
-                    //   suppressed using a for-rollout suppression (because we're not applying the for-rollout hack)
                     if (isApplyingSuggestedPatches(project)) {
-                        Set<String> suppressionsToRemoveSet = new HashSet<>(suppressionsToRemove);
                         List<String> extraChecksToPatch =
                                 checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
-                        if (extraChecksToPatch.stream().anyMatch(check -> !suppressionsToRemoveSet.contains(check))) {
-                            throw new IllegalStateException(
-                                    "Checks to patch must be a subset of the checks to remove suppressions for");
+
+                        // If we're also applying suggested patches, we want to make sure that these are a subset of
+                        //   the checks we're removing suppressions for.
+                        // Otherwise, we might apply fixes for a check that we're not removing the suppression for, if
+                        //   suppressed using a for-rollout suppression (because we're not applying the for-rollout fix)
+                        // However, if we're not specifiying specific checks to remove the suppressions for, we're
+                        //   going to remove all the for-rollout suppressions, thus can accept any and all checks to
+                        //   apply patches for
+                        if (!suppressionsToRemove.isEmpty()) {
+                            Set<String> suppressionsToRemoveSet = new HashSet<>(suppressionsToRemove);
+                            List<String> checksNotInSuppressionRemovals = extraChecksToPatch.stream()
+                                    .filter(check -> !suppressionsToRemoveSet.contains(check))
+                                    .toList();
+                            if (!checksNotInSuppressionRemovals.isEmpty()) {
+                                throw new IllegalStateException(
+                                        "Checks to patch must be a subset of the checks to remove suppressions for. "
+                                                + "Checks not in the errorProneRemoveRollout list: "
+                                                + checksNotInSuppressionRemovals);
+                            }
                         }
                         checksToPatch.addAll(extraChecksToPatch);
                     }
