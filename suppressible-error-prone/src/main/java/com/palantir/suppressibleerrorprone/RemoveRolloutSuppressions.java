@@ -131,7 +131,7 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
 
         @Override
         public CoalescePolicy getCoalescePolicy() {
-            return CoalescePolicy.REJECT;
+            return CoalescePolicy.EXISTING_FIRST;
         }
 
         @Override

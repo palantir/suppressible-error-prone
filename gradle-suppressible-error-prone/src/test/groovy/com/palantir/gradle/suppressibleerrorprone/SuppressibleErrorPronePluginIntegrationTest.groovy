@@ -1005,6 +1005,37 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
     }
 
+    def 'can patch checks while using -PerrorProneRemoveRollout, which also add annotations as fixes'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:TestBugPattern")
+                public Object toFix() {
+                    System.out.println("Test");
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=TestBugPattern', '-PerrorProneApply=TestBugPattern')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import javax.annotation.Nullable;
+            public final class App {
+                @Nullable public Object toFix() {
+                    System.out.println("Test");
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+    }
+
     def 'does not patch checks while using -PerrorProneRemoveRollout, if suppressed normally'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
