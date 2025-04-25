@@ -15,12 +15,10 @@ buildscript {
         classpath 'com.palantir.baseline:gradle-baseline-java:6.1.0'
         classpath 'com.palantir.javaformat:gradle-palantir-java-format:2.63.0'
         classpath 'com.palantir.gradle.gitversion:gradle-git-version:3.2.0'
-        classpath 'com.palantir.gradle.gradleideaconfiguration:gradle-idea-configuration:0.1.0'
     }
 }
 
 apply plugin: 'com.palantir.git-version'
-apply plugin: 'com.palantir.idea-configuration'
 apply plugin: 'com.palantir.external-publish'
 apply plugin: 'com.palantir.failure-reports'
 apply plugin: 'com.palantir.jdks'
