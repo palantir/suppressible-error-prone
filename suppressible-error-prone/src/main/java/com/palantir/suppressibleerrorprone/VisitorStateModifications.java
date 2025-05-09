@@ -28,6 +28,7 @@ import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -98,6 +99,32 @@ public final class VisitorStateModifications {
 
         Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
 
+        if (firstSuppressibleParent instanceof JCVariableDecl jcVariableDecl) {
+            // visitorState.getTreeMaker().Modifiers(jcVariableDecl.mods.flags,
+            // List.of(visitorState.getTreeMaker().Annotation(visitorState.getTreeMaker().Type())))
+
+            visitorState
+                    .getTreeMaker()
+                    .Annotation(
+                            visitorState
+                                    .getTreeMaker()
+                                    .Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
+                            com.sun.tools.javac.util.List.of(visitorState
+                                    .getTreeMaker()
+                                    .Assign(
+                                            visitorState.getTreeMaker().Ident(visitorState.getName("value")),
+                                            visitorState.getTreeMaker().Literal("Test"))));
+
+            JCVariableDecl newJcVariableDecl = visitorState
+                    .getTreeMaker()
+                    .VarDef(
+                            jcVariableDecl.mods,
+                            jcVariableDecl.name,
+                            jcVariableDecl.vartype,
+                            jcVariableDecl.init,
+                            jcVariableDecl.declaredUsingVar());
+        }
+
         ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
 
         Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
@@ -106,29 +133,6 @@ public final class VisitorStateModifications {
                     return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
                 })
                 .findFirst();
-
-//        JCClassDecl classTree = null;
-//
-//        JCClassDecl jcClassDecl = visitorState
-//                .getTreeMaker()
-//                .ClassDef(
-//                        classTree.mods,
-//                        classTree.name,
-//                        classTree.typarams,
-//                        classTree.extending,
-//                        classTree.implementing,
-//                        classTree.defs);
-//
-//        JavacProcessingEnvironment processingEnvironment = JavacProcessingEnvironment.instance(visitorState.context);
-//        ClassLoader loader = processingEnvironment.getProcessorClassLoader();
-//        List<BugChecker> allBugCheckers = ServiceLoader.load(BugChecker.class, loader).stream()
-//                .map(Provider::get)
-//                .toList();
-//
-//        BugChecker bugChecker = allBugCheckers.stream()
-//                .filter(checker -> checker.canonicalName().equals(description.checkName))
-//                .findFirst()
-//                .get();
 
         // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
         // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
