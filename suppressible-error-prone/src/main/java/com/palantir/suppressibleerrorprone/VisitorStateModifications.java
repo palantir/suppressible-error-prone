@@ -29,6 +29,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
+import com.sun.tools.javac.tree.TreeMaker;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -99,30 +100,23 @@ public final class VisitorStateModifications {
 
         Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
 
+        TreeMaker trees = visitorState.getTreeMaker();
+
         if (firstSuppressibleParent instanceof JCVariableDecl jcVariableDecl) {
             // visitorState.getTreeMaker().Modifiers(jcVariableDecl.mods.flags,
             // List.of(visitorState.getTreeMaker().Annotation(visitorState.getTreeMaker().Type())))
 
-            visitorState
-                    .getTreeMaker()
-                    .Annotation(
-                            visitorState
-                                    .getTreeMaker()
-                                    .Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
-                            com.sun.tools.javac.util.List.of(visitorState
-                                    .getTreeMaker()
-                                    .Assign(
-                                            visitorState.getTreeMaker().Ident(visitorState.getName("value")),
-                                            visitorState.getTreeMaker().Literal("Test"))));
+            trees.Annotation(
+                    trees.Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
+                    com.sun.tools.javac.util.List.of(
+                            trees.Assign(trees.Ident(visitorState.getName("value")), trees.Literal("Test"))));
 
-            JCVariableDecl newJcVariableDecl = visitorState
-                    .getTreeMaker()
-                    .VarDef(
-                            jcVariableDecl.mods,
-                            jcVariableDecl.name,
-                            jcVariableDecl.vartype,
-                            jcVariableDecl.init,
-                            jcVariableDecl.declaredUsingVar());
+            JCVariableDecl newJcVariableDecl = trees.VarDef(
+                    jcVariableDecl.mods,
+                    jcVariableDecl.name,
+                    jcVariableDecl.vartype,
+                    jcVariableDecl.init,
+                    jcVariableDecl.declaredUsingVar());
         }
 
         ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
