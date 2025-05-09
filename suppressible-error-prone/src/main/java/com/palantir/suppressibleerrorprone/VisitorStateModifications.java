@@ -151,9 +151,24 @@ public final class VisitorStateModifications {
                                     trees.Ident(visitorState.getName("value")), trees.Literal(description.checkName))));
 
                     // Add the annotation to the existing modifiers
-                    result = trees.Modifiers(
+                    JCModifiers newModifiers = trees.Modifiers(
                             jcVariableDecl.mods.flags,
                             List.from(jcVariableDecl.mods.annotations.append(suppressWarningsAnnotation)));
+
+                    // Copy position information from the original modifiers
+                    newModifiers.pos = tree.pos;
+
+                    result = newModifiers;
+                }
+
+                @Override
+                public <T extends JCTree> T translate(T tree) {
+                    T result = super.translate(tree);
+                    if (result != tree && result != null) {
+                        // Preserve position information
+                        result.pos = tree.pos;
+                    }
+                    return result;
                 }
             };
 
