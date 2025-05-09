@@ -20,6 +20,8 @@ package com.palantir.suppressibleerrorprone;
 
 import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
@@ -28,10 +30,20 @@ import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCAnnotation;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeMaker;
+import com.sun.tools.javac.tree.TreeTranslator;
+import com.sun.tools.javac.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
@@ -41,6 +53,10 @@ import javax.lang.model.element.Name;
 
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
+
+    private static final ThreadLocal<Boolean> IS_TRYING_UP_TREES = ThreadLocal.withInitial(() -> false);
+    private static final ThreadLocal<ArrayList<Description>> TRYING_UP_TREES_ERRORS =
+            ThreadLocal.withInitial(ArrayList::new);
 
     // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
     // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
@@ -52,6 +68,13 @@ public final class VisitorStateModifications {
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         if (description == Description.NO_MATCH) {
             return description;
+        }
+
+        // TODO(callumr): Extend VisitorState instead?
+        if (IS_TRYING_UP_TREES.get()) {
+            TRYING_UP_TREES_ERRORS.get().add(description);
+            // Don't let errorprone do anything else with it
+            return Description.NO_MATCH;
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -103,20 +126,56 @@ public final class VisitorStateModifications {
         TreeMaker trees = visitorState.getTreeMaker();
 
         if (firstSuppressibleParent instanceof JCVariableDecl jcVariableDecl) {
-            // visitorState.getTreeMaker().Modifiers(jcVariableDecl.mods.flags,
-            // List.of(visitorState.getTreeMaker().Annotation(visitorState.getTreeMaker().Type())))
+            // Create a new variable declaration with the updated modifiers
+            JavacProcessingEnvironment processingEnvironment =
+                    JavacProcessingEnvironment.instance(visitorState.context);
+            ClassLoader loader = processingEnvironment.getProcessorClassLoader();
+            BugChecker bugChecker = ServiceLoader.load(BugChecker.class, loader).stream()
+                    .map(Provider::get)
+                    .filter(checker -> checker.canonicalName().equals(description.checkName))
+                    .findFirst()
+                    .get();
 
-            trees.Annotation(
-                    trees.Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
-                    com.sun.tools.javac.util.List.of(
-                            trees.Assign(trees.Ident(visitorState.getName("value")), trees.Literal("Test"))));
+            TreeTranslator treeTranslator = new TreeTranslator() {
+                @Override
+                public void visitModifiers(JCModifiers tree) {
+                    if (jcVariableDecl.mods != tree) {
+                        super.visitModifiers(tree);
+                        return;
+                    }
 
-            JCVariableDecl newJcVariableDecl = trees.VarDef(
-                    jcVariableDecl.mods,
-                    jcVariableDecl.name,
-                    jcVariableDecl.vartype,
-                    jcVariableDecl.init,
-                    jcVariableDecl.declaredUsingVar());
+                    // Create a SuppressWarnings annotation with the current check name
+                    JCAnnotation suppressWarningsAnnotation = trees.Annotation(
+                            trees.Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
+                            List.of(trees.Assign(
+                                    trees.Ident(visitorState.getName("value")), trees.Literal(description.checkName))));
+
+                    // Add the annotation to the existing modifiers
+                    result = trees.Modifiers(
+                            jcVariableDecl.mods.flags,
+                            List.from(jcVariableDecl.mods.annotations.append(suppressWarningsAnnotation)));
+                }
+            };
+
+            JCTree newTree =
+                    treeTranslator.translate((JCTree) visitorState.getPath().getLeaf());
+
+            IS_TRYING_UP_TREES.set(true);
+            TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
+
+            try {
+                Description descriptionWithNewClass = ((ClassTreeMatcher) bugChecker)
+                        .matchClass(
+                                (JCClassDecl) newTree,
+                                visitorState.withPath(
+                                        TreePath.getPath(visitorState.getPath().getParentPath(), newTree)));
+            } finally {
+                IS_TRYING_UP_TREES.set(false);
+            }
+
+            ArrayList<Description> reportMatchDescriptions = TRYING_UP_TREES_ERRORS.get();
+
+            System.out.println("newTree = " + newTree);
         }
 
         ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
