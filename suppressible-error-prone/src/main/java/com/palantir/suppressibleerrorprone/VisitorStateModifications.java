@@ -33,7 +33,9 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotation;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
+import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.List;
@@ -103,183 +105,129 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
-        // Get all suppressible parents in the path, starting from the most specific (closest to the error)
-        List<TreePath> suppressibleParents = Stream.iterate(
+        Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .filter(path -> suppressibleTree(path.getLeaf()))
-                .collect(List.collector());
+                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
+                .findFirst();
 
-        // Try each suppressible parent, starting from the most specific, until we find one where adding
-        // the @SuppressWarnings annotation makes the check pass
-        for (TreePath suppressibleParent : suppressibleParents) {
-            Tree tree = suppressibleParent.getLeaf();
-
-            // Try adding @SuppressWarnings to this parent and see if it fixes the issue
-            if (tryAddingSuppressWarningsToTree(visitorState, description, suppressibleParent)) {
-                // It worked! Use the existing fix mechanism to add the suppression
-                ModifiersTree modifiersTree = modifiersTree(tree).get();
-
-                Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
-                        .filter(annotation -> {
-                            Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
-                            return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
-                        })
-                        .findFirst();
-
-                // In order to be able to suppress multiple errors in one pass on the same element, we need to do a
-                // single
-                // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements.
-                // To do
-                // this, we make sure we only make one fix per source element we put the suppression on by using a Map.
-                // This
-                // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by
-                // all
-                // the error-prone checks it will then produce a replacement with all the checks suppressed.
-                boolean alreadyReportedFix = FIXES.containsKey(tree);
-
-                SuppressingFix suppressingFix = FIXES.computeIfAbsent(
-                        tree,
-                        _ignored -> new SuppressingFix(
-                                Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, tree));
-
-                suppressingFix.addSuppression(description.checkName);
-
-                // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to
-                // the fix.
-                if (alreadyReportedFix) {
-                    return Description.NO_MATCH;
-                }
-
-                return Description.builder(
-                                description.position,
-                                description.checkName,
-                                description.getLink(),
-                                description.getMessageWithoutCheckName())
-                        .addFix(suppressingFix)
-                        .build();
-            }
+        // If we can't find a suppressible parent, we can't add a suppression, so just give up.
+        // This happens when there's a suppression on an import or compilation unit.
+        // Imports should never be at error level as we can't suppress them. Or have an autofix that *always* works.
+        if (firstSuppressible.isEmpty()) {
+            log.warning("Couldn't find a suppressible parent for " + description.checkName + " at position "
+                    + description.position.getStartPosition() + " in "
+                    + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
+                    + " SuppressibleErrorProne will not be able to add a suppression for this error.");
+            return Description.NO_MATCH;
         }
 
-        // If we get here, none of the suppressible parents worked, so log a warning
-        log.warning("Couldn't find a suppressible parent for " + description.checkName + " at position "
-                + description.position.getStartPosition() + " in "
-                + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
-                + " SuppressibleErrorProne will not be able to add a suppression for this error.");
-        return Description.NO_MATCH;
-    }
+        Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
 
-    /**
-     * Tries adding a @SuppressWarnings annotation to the given tree and checks if it fixes the issue.
-     *
-     * @return true if adding the annotation fixes the issue, false otherwise
-     */
-    private static boolean tryAddingSuppressWarningsToTree(
-            VisitorState visitorState, Description description, TreePath suppressibleParent) {
-        Tree tree = suppressibleParent.getLeaf();
         TreeMaker trees = visitorState.getTreeMaker();
 
-        // Get the BugChecker for this description
-        JavacProcessingEnvironment processingEnvironment = JavacProcessingEnvironment.instance(visitorState.context);
-        ClassLoader loader = processingEnvironment.getProcessorClassLoader();
-        BugChecker bugChecker;
-        try {
-            bugChecker = ServiceLoader.load(BugChecker.class, loader).stream()
+        if (firstSuppressibleParent instanceof JCVariableDecl jcVariableDecl) {
+            // Create a new variable declaration with the updated modifiers
+            JavacProcessingEnvironment processingEnvironment =
+                    JavacProcessingEnvironment.instance(visitorState.context);
+            ClassLoader loader = processingEnvironment.getProcessorClassLoader();
+            BugChecker bugChecker = ServiceLoader.load(BugChecker.class, loader).stream()
                     .map(Provider::get)
                     .filter(checker -> checker.canonicalName().equals(description.checkName))
                     .findFirst()
-                    .orElse(null);
+                    .get();
 
-            if (bugChecker == null) {
-                return false;
-            }
-        } catch (Exception e) {
-            log.warning("Failed to load BugChecker for " + description.checkName + ": " + e.getMessage());
-            return false;
-        }
+            TreeTranslator treeTranslator = new TreeTranslator() {
+                @Override
+                public void visitModifiers(JCModifiers tree) {
+                    if (jcVariableDecl.mods != tree) {
+                        super.visitModifiers(tree);
+                        return;
+                    }
 
-        // Create a TreeTranslator that adds @SuppressWarnings to the modifiers of the tree
-        TreeTranslator treeTranslator = new TreeTranslator() {
-            @Override
-            public void visitModifiers(JCModifiers tree) {
-                if (!modifiersTree(suppressibleParent.getLeaf())
-                        .map(m -> m == tree)
-                        .orElse(false)) {
-                    super.visitModifiers(tree);
-                    return;
+                    // Create a SuppressWarnings annotation with the current check name
+                    JCAnnotation suppressWarningsAnnotation = trees.Annotation(
+                            trees.Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
+                            List.of(trees.Assign(
+                                    trees.Ident(visitorState.getName("value")), trees.Literal(description.checkName))));
+
+                    // Add the annotation to the existing modifiers
+                    JCModifiers newModifiers = trees.Modifiers(
+                            jcVariableDecl.mods.flags,
+                            List.from(jcVariableDecl.mods.annotations.append(suppressWarningsAnnotation)));
+
+                    // Copy position information from the original modifiers
+                    newModifiers.pos = tree.pos;
+
+                    result = newModifiers;
                 }
 
-                // Create a SuppressWarnings annotation with the current check name
-                JCAnnotation suppressWarningsAnnotation = trees.Annotation(
-                        trees.Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
-                        List.of(trees.Assign(
-                                trees.Ident(visitorState.getName("value")), trees.Literal(description.checkName))));
-
-                // Add the annotation to the existing modifiers
-                JCModifiers newModifiers =
-                        trees.Modifiers(tree.flags, List.from(tree.annotations.append(suppressWarningsAnnotation)));
-
-                // Copy position information from the original modifiers
-                newModifiers.pos = tree.pos;
-
-                result = newModifiers;
-            }
-
-            @Override
-            public <T extends JCTree> T translate(T tree) {
-                T result = super.translate(tree);
-                if (result != tree && result != null) {
-                    // Preserve position information
-                    result.pos = tree.pos;
+                @Override
+                public <T extends JCTree> T translate(T tree) {
+                    T result = super.translate(tree);
+                    if (result != tree && result != null) {
+                        // Preserve position information
+                        result.pos = tree.pos;
+                    }
+                    return result;
                 }
-                return result;
+            };
+
+            JCTree newTree =
+                    treeTranslator.translate((JCTree) visitorState.getPath().getLeaf());
+
+            IS_TRYING_UP_TREES.set(true);
+            TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
+
+            try {
+                Description descriptionWithNewClass = ((ClassTreeMatcher) bugChecker)
+                        .matchClass(
+                                (JCClassDecl) newTree,
+                                visitorState.withPath(
+                                        TreePath.getPath(visitorState.getPath().getParentPath(), newTree)));
+            } finally {
+                IS_TRYING_UP_TREES.set(false);
             }
-        };
 
-        // Apply the translator to the compilation unit
-        JCTree compilationUnit = (JCTree) visitorState.getPath().getCompilationUnit();
-        JCTree newCompilationUnit = treeTranslator.translate(compilationUnit);
+            ArrayList<Description> reportMatchDescriptions = TRYING_UP_TREES_ERRORS.get();
 
-        // Create a new path to the modified tree
-        TreePath newPath = TreePath.getPath(visitorState.getPath().getCompilationUnit(), tree);
-        if (newPath == null) {
-            return false;
+            System.out.println("newTree = " + newTree);
         }
 
-        // Try running the check on the modified tree
-        IS_TRYING_UP_TREES.set(true);
-        TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
+        ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
 
-        try {
-            // Run the appropriate matcher based on the tree type
-            if (bugChecker instanceof ClassTreeMatcher && tree instanceof ClassTree) {
-                ((ClassTreeMatcher) bugChecker).matchClass((ClassTree) tree, visitorState.withPath(newPath));
-            } else if (bugChecker instanceof BugChecker.MethodTreeMatcher && tree instanceof MethodTree) {
-                ((BugChecker.MethodTreeMatcher) bugChecker)
-                        .matchMethod((MethodTree) tree, visitorState.withPath(newPath));
-            } else if (bugChecker instanceof BugChecker.VariableTreeMatcher && tree instanceof VariableTree) {
-                ((BugChecker.VariableTreeMatcher) bugChecker)
-                        .matchVariable((VariableTree) tree, visitorState.withPath(newPath));
-            } else {
-                // If we can't match the tree type to a matcher, try running the check at the compilation unit level
-                if (bugChecker instanceof BugChecker.CompilationUnitTreeMatcher) {
-                    ((BugChecker.CompilationUnitTreeMatcher) bugChecker)
-                            .matchCompilationUnit(
-                                    visitorState.getPath().getCompilationUnit(), visitorState.withPath(newPath));
-                } else {
-                    // We can't run this check with the modified tree
-                    return false;
-                }
-            }
-        } catch (Exception e) {
-            log.warning("Failed to run BugChecker for " + description.checkName + ": " + e.getMessage());
-            return false;
-        } finally {
-            IS_TRYING_UP_TREES.set(false);
+        Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
+                .filter(annotation -> {
+                    Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
+                    return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
+                })
+                .findFirst();
+
+        // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
+        // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
+        // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
+        // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
+        // the error-prone checks it will then produce a replacement with all the checks suppressed.
+        boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
+
+        SuppressingFix suppressingFix = FIXES.computeIfAbsent(
+                firstSuppressibleParent,
+                _ignored -> new SuppressingFix(
+                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+
+        suppressingFix.addSuppression(description.checkName);
+
+        // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
+        if (alreadyReportedFix) {
+            return Description.NO_MATCH;
         }
 
-        // Check if any errors were reported
-        ArrayList<Description> reportedErrors = TRYING_UP_TREES_ERRORS.get();
-        return reportedErrors.isEmpty();
+        return Description.builder(
+                        description.position,
+                        description.checkName,
+                        description.getLink(),
+                        description.getMessageWithoutCheckName())
+                .addFix(suppressingFix)
+                .build();
     }
 
     private static boolean suppressibleTree(Tree tree) {
