@@ -6,7 +6,7 @@ apply plugin: 'com.palantir.external-publish-gradle-plugin'
 
 dependencies {
     api 'net.ltgt.gradle:gradle-errorprone-plugin'
-    
+
     implementation 'org.ow2.asm:asm'
     implementation 'com.palantir.gradle.utils:environment-variables'
 
@@ -39,9 +39,10 @@ test {
 }
 
 // Added as a jar the errorprone configuration inside the plugin, so in nebula-tests needs to exist in maven local
-tasks.test.dependsOn tasks.findByPath(':suppressible-error-prone:publishToMavenLocal')
+tasks.test.dependsOn ':suppressible-error-prone:publishToMavenLocal'
+tasks.test.dependsOn ':gradle-suppressible-error-prone:test-error-prone-checks:publishToMavenLocal'
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.errorprone {
         disable('StrictUnusedVariable')
     }

@@ -58,6 +58,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             
             dependencies {
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                errorprone "com.palantir.suppressible-error-prone:test-error-prone-checks:${project.property('suppressibleErrorProneVersion')}"
             }
             
             tasks.withType(JavaCompile).configureEach {
@@ -403,6 +404,46 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 public void variables() {
                     @SuppressWarnings("for-rollout:UnusedVariable")
                     String variable;
+                }
+            }
+        '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'when a check raises an error at a more specific element than the visitor currently is, the suppression ends up in the correct place'() {
+        // Error Prone the library handles not running a check when @SuppressWarnings for that check is present
+        // by not running the check at any element lower than that suppression. However, some checks raise
+        // manually descend the tree (eg using TreeScanner) and unless they handle the suppressions themselves
+        // (or use SuppressibleTreeScanner), naively placing the suppression at the level where the error is raised
+        // does not actually suppress the error. It needs to be placed at the level where the visitor is at.
+
+        // We do this here with a check that runs at the class level, but raises an error on a variable.
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("UnusedVariable")
+                public void method() {
+                    String badVariable;
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            
+            @SuppressWarnings("for-rollout:ErrorOnBadVariableFromClassLevel")
+            public final class App {
+                @SuppressWarnings("UnusedVariable")
+                public void method() {
+                    String badVariable;
                 }
             }
         '''.stripIndent(true)

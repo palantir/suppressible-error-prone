@@ -107,6 +107,29 @@ public final class VisitorStateModifications {
                 })
                 .findFirst();
 
+//        JCClassDecl classTree = null;
+//
+//        JCClassDecl jcClassDecl = visitorState
+//                .getTreeMaker()
+//                .ClassDef(
+//                        classTree.mods,
+//                        classTree.name,
+//                        classTree.typarams,
+//                        classTree.extending,
+//                        classTree.implementing,
+//                        classTree.defs);
+//
+//        JavacProcessingEnvironment processingEnvironment = JavacProcessingEnvironment.instance(visitorState.context);
+//        ClassLoader loader = processingEnvironment.getProcessorClassLoader();
+//        List<BugChecker> allBugCheckers = ServiceLoader.load(BugChecker.class, loader).stream()
+//                .map(Provider::get)
+//                .toList();
+//
+//        BugChecker bugChecker = allBugCheckers.stream()
+//                .filter(checker -> checker.canonicalName().equals(description.checkName))
+//                .findFirst()
+//                .get();
+
         // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
         // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
         // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This

@@ -12,4 +12,5 @@ apply plugin: 'com.palantir.jdks.settings'
 rootProject.name = "suppressible-error-prone-root"
 
 include 'gradle-suppressible-error-prone'
+include 'gradle-suppressible-error-prone:test-error-prone-checks'
 include 'suppressible-error-prone'
