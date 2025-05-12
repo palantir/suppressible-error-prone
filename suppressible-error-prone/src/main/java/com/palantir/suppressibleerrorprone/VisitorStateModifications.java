@@ -32,13 +32,8 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
-import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
-import com.sun.tools.javac.tree.TreeMaker;
-import com.sun.tools.javac.tree.TreeTranslator;
-import com.sun.tools.javac.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -105,15 +100,13 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
-        Optional<TreePath> firstSuppressible = Stream.iterate(
-                        pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
-                .findFirst();
+        Optional<TreePath> firstTreeWhereSuppressingWillActuallyWork =
+                firstTreeWhereSuppressingWillActuallyWork(visitorState, pathToActualError, description.checkName);
 
         // If we can't find a suppressible parent, we can't add a suppression, so just give up.
         // This happens when there's a suppression on an import or compilation unit.
         // Imports should never be at error level as we can't suppress them. Or have an autofix that *always* works.
-        if (firstSuppressible.isEmpty()) {
+        if (firstTreeWhereSuppressingWillActuallyWork.isEmpty()) {
             log.warning("Couldn't find a suppressible parent for " + description.checkName + " at position "
                     + description.position.getStartPosition() + " in "
                     + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
@@ -121,77 +114,8 @@ public final class VisitorStateModifications {
             return Description.NO_MATCH;
         }
 
-        Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
-
-        TreeMaker trees = visitorState.getTreeMaker();
-
-        if (firstSuppressibleParent instanceof JCVariableDecl jcVariableDecl) {
-            // Create a new variable declaration with the updated modifiers
-            JavacProcessingEnvironment processingEnvironment =
-                    JavacProcessingEnvironment.instance(visitorState.context);
-            ClassLoader loader = processingEnvironment.getProcessorClassLoader();
-            BugChecker bugChecker = ServiceLoader.load(BugChecker.class, loader).stream()
-                    .map(Provider::get)
-                    .filter(checker -> checker.canonicalName().equals(description.checkName))
-                    .findFirst()
-                    .get();
-
-            TreeTranslator treeTranslator = new TreeTranslator() {
-                @Override
-                public void visitModifiers(JCModifiers tree) {
-                    if (jcVariableDecl.mods != tree) {
-                        super.visitModifiers(tree);
-                        return;
-                    }
-
-                    // Create a SuppressWarnings annotation with the current check name
-                    JCAnnotation suppressWarningsAnnotation = trees.Annotation(
-                            trees.Type(visitorState.getTypeFromString("java.lang.SuppressWarnings")),
-                            List.of(trees.Assign(
-                                    trees.Ident(visitorState.getName("value")), trees.Literal(description.checkName))));
-
-                    // Add the annotation to the existing modifiers
-                    JCModifiers newModifiers = trees.Modifiers(
-                            jcVariableDecl.mods.flags,
-                            List.from(jcVariableDecl.mods.annotations.append(suppressWarningsAnnotation)));
-
-                    // Copy position information from the original modifiers
-                    newModifiers.pos = tree.pos;
-
-                    result = newModifiers;
-                }
-
-                @Override
-                public <T extends JCTree> T translate(T tree) {
-                    T result = super.translate(tree);
-                    if (result != tree && result != null) {
-                        // Preserve position information
-                        result.pos = tree.pos;
-                    }
-                    return result;
-                }
-            };
-
-            JCTree newTree =
-                    treeTranslator.translate((JCTree) visitorState.getPath().getLeaf());
-
-            IS_TRYING_UP_TREES.set(true);
-            TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
-
-            try {
-                Description descriptionWithNewClass = ((ClassTreeMatcher) bugChecker)
-                        .matchClass(
-                                (JCClassDecl) newTree,
-                                visitorState.withPath(
-                                        TreePath.getPath(visitorState.getPath().getParentPath(), newTree)));
-            } finally {
-                IS_TRYING_UP_TREES.set(false);
-            }
-
-            ArrayList<Description> reportMatchDescriptions = TRYING_UP_TREES_ERRORS.get();
-
-            System.out.println("newTree = " + newTree);
-        }
+        Tree firstSuppressibleParent =
+                firstTreeWhereSuppressingWillActuallyWork.get().getLeaf();
 
         ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
 
@@ -228,6 +152,61 @@ public final class VisitorStateModifications {
                         description.getMessageWithoutCheckName())
                 .addFix(suppressingFix)
                 .build();
+    }
+
+    private static Optional<TreePath> firstTreeWhereSuppressingWillActuallyWork(
+            VisitorState visitorState, TreePath path, String checkName) {
+        return suppressibleTreesInPath(path)
+                .filter(treePath ->
+                        treePath.getLeaf().equals(visitorState.getPath().getLeaf())
+                                || suppressibleTreeActuallySuppressesCheck(visitorState, checkName, treePath.getLeaf()))
+                .findFirst();
+    }
+
+    private static boolean suppressibleTreeActuallySuppressesCheck(
+            VisitorState visitorState, String checkName, Tree someTree) {
+        JavacProcessingEnvironment processingEnvironment = JavacProcessingEnvironment.instance(visitorState.context);
+        ClassLoader loader = processingEnvironment.getProcessorClassLoader();
+        BugChecker bugChecker = ServiceLoader.load(BugChecker.class, loader).stream()
+                .map(Provider::get)
+                .filter(checker -> checker.canonicalName().equals(checkName))
+                .findFirst()
+                .get();
+
+        ModifiersTree modifiersTree = modifiersTree(someTree)
+                .orElseThrow(() -> new IllegalStateException("Could not get ModifiersTree for a suppressible element. "
+                        + "This is a bug in suppressible-error-prone. Tree: \n\n"
+                        + someTree));
+
+        JCModifiers jcModifiers = (JCModifiers) modifiersTree;
+
+        JCTree newTree = new SuppressWarningsAddingTreeTranslator(visitorState, jcModifiers, checkName).translateTree();
+
+        IS_TRYING_UP_TREES.set(true);
+        TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
+
+        Description returnedDescription;
+
+        try {
+            returnedDescription = ((ClassTreeMatcher) bugChecker)
+                    .matchClass(
+                            (JCClassDecl) newTree,
+                            visitorState.withPath(
+                                    new TreePath(visitorState.getPath().getParentPath(), newTree)));
+        } finally {
+            IS_TRYING_UP_TREES.set(false);
+        }
+        ArrayList<Description> reportMatchDescriptions = TRYING_UP_TREES_ERRORS.get();
+        reportMatchDescriptions.add(returnedDescription);
+
+        // TODO(callumr): Handle multiple descriptions
+
+        return reportMatchDescriptions.size() == 1 && reportMatchDescriptions.get(0) == Description.NO_MATCH;
+    }
+
+    private static Stream<TreePath> suppressibleTreesInPath(TreePath initialPath) {
+        return Stream.iterate(initialPath, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
+                .filter(path -> suppressibleTree(path.getLeaf()));
     }
 
     private static boolean suppressibleTree(Tree tree) {
