@@ -24,26 +24,56 @@ import com.sun.tools.javac.tree.TreeCopier;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.List;
+import java.util.function.Consumer;
 
 final class SuppressWarningsAddingTreeTranslator extends TreeTranslator {
     private final VisitorState visitorState;
-    private final JCModifiers jcModifiers;
+    private final JCModifiers originalModifiers;
     private final String checkName;
 
+    private JCModifiers copiedJcModifiers;
+
     SuppressWarningsAddingTreeTranslator(VisitorState visitorState, JCModifiers jcModifiers, String checkName) {
-        this.jcModifiers = jcModifiers;
+        this.originalModifiers = jcModifiers;
         this.visitorState = visitorState;
         this.checkName = checkName;
     }
 
+    private static final class TrackingCopier<T extends JCTree> extends TreeCopier<Void> {
+        private final T originalTree;
+        private final Consumer<T> copiedTreeConsumer;
+
+        TrackingCopier(TreeMaker treeMaker, T originalTree, Consumer<T> copiedTreeConsumer) {
+            super(treeMaker);
+            this.originalTree = originalTree;
+            this.copiedTreeConsumer = copiedTreeConsumer;
+        }
+
+        @Override
+        public <TreeT extends JCTree> TreeT copy(TreeT tree, Void unused) {
+            TreeT copy = super.copy(tree, unused);
+
+            if (tree == originalTree) {
+                copiedTreeConsumer.accept((T) copy);
+            }
+
+            return copy;
+        }
+    }
+
     public JCTree translateTree() {
-        return translate(new TreeCopier<>(visitorState.getTreeMaker())
-                .copy((JCTree) visitorState.getPath().getLeaf()));
+        JCTree original = (JCTree) visitorState.getPath().getLeaf();
+
+        JCTree copy = new TrackingCopier<>(
+                        visitorState.getTreeMaker(), originalModifiers, mods -> copiedJcModifiers = mods)
+                .copy(original);
+
+        return translate(copy);
     }
 
     @Override
     public void visitModifiers(JCModifiers tree) {
-        if (jcModifiers != tree) {
+        if (copiedJcModifiers != tree) {
             super.visitModifiers(tree);
             return;
         }
@@ -57,7 +87,7 @@ final class SuppressWarningsAddingTreeTranslator extends TreeTranslator {
 
         // Add the annotation to the existing modifiers
         JCModifiers newModifiers = trees.Modifiers(
-                jcModifiers.flags, List.from(jcModifiers.annotations.append(suppressWarningsAnnotation)));
+                copiedJcModifiers.flags, List.from(copiedJcModifiers.annotations.append(suppressWarningsAnnotation)));
 
         // Copy position information from the original modifiers
         newModifiers.pos = tree.pos;

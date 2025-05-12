@@ -438,7 +438,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         // language=Java
         appJavaTextEquals '''
             package app;
-            
             @SuppressWarnings("for-rollout:ErrorOnBadVariableFromClassLevel")
             public final class App {
                 @SuppressWarnings("UnusedVariable")
