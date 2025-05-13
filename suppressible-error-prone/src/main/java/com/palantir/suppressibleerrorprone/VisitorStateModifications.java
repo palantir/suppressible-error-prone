@@ -22,6 +22,7 @@ import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
@@ -33,14 +34,17 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
@@ -50,7 +54,7 @@ public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
     private static final ThreadLocal<Boolean> IS_TRYING_UP_TREES = ThreadLocal.withInitial(() -> false);
-    private static final ThreadLocal<ArrayList<Description>> TRYING_UP_TREES_ERRORS =
+    private static final ThreadLocal<List<Description>> TRYING_UP_TREES_ERRORS =
             ThreadLocal.withInitial(ArrayList::new);
 
     // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
@@ -182,26 +186,42 @@ public final class VisitorStateModifications {
 
         JCTree newTree = new SuppressWarningsAddingTreeTranslator(visitorState, jcModifiers, checkName).translateTree();
 
+        List<Description> nonEmptyDescriptions = rerunCheck(visitorState, bugChecker, newTree);
+
+        // TODO(callumr): Handle multiple descriptions
+        // TODO(callumr): Handle non-erroring descriptions (eg suggestion)
+        return nonEmptyDescriptions.isEmpty();
+    }
+
+    private static List<Description> rerunCheck(VisitorState visitorState, BugChecker bugChecker, JCTree newTree) {
         IS_TRYING_UP_TREES.set(true);
         TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
 
         Description returnedDescription;
 
         try {
-            returnedDescription = ((ClassTreeMatcher) bugChecker)
-                    .matchClass(
-                            (JCClassDecl) newTree,
-                            visitorState.withPath(
-                                    new TreePath(visitorState.getPath().getParentPath(), newTree)));
+            returnedDescription = runCheck(visitorState, bugChecker, newTree);
         } finally {
             IS_TRYING_UP_TREES.set(false);
         }
-        ArrayList<Description> reportMatchDescriptions = TRYING_UP_TREES_ERRORS.get();
-        reportMatchDescriptions.add(returnedDescription);
 
-        // TODO(callumr): Handle multiple descriptions
+        return Stream.concat(TRYING_UP_TREES_ERRORS.get().stream(), Stream.of(returnedDescription))
+                .filter(Predicate.not(Predicate.isEqual(Description.NO_MATCH)))
+                .toList();
+    }
 
-        return reportMatchDescriptions.size() == 1 && reportMatchDescriptions.get(0) == Description.NO_MATCH;
+    private static Description runCheck(VisitorState visitorState, BugChecker bugChecker, JCTree newTree) {
+        VisitorState newVisitorState =
+                visitorState.withPath(new TreePath(visitorState.getPath().getParentPath(), newTree));
+        if (bugChecker instanceof ClassTreeMatcher classTreeMatcher) {
+            return classTreeMatcher.matchClass((JCClassDecl) newTree, newVisitorState);
+        } else if (bugChecker instanceof MethodTreeMatcher methodTreeMatcher) {
+            return methodTreeMatcher.matchMethod((JCMethodDecl) newTree, newVisitorState);
+        }
+
+        throw new IllegalStateException(
+                "Cannot rerun check for tree of type %s. This is a bug in suppressible-error-prone."
+                        .formatted(newTree.getClass().getSimpleName()));
     }
 
     private static Stream<TreePath> suppressibleTreesInPath(TreePath initialPath) {
