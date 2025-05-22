@@ -440,7 +440,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             @SuppressWarnings("for-rollout:ErrorOnBadVariableFromClassLevel")
             public final class App {
-                @SuppressWarnings({"UnusedVariable", "for-rollout:ErrorOnBadVariableFromMethodLevel"})
+                @SuppressWarnings({"UnusedVariable", "for-rollout:ErrorOnBadVariableFromMethodLevel", "for-rollout:ErrorOnBadVariableFromClassLevelButAcceptSuppressionsAtMethodLevel"})
                 public void method() {
                     String badVariable;
                 }
