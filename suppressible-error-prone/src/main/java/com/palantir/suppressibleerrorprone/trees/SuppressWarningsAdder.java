@@ -45,7 +45,7 @@ public final class SuppressWarningsAdder {
         AtomicReference<JCModifiers> copiedJcModifiers = new AtomicReference<>();
 
         SuppressWarningsAddingSymbolModifier<Void> symbolModifier =
-                new SuppressWarningsAddingSymbolModifier<>(treeToAddSuppressWarningsTo);
+                new SuppressWarningsAddingSymbolModifier<>(visitorState, treeToAddSuppressWarningsTo, checkName);
 
         try {
             JCTree copiedRootTree = new DelegatingTreeCopier<>(
