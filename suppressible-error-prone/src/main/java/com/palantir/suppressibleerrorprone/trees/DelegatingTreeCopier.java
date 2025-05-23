@@ -17,25 +17,28 @@
 package com.palantir.suppressibleerrorprone.trees;
 
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.TreeCopier;
 import com.sun.tools.javac.tree.TreeMaker;
+import java.util.List;
 
-public final class Blah extends SymbolTreeCopier<Void> {
+final class DelegatingTreeCopier<P> extends TreeCopier<P> {
+    private final List<TreeCopyHandler<P>> treeCopyHandlers;
 
-    Blah(TreeMaker treeMaker) {
+    DelegatingTreeCopier(TreeMaker treeMaker, List<TreeCopyHandler<P>> treeCopyHandlers) {
         super(treeMaker);
+        this.treeCopyHandlers = treeCopyHandlers;
     }
 
     @Override
-    public <P extends JCTree> P copy(P from, Void value) {
-        P to = super.copy(from, value);
-
-        if (from != null && to != null) {
-            return to;
+    public <T extends JCTree> T copy(T tree, P value) {
+        T copy = super.copy(tree, value);
+        for (TreeCopyHandler<P> treeCopier : treeCopyHandlers) {
+            treeCopier.handleCopy(tree, copy, value);
         }
+        return copy;
+    }
 
-        if (from instanceof JCClassDecl fromClass && to instanceof JCClassDecl toClass) {}
-
-        return to;
+    interface TreeCopyHandler<P> {
+        <T extends JCTree> void handleCopy(T originalTree, T copiedTree, P value);
     }
 }

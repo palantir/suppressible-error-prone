@@ -24,7 +24,7 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.BugChecker.ClassTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodTreeMatcher;
 import com.google.errorprone.matchers.Description;
-import com.palantir.suppressibleerrorprone.trees.SuppressWarningsAddingTreeTranslator;
+import com.palantir.suppressibleerrorprone.trees.SuppressWarningsAdder;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
@@ -33,10 +33,6 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
-import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCClassDecl;
-import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
-import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -178,23 +174,17 @@ public final class VisitorStateModifications {
                 .findFirst()
                 .get();
 
-        ModifiersTree modifiersTree = modifiersTree(someTree)
-                .orElseThrow(() -> new IllegalStateException("Could not get ModifiersTree for a suppressible element. "
-                        + "This is a bug in suppressible-error-prone. Tree: \n\n"
-                        + someTree));
+        return new SuppressWarningsAdder(visitorState)
+                .withTreeWithSuppressionAdded(someTree, checkName, treeWithSuppression -> {
+                    List<Description> nonEmptyDescriptions = rerunCheck(visitorState, bugChecker, treeWithSuppression);
 
-        JCModifiers jcModifiers = (JCModifiers) modifiersTree;
-
-        JCTree newTree = new SuppressWarningsAddingTreeTranslator(visitorState, jcModifiers, checkName).translateTree();
-
-        List<Description> nonEmptyDescriptions = rerunCheck(visitorState, bugChecker, newTree);
-
-        // TODO(callumr): Handle multiple descriptions
-        // TODO(callumr): Handle non-erroring descriptions (eg suggestion)
-        return nonEmptyDescriptions.isEmpty();
+                    // TODO(callumr): Handle multiple descriptions
+                    // TODO(callumr): Handle non-erroring descriptions (eg suggestion)
+                    return nonEmptyDescriptions.isEmpty();
+                });
     }
 
-    private static List<Description> rerunCheck(VisitorState visitorState, BugChecker bugChecker, JCTree newTree) {
+    private static List<Description> rerunCheck(VisitorState visitorState, BugChecker bugChecker, Tree newTree) {
         IS_TRYING_UP_TREES.set(true);
         TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
 
@@ -211,13 +201,13 @@ public final class VisitorStateModifications {
                 .toList();
     }
 
-    private static Description runCheck(VisitorState visitorState, BugChecker bugChecker, JCTree newTree) {
+    private static Description runCheck(VisitorState visitorState, BugChecker bugChecker, Tree newTree) {
         VisitorState newVisitorState =
                 visitorState.withPath(new TreePath(visitorState.getPath().getParentPath(), newTree));
         if (bugChecker instanceof ClassTreeMatcher classTreeMatcher) {
-            return classTreeMatcher.matchClass((JCClassDecl) newTree, newVisitorState);
+            return classTreeMatcher.matchClass((ClassTree) newTree, newVisitorState);
         } else if (bugChecker instanceof MethodTreeMatcher methodTreeMatcher) {
-            return methodTreeMatcher.matchMethod((JCMethodDecl) newTree, newVisitorState);
+            return methodTreeMatcher.matchMethod((MethodTree) newTree, newVisitorState);
         }
 
         throw new IllegalStateException(
@@ -234,7 +224,7 @@ public final class VisitorStateModifications {
         return modifiersTree(tree).isPresent();
     }
 
-    private static Optional<ModifiersTree> modifiersTree(Tree tree) {
+    public static Optional<ModifiersTree> modifiersTree(Tree tree) {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
         if (tree instanceof ClassTree) {

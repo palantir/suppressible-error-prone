@@ -19,7 +19,6 @@ package com.palantir.suppressibleerrorprone.trees;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotation;
-import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
@@ -27,30 +26,18 @@ import com.sun.tools.javac.util.List;
 
 public final class SuppressWarningsAddingTreeTranslator extends TreeTranslator {
     private final VisitorState visitorState;
-    private final JCModifiers originalModifiers;
+    private final JCModifiers modifiersToChange;
     private final String checkName;
 
-    private JCModifiers copiedJcModifiers;
-
     public SuppressWarningsAddingTreeTranslator(VisitorState visitorState, JCModifiers jcModifiers, String checkName) {
-        this.originalModifiers = jcModifiers;
         this.visitorState = visitorState;
+        this.modifiersToChange = jcModifiers;
         this.checkName = checkName;
-    }
-
-    public JCTree translateTree() {
-        JCTree original = (JCTree) visitorState.getPath().getLeaf();
-
-        JCTree copy = new TrackingCopier<>(
-                        visitorState.getTreeMaker(), originalModifiers, mods -> copiedJcModifiers = mods)
-                .copy(original);
-
-        return translate(copy);
     }
 
     @Override
     public void visitModifiers(JCModifiers tree) {
-        if (copiedJcModifiers != tree) {
+        if (modifiersToChange != tree) {
             super.visitModifiers(tree);
             return;
         }
@@ -63,18 +50,13 @@ public final class SuppressWarningsAddingTreeTranslator extends TreeTranslator {
                 List.of(trees.Assign(trees.Ident(visitorState.getName("value")), trees.Literal(checkName))));
 
         // Add the annotation to the existing modifiers
-        JCModifiers newModifiers = trees.Modifiers(
-                copiedJcModifiers.flags, List.from(copiedJcModifiers.annotations.append(suppressWarningsAnnotation)));
+        JCModifiers newModifiers =
+                trees.Modifiers(tree.flags, List.from(tree.annotations.append(suppressWarningsAnnotation)));
 
         // Copy position information from the original modifiers
         newModifiers.pos = tree.pos;
 
         result = newModifiers;
-    }
-
-    @Override
-    public void visitMethodDef(JCMethodDecl tree) {
-        super.visitMethodDef(tree);
     }
 
     @Override

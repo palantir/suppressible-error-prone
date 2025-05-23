@@ -16,6 +16,7 @@
 
 package com.palantir.suppressibleerrorprone.trees;
 
+import com.palantir.suppressibleerrorprone.trees.DelegatingTreeCopier.TreeCopyHandler;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotatedType;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -28,25 +29,15 @@ import com.sun.tools.javac.tree.JCTree.JCNewClass;
 import com.sun.tools.javac.tree.JCTree.JCPackageDecl;
 import com.sun.tools.javac.tree.JCTree.JCTypeParameter;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
-import com.sun.tools.javac.tree.TreeCopier;
-import com.sun.tools.javac.tree.TreeMaker;
 
-public abstract class SymbolTreeCopier<T> extends TreeCopier<T> {
-    SymbolTreeCopier(TreeMaker treeMaker) {
-        super(treeMaker);
-    }
-
+public final class SymbolTreeCopier<P> implements TreeCopyHandler<P> {
     @Override
-    public <P extends JCTree> P copy(P tree, T value) {
-        P copy = super.copy(tree, value);
-        if (tree != null && copy != null) {
-            copySymbols(tree, copy);
-        }
-        return copy;
+    public <T extends JCTree> void handleCopy(T originalTree, T copiedTree, P value) {
+        copySymbols(originalTree, copiedTree);
     }
 
     @SuppressWarnings("checkstyle:CyclomaticComplexity")
-    private <P extends JCTree> void copySymbols(P from, P to) {
+    private <T extends JCTree> void copySymbols(T from, T to) {
         if (from instanceof JCClassDecl fromClass && to instanceof JCClassDecl toClass) {
             toClass.sym = fromClass.sym;
         } else if (from instanceof JCMethodDecl fromMethod && to instanceof JCMethodDecl toMethod) {

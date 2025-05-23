@@ -16,28 +16,23 @@
 
 package com.palantir.suppressibleerrorprone.trees;
 
+import com.palantir.suppressibleerrorprone.trees.DelegatingTreeCopier.TreeCopyHandler;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.TreeMaker;
 import java.util.function.Consumer;
 
-public final class TrackingCopier<T extends JCTree> extends SymbolTreeCopier<Void> {
-    private final T originalTree;
-    private final Consumer<T> copiedTreeConsumer;
+public final class TrackingCopier<OrigT extends JCTree, P> implements TreeCopyHandler<P> {
+    private final OrigT treeToTrack;
+    private final Consumer<OrigT> copiedTreeConsumer;
 
-    public TrackingCopier(TreeMaker treeMaker, T originalTree, Consumer<T> copiedTreeConsumer) {
-        super(treeMaker);
-        this.originalTree = originalTree;
+    public TrackingCopier(OrigT treeToTrack, Consumer<OrigT> copiedTreeConsumer) {
+        this.treeToTrack = treeToTrack;
         this.copiedTreeConsumer = copiedTreeConsumer;
     }
 
     @Override
-    public <TreeT extends JCTree> TreeT copy(TreeT tree, Void unused) {
-        TreeT copy = super.copy(tree, unused);
-
-        if (tree == originalTree) {
-            copiedTreeConsumer.accept((T) copy);
+    public <T extends JCTree> void handleCopy(T originalTree, T copiedTree, P value) {
+        if (originalTree == treeToTrack) {
+            copiedTreeConsumer.accept((OrigT) copiedTree);
         }
-
-        return copy;
     }
 }
