@@ -80,6 +80,7 @@ public final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHa
             List<Attribute.Compound> suppressWarningsAttributes = Optional.ofNullable(
                             suppressWarningsOrNotAttributes.get(true))
                     .orElseGet(List::nil);
+
             List<Attribute.Compound> otherAttributes = Optional.ofNullable(suppressWarningsOrNotAttributes.get(false))
                     .orElseGet(List::nil);
 
