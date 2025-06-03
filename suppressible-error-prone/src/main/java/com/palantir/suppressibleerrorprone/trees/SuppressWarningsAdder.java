@@ -47,22 +47,18 @@ public final class SuppressWarningsAdder {
         SuppressWarningsAddingSymbolModifier<Void> symbolModifier =
                 new SuppressWarningsAddingSymbolModifier<>(visitorState, treeToAddSuppressWarningsTo, checkName);
 
-        try {
-            JCTree copiedRootTree = new DelegatingTreeCopier<>(
-                            visitorState.getTreeMaker(),
-                            ImmutableList.of(
-                                    new SymbolTreeCopier<>(),
-                                    symbolModifier,
-                                    new TrackingCopier<>(originalModifiers, copiedJcModifiers::set)))
-                    .copy((JCTree) rootTree);
+        JCTree copiedRootTree = new DelegatingTreeCopier<>(
+                        visitorState.getTreeMaker(),
+                        ImmutableList.of(
+                                new SymbolTreeCopier<>(),
+                                symbolModifier,
+                                new TrackingCopier<>(originalModifiers, copiedJcModifiers::set)))
+                .copy((JCTree) rootTree);
 
-            JCTree translatedTree = new SuppressWarningsAddingTreeTranslator(
-                            visitorState, copiedJcModifiers.get(), checkName)
-                    .translate(copiedRootTree);
+        JCTree translatedTree = new SuppressWarningsAddingTreeTranslator(
+                        visitorState, copiedJcModifiers.get(), checkName)
+                .translate(copiedRootTree);
 
-            return treeConsumer.apply(translatedTree);
-        } finally {
-            symbolModifier.resetSymbolMetadataAttributes();
-        }
+        return treeConsumer.apply(translatedTree);
     }
 }

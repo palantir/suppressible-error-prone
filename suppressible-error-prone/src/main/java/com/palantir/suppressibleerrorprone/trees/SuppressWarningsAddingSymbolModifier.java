@@ -24,6 +24,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Attribute.Compound;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
@@ -32,7 +33,6 @@ import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Pair;
-import java.util.Optional;
 
 public final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHandler<P> {
     private static final Supplier<Type> STRING_TYPE = Suppliers.typeFromString("java.lang.String");
@@ -50,8 +50,6 @@ public final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHa
     private final VisitorState visitorState;
     private final Tree treeToAddSuppressWarningsTo;
     private final String checkName;
-    private Symbol symbol;
-    private List<Compound> originalAttributes;
 
     public SuppressWarningsAddingSymbolModifier(
             VisitorState visitorState, Tree treeToAddSuppressWarningsTo, String checkName) {
@@ -63,15 +61,7 @@ public final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHa
     @Override
     public <T extends JCTree> void handleCopy(T originalTree, T copiedTree, P value) {
         if (originalTree == treeToAddSuppressWarningsTo) {
-            Symbol suppressibleSymbol = symbolIfSuppressibleFor(copiedTree)
-                    .orElseThrow(() -> new IllegalStateException("You can only give suppressible trees to this class"));
-
-            if (symbol != null) {
-                throw new IllegalStateException("The symbolMetadata of the original tree have already been set");
-            }
-
-            symbol = suppressibleSymbol;
-            originalAttributes = symbol.getDeclarationAttributes();
+            Symbol cloneSymbol = clonedSymbolIfSuppressibleFor(copiedTree);
 
             Type suppressWarnings = SUPPRESS_WARNINGS.get(visitorState);
 
@@ -83,34 +73,29 @@ public final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHa
                                     STRING_ARRAY_TYPE.get(visitorState),
                                     List.of(new Attribute.Constant(STRING_TYPE.get(visitorState), checkName))))));
 
-            symbol.resetAnnotations();
-            symbol.setDeclarationAttributes(List.of(newSuppressWarnings));
+            cloneSymbol.resetAnnotations();
+            cloneSymbol.setDeclarationAttributes(List.of(newSuppressWarnings));
         }
     }
 
-    public void resetSymbolMetadataAttributes() {
-        if (symbol == null || originalAttributes == null) {
-            return;
-        }
-
-        // Will error out unless we reset the annotations before setting them again (annotations == attributes here)
-        symbol.resetAnnotations();
-        symbol.setDeclarationAttributes(originalAttributes);
-    }
-
-    private <T extends JCTree> Optional<Symbol> symbolIfSuppressibleFor(T tree) {
-        if (tree instanceof JCClassDecl classDecl) {
-            return Optional.ofNullable(classDecl.sym);
+    private <T extends JCTree> Symbol clonedSymbolIfSuppressibleFor(T tree) {
+        if (tree instanceof JCVariableDecl varDecl) {
+            varDecl.sym = varDecl.sym.clone(varDecl.sym.owner);
+            return varDecl.sym;
         }
 
         if (tree instanceof JCMethodDecl methodDecl) {
-            return Optional.ofNullable(methodDecl.sym);
+            methodDecl.sym = methodDecl.sym.clone(methodDecl.sym.owner);
+            return methodDecl.sym;
         }
 
-        if (tree instanceof JCVariableDecl varDecl) {
-            return Optional.ofNullable(varDecl.sym);
+        if (tree instanceof JCClassDecl classDecl) {
+            ClassSymbol originalSymbol = classDecl.sym;
+            classDecl.sym = new ClassSymbol(
+                    originalSymbol.flags(), originalSymbol.name, originalSymbol.type, originalSymbol.owner);
         }
 
-        return Optional.empty();
+        throw new IllegalStateException(
+                "You can only give suppressible trees to this class. You gave a " + tree.getKind());
     }
 }
