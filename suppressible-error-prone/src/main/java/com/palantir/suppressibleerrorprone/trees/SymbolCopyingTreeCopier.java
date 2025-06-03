@@ -30,7 +30,7 @@ import com.sun.tools.javac.tree.JCTree.JCPackageDecl;
 import com.sun.tools.javac.tree.JCTree.JCTypeParameter;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 
-public final class SymbolTreeCopier<P> implements TreeCopyHandler<P> {
+public final class SymbolCopyingTreeCopier<P> implements TreeCopyHandler<P> {
     @Override
     public <T extends JCTree> void handleCopy(T originalTree, T copiedTree, P value) {
         copySymbols(originalTree, copiedTree);

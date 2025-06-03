@@ -44,13 +44,13 @@ public final class SuppressWarningsAdder {
 
         AtomicReference<JCModifiers> copiedJcModifiers = new AtomicReference<>();
 
-        SuppressWarningsAddingSymbolModifier<Void> symbolModifier = new SuppressWarningsAddingSymbolModifier<>(
+        SuppressWarningsSymbolAdderTreeCopier<Void> symbolModifier = new SuppressWarningsSymbolAdderTreeCopier<>(
                 new SuppressWarningsSymbolAdder(visitorState), treeToAddSuppressWarningsTo, checkName);
 
         JCTree copiedRootTree = new DelegatingTreeCopier<>(
                         visitorState.getTreeMaker(),
                         ImmutableList.of(
-                                new SymbolTreeCopier<>(),
+                                new SymbolCopyingTreeCopier<>(),
                                 symbolModifier,
                                 new TrackingCopier<>(originalModifiers, copiedJcModifiers::set)))
                 .copy((JCTree) rootTree);

@@ -29,12 +29,12 @@ import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.List;
 
-final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHandler<P> {
+final class SuppressWarningsSymbolAdderTreeCopier<P> implements TreeCopyHandler<P> {
     private final SuppressWarningsSymbolAdder suppressWarningsSymbolAdder;
     private final Tree treeToAddSuppressWarningsTo;
     private final String checkName;
 
-    SuppressWarningsAddingSymbolModifier(
+    SuppressWarningsSymbolAdderTreeCopier(
             SuppressWarningsSymbolAdder suppressWarningsSymbolAdder,
             Tree treeToAddSuppressWarningsTo,
             String checkName) {
@@ -45,15 +45,17 @@ final class SuppressWarningsAddingSymbolModifier<P> implements TreeCopyHandler<P
 
     @Override
     public <T extends JCTree> void handleCopy(T originalTree, T copiedTree, P value) {
-        if (originalTree == treeToAddSuppressWarningsTo) {
-            SymbolCloneResult symbolCloneResult = cloneSymbolAndReplaceInTree(copiedTree);
-
-            List<Compound> newAttributes = suppressWarningsSymbolAdder.addToSuppressWarnings(
-                    symbolCloneResult.original.getDeclarationAttributes(), checkName);
-
-            symbolCloneResult.clonedSymbol.resetAnnotations();
-            symbolCloneResult.clonedSymbol.setDeclarationAttributes(newAttributes);
+        if (originalTree != treeToAddSuppressWarningsTo) {
+            return;
         }
+
+        SymbolCloneResult symbolCloneResult = cloneSymbolAndReplaceInTree(copiedTree);
+
+        List<Compound> newAttributes = suppressWarningsSymbolAdder.addToSuppressWarnings(
+                symbolCloneResult.original.getDeclarationAttributes(), checkName);
+
+        symbolCloneResult.clonedSymbol.resetAnnotations();
+        symbolCloneResult.clonedSymbol.setDeclarationAttributes(newAttributes);
     }
 
     private <T extends JCTree> SymbolCloneResult cloneSymbolAndReplaceInTree(T tree) {
