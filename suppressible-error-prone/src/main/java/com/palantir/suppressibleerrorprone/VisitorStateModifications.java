@@ -33,6 +33,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,10 +51,6 @@ import javax.lang.model.element.Name;
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
-    private static final ThreadLocal<Boolean> IS_TRYING_UP_TREES = ThreadLocal.withInitial(() -> false);
-    private static final ThreadLocal<List<Description>> TRYING_UP_TREES_ERRORS =
-            ThreadLocal.withInitial(ArrayList::new);
-
     // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
     // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
     // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
@@ -64,13 +61,6 @@ public final class VisitorStateModifications {
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         if (description == Description.NO_MATCH) {
             return description;
-        }
-
-        // TODO(callumr): Extend VisitorState instead?
-        if (IS_TRYING_UP_TREES.get()) {
-            TRYING_UP_TREES_ERRORS.get().add(description);
-            // Don't let errorprone do anything else with it
-            return Description.NO_MATCH;
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -160,12 +150,12 @@ public final class VisitorStateModifications {
         return suppressibleTreesInPath(path)
                 .filter(treePath ->
                         treePath.getLeaf().equals(visitorState.getPath().getLeaf())
-                                || suppressibleTreeActuallySuppressesCheck(visitorState, checkName, treePath.getLeaf()))
+                                || suppressibleTreeActuallySuppressesCheck(visitorState, checkName, treePath))
                 .findFirst();
     }
 
     private static boolean suppressibleTreeActuallySuppressesCheck(
-            VisitorState visitorState, String checkName, Tree someTree) {
+            VisitorState visitorState, String checkName, TreePath treePath) {
         JavacProcessingEnvironment processingEnvironment = JavacProcessingEnvironment.instance(visitorState.context);
         ClassLoader loader = processingEnvironment.getProcessorClassLoader();
         BugChecker bugChecker = ServiceLoader.load(BugChecker.class, loader).stream()
@@ -175,8 +165,9 @@ public final class VisitorStateModifications {
                 .get();
 
         return new SuppressWarningsAdder(visitorState)
-                .withTreeWithSuppressionAdded(someTree, checkName, treeWithSuppression -> {
-                    List<Description> nonEmptyDescriptions = rerunCheck(visitorState, bugChecker, treeWithSuppression);
+                .withTreeWithSuppressionAdded(treePath.getLeaf(), checkName, treeWithSuppression -> {
+                    TreePath newTreePath = new TreePath(treePath, treeWithSuppression);
+                    List<Description> nonEmptyDescriptions = rerunCheck(visitorState, bugChecker, newTreePath);
 
                     // TODO(callumr): Handle multiple descriptions
                     // TODO(callumr): Handle non-erroring descriptions (eg suggestion)
@@ -184,19 +175,39 @@ public final class VisitorStateModifications {
                 });
     }
 
-    private static List<Description> rerunCheck(VisitorState visitorState, BugChecker bugChecker, Tree newTree) {
-        IS_TRYING_UP_TREES.set(true);
-        TRYING_UP_TREES_ERRORS.set(new ArrayList<>());
+    private static class VistorState2 extends VisitorState {
+        private final List<Description> reportedMatches = new ArrayList<>();
 
-        Description returnedDescription;
+        VistorState2(VisitorState original, TreePath path) {
+            super(original.context, VistorState2::nullListener, original.severityMap(), original.errorProneOptions());
 
-        try {
-            returnedDescription = runCheck(visitorState, bugChecker, newTree);
-        } finally {
-            IS_TRYING_UP_TREES.set(false);
+            try {
+                Field pathField = VisitorState.class.getDeclaredField("path");
+                pathField.setAccessible(true);
+                pathField.set(this, path);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
         }
 
-        return Stream.concat(TRYING_UP_TREES_ERRORS.get().stream(), Stream.of(returnedDescription))
+        @Override
+        public void reportMatch(Description description) {
+            reportedMatches.add(description);
+        }
+
+        public List<Description> reportedMatches() {
+            return reportedMatches;
+        }
+
+        private static void nullListener(Description description) {}
+    }
+
+    private static List<Description> rerunCheck(
+            VisitorState visitorState, BugChecker bugChecker, TreePath newTreePath) {
+        VistorState2 visitorState2 = new VistorState2(visitorState, newTreePath);
+        Description returnedDescription = runCheck(visitorState2, bugChecker, newTreePath.getLeaf());
+
+        return Stream.concat(visitorState2.reportedMatches().stream(), Stream.of(returnedDescription))
                 .filter(Predicate.not(Predicate.isEqual(Description.NO_MATCH)))
                 .toList();
     }
