@@ -57,7 +57,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             }
             
             dependencies {
-                errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                errorprone 'com.google.errorprone:error_prone_core:2.38.0'
             }
             
             tasks.withType(JavaCompile).configureEach {
@@ -81,6 +81,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                     })
                 }
             }
+            
+            suppressibleErrorProne {
+                configureEachErrorProneOptions {
+                    // These checks just clog up the test inputs/outputs making them hard to read
+                    disable('ReturnValueIgnored')
+                    disable('IdentifierName')
+                    disable('UnusedVariable')
+                    disable('Varifier')
+                }
+            }
         '''.stripIndent(true)
 
         buildFile << """
@@ -100,7 +110,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -123,7 +133,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -138,7 +148,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -172,7 +182,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -200,7 +210,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -225,7 +235,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -256,7 +266,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -274,8 +284,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
-                    System.out.println(new int[2].equals(new int[1]));
+                    new int[3].toString();
+                    new int[2].equals(new int[1]);
                 }
             }
         '''.stripIndent(true)
@@ -294,7 +304,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -317,21 +327,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 public final String field = new int[3].toString();
 
                 public App() {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
                 
                 public void method() {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
 
                 public void variables() {
                     String variable = new int[3].toString();
-                    System.out.println(variable);
                 }
                 
                 public static class SomeClass {
                     static {
-                        System.out.println(new int[3].toString());
+                        new int[3].toString();
                     }
                 }
             }
@@ -350,24 +359,23 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public App() {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
                 
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public void method() {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
 
                 public void variables() {
                     @SuppressWarnings("for-rollout:ArrayToString")
                     String variable = new int[3].toString();
-                    System.out.println(variable);
                 }
                 
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static class SomeClass {
                     static {
-                        System.out.println(new int[3].toString());
+                        new int[3].toString();
                     }
                 }
             }
@@ -381,6 +389,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         // CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
         // This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
         // than where the diagnostic description was produced.
+
+        // language=Gradle
+        buildFile << '''
+            suppressibleErrorProne {
+                configureEachErrorProneOptions {
+                    // Is disabled for other tests in setup()
+                    enable('UnusedVariable')
+                }
+            }
+        '''.stripIndent(true)
 
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -453,7 +471,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         writeJavaSourceFileToSourceSets '''
             package app;
             public final class App {
-                @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     App.Builder builder = new App.Builder(new int[3].toString());
                 }
@@ -471,7 +488,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         appJavaTextEquals '''
             package app;
             public final class App {
-                @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     @SuppressWarnings("for-rollout:ArrayToString")
                     App.Builder builder = new App.Builder(new int[3].toString());
@@ -499,8 +515,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
-                    System.out.println(new int[3].equals(new int[3]));
+                    new int[3].toString();
+                    new int[3].equals(new int[3]);
                 }
             }
         '''.stripIndent(true)
@@ -517,8 +533,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
-                    System.out.println(Arrays.toString(new int[3]));
-                    System.out.println(new int[3].equals(new int[3]));
+                    Arrays.toString(new int[3]);
+                    new int[3].equals(new int[3]);
                 }
             }
         '''.stripIndent(true)
@@ -533,7 +549,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -572,7 +588,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 public static void main(String[] args) {
                     Character.isJavaLetter('c'); // deprecated method
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -601,8 +617,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
-                    System.out.println(new int[2].equals(new int[1]));
+                    new int[3].toString();
+                    new int[2].equals(new int[1]);
                 }
             }
         '''.stripIndent(true)
@@ -638,8 +654,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
-                    System.out.println(new int[2].equals(new int[1]));
+                    new int[3].toString();
+                    new int[2].equals(new int[1]);
                 }
             }
         '''.stripIndent(true)
@@ -730,7 +746,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String... args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -748,7 +764,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String... args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -835,7 +851,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String... args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -983,7 +999,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -999,7 +1015,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             import java.util.Arrays;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(Arrays.toString(new int[3]));
+                    Arrays.toString(new int[3]);
                 }
             }
         '''.stripIndent(true)
@@ -1012,7 +1028,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1027,7 +1043,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1039,7 +1055,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1055,7 +1071,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             import java.util.Arrays;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(Arrays.toString(new int[3]));
+                    Arrays.toString(new int[3]);
                 }
             }
         '''.stripIndent(true)
@@ -1067,7 +1083,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1081,7 +1097,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1094,7 +1110,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1108,7 +1124,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1122,7 +1138,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1136,7 +1152,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             package app;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1149,7 +1165,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1165,7 +1181,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             import java.util.Arrays;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(Arrays.toString(new int[3]));
+                    Arrays.toString(new int[3]);
                 }
             }
         '''.stripIndent(true)
@@ -1185,7 +1201,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)
@@ -1201,7 +1217,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             import java.util.Arrays;
             public final class App {
                 public static void main(String[] args) {
-                    System.out.println(Arrays.toString(new int[3]));
+                    Arrays.toString(new int[3]);
                 }
             }
         '''.stripIndent(true)
@@ -1214,7 +1230,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
             public final class App {
                 @SuppressWarnings("for-rollout:NullAway")
                 public static void method() {
-                    System.out.println(new int[3].toString());
+                    new int[3].toString();
                 }
             }
         '''.stripIndent(true)

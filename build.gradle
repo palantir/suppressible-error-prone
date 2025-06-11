@@ -40,6 +40,17 @@ allprojects {
     version System.env.CIRCLE_TAG ?: gitVersion()
 }
 
+subprojects {
+    pluginManager.withPlugin('java') {
+        dependencies {
+            // Temporary hack to upgrade error-prone to 2.38.0 in this repo (we need the baseline-error-prones
+            // to be updated as errorprone has ABI breaks) without having to upgrade gradle-baseline-java,
+            // which currently causes issues as it applies suppressible-error-prone to itself.
+            errorprone 'com.palantir.baseline:baseline-error-prone:6.33.0'
+        }
+    }
+}
+
 javaVersions {
     libraryTarget = 17
     runtime = 21
