@@ -32,6 +32,9 @@ import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.artifacts.ComponentMetadataContext;
+import org.gradle.api.artifacts.ComponentMetadataRule;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -155,13 +158,29 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
             project.getConfigurations()
                     .named(sourceSet.getAnnotationProcessorConfigurationName())
-                    .configure(errorProneConfiguration -> {
-                        errorProneConfiguration
+                    .configure(annotationProcessor -> {
+                        annotationProcessor
                                 .getDependencies()
                                 .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
-                        errorProneConfiguration.getAttributes().attribute(suppressible, true);
+                        annotationProcessor.getAttributes().attribute(suppressible, true);
                     });
+
+            project.getDependencies().getComponents().all(ConsistentErrorPronePlatformRule.class);
         });
+    }
+
+    static final class ConsistentErrorPronePlatformRule implements ComponentMetadataRule {
+        private static final String ERRORPRONE_GROUP = "com.google.errorprone";
+
+        @Override
+        public void execute(ComponentMetadataContext context) {
+            ModuleVersionIdentifier id = context.getDetails().getId();
+            if (!id.getGroup().equals(ERRORPRONE_GROUP)) {
+                return;
+            }
+
+            context.getDetails().belongsTo("%s:_:%s".formatted(ERRORPRONE_GROUP, id.getVersion()));
+        }
     }
 
     private void configureJavaCompile(Project project, JavaCompile javaCompile) {
