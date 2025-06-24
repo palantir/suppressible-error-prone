@@ -169,6 +169,14 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
     }
 
+    /**
+     * Stolen wholesale from GCV:
+     *      https://github.com/palantir/gradle-consistent-versions/blob/8318ac29e81b6a77ed9ec223b2024cb7a61c7175/
+     *      src/main/java/com/palantir/gradle/versions/VersionsPropsPlugin.java#L294-L305
+     * This sets up a "virtual platform" that all errorprone dependencies are bound to. It means they will all have
+     * the same version. It's very similar to adding `com.google.errorprone:* = ...` to the `versions.props` file
+     * (in fact it's the same thing), except we are doing this from a gradle plugin.
+     */
     static final class ConsistentErrorPronePlatformRule implements ComponentMetadataRule {
         private static final String ERRORPRONE_GROUP = "com.google.errorprone";
 

@@ -1226,6 +1226,34 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         !rootCauseMessage.contains('[RemoveRolloutSuppressions]')
     }
 
+    def 'error-prone dependencies have versions bound together by a virtual platform'() {
+        setup: 'when an error-prone dependency is forced to certain version'
+        // language=Gradle
+        buildFile << '''
+            configurations.named('annotationProcessor') {
+                resolutionStrategy {
+                   force 'com.google.errorprone:error_prone_annotation:2.3.4'
+                }
+            }
+            
+            tasks.register('printErrorProneVersions') {
+                inputs.files(configurations.named('annotationProcessor'))
+                doLast {
+                    inputs.files.files.each {
+                        println("ERROR-PRONE: ${it.name}")
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def output = runTasksSuccessfully('printErrorProneVersions').standardOutput
+
+        then: 'every single error-prone dependency has the same version'
+        output.contains('ERROR-PRONE: error_prone_annotation-2.3.4.jar')
+        output.contains('ERROR-PRONE: error_prone_core-2.3.4.jar')
+    }
+
     @Override
     ExecutionResult runTasksSuccessfully(String... tasks) {
         def result = runTasks(tasks)
