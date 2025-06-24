@@ -32,6 +32,9 @@ import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.artifacts.ComponentMetadataContext;
+import org.gradle.api.artifacts.ComponentMetadataRule;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -155,13 +158,37 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
             project.getConfigurations()
                     .named(sourceSet.getAnnotationProcessorConfigurationName())
-                    .configure(errorProneConfiguration -> {
-                        errorProneConfiguration
+                    .configure(annotationProcessor -> {
+                        annotationProcessor
                                 .getDependencies()
                                 .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
-                        errorProneConfiguration.getAttributes().attribute(suppressible, true);
+                        annotationProcessor.getAttributes().attribute(suppressible, true);
                     });
+
+            project.getDependencies().getComponents().all(ConsistentErrorPronePlatformRule.class);
         });
+    }
+
+    /**
+     * Stolen wholesale from GCV:
+     *      https://github.com/palantir/gradle-consistent-versions/blob/8318ac29e81b6a77ed9ec223b2024cb7a61c7175/
+     *      src/main/java/com/palantir/gradle/versions/VersionsPropsPlugin.java#L294-L305
+     * This sets up a "virtual platform" that all errorprone dependencies are bound to. It means they will all have
+     * the same version. It's very similar to adding `com.google.errorprone:* = ...` to the `versions.props` file
+     * (in fact it's the same thing), except we are doing this from a gradle plugin.
+     */
+    static final class ConsistentErrorPronePlatformRule implements ComponentMetadataRule {
+        private static final String ERRORPRONE_GROUP = "com.google.errorprone";
+
+        @Override
+        public void execute(ComponentMetadataContext context) {
+            ModuleVersionIdentifier id = context.getDetails().getId();
+            if (!id.getGroup().equals(ERRORPRONE_GROUP)) {
+                return;
+            }
+
+            context.getDetails().belongsTo("%s:_:%s".formatted(ERRORPRONE_GROUP, id.getVersion()));
+        }
     }
 
     private void configureJavaCompile(Project project, JavaCompile javaCompile) {
