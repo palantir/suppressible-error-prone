@@ -69,7 +69,7 @@ public final class VisitorStateModifications {
 
         // If the check is a suggestion, we don't want to auto-suppress it, so we return no match (such that it also
         //    doesn't auto-fix it if not requested, which is caught in the above)
-        if (visitorState.severityMap().get(description.checkName).equals(SeverityLevel.SUGGESTION)) {
+        if (visitorState.severityMap().get(description.checkName) == SeverityLevel.SUGGESTION) {
             return Description.NO_MATCH;
         }
 
