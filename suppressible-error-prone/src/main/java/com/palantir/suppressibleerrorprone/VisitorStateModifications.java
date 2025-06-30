@@ -114,10 +114,19 @@ public final class VisitorStateModifications {
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
         boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
 
+        boolean isRemovingUnnecessarySuppressions = visitorState
+                .errorProneOptions()
+                .getFlags()
+                .getBoolean("SuppressibleErrorProne:RemoveUnnecessaryRolloutSuppressions")
+                .orElse(false);
+
         SuppressingFix suppressingFix = FIXES.computeIfAbsent(
                 firstSuppressibleParent,
                 _ignored -> new SuppressingFix(
-                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+                        Optional.ofNullable(visitorState.getSourceCode()),
+                        suppressWarnings,
+                        firstSuppressibleParent,
+                        isRemovingUnnecessarySuppressions));
 
         suppressingFix.addSuppression(description.checkName);
 

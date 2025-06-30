@@ -71,7 +71,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                 //   5. Run the tests as well
                 // If the variable below is true the tests will fail as the compilation process will try to
                 // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = false
+                boolean debuggingErrorPrones = true
                 if (debuggingErrorPrones) {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -1224,6 +1224,34 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         then:
         !rootCauseMessage.contains('[RemoveRolloutSuppressions]')
+    }
+
+    def 'RemoveUnnecessaryRolloutSuppressions removes unnecessary rollout suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:SomethingElse")
+                public static void method() {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress', '-PerrorProneRemoveUnnecessaryRolloutSuppressions')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void method() {
+                    System.out.println(new int[3].toString());
+                }
+            }
+        '''.stripIndent(true)
     }
 
     def 'error-prone dependencies have versions bound together by a virtual platform'() {

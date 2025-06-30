@@ -43,7 +43,9 @@ import org.gradle.process.CommandLineArgumentProvider;
 
 public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
-    private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemoveRollout";
+    private static final String ERROR_PRONE_REMOVE_ROLLOUT_SUPPRESSIONS = "errorProneRemoveRollout";
+    private static final String ERROR_PRONE_REMOVE_UNNECESSARY_SUPPRESSIONS =
+            "errorProneRemoveUnnecessaryRolloutSuppressions";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
     private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
     private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
@@ -64,7 +66,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                     + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemoveRollout");
         }
 
-        if (isRemovingSuppressions(project) && isSuppressing(project)) {
+        if (isRemovingRolloutSuppressions(project) && isSuppressing(project)) {
             throw new IllegalStateException(
                     "-PerrorProneRemoveRollout cannot be used at the same time as -PerrorProneSuppress");
         }
@@ -80,11 +82,11 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
+        // If we're going to remove rollout suppressions, and possibly apply patches, we don't want to apply the custom
         //   logic for for-rollout suppressions.
         // Note that this means we need to handle the requested patches with care, so as to not apply patches to
         //   checks that are suppressed with for-rollout, but for which we're not going to remove the suppressions.
-        if (!isRemovingSuppressions(project)) {
+        if (!isRemovingRolloutSuppressions(project)) {
             // When auto-suppressing, the logic will run a bytecode patched version of errorprone
             // (via an artifact transform) that intercepts every error from every check and adds a custom fix
             setupErrorProneArtifactTransform(project);
@@ -238,7 +240,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
-        if (isRemovingSuppressions(project)) {
+        if (isRemovingRolloutSuppressions(project)) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
@@ -282,6 +284,11 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
             });
 
             return;
+        }
+
+        if (isRemovingUnnecessaryRolloutSuppressions(project)) {
+            errorProneOptions.option("SuppressibleErrorProne:RemoveUnnecessaryRolloutSuppressions", true);
+            errorProneOptions.getIgnoreSuppressionAnnotations().set(true);
         }
 
         // If we're not removing suppressions, disable it to avoid having `Note: [RemoveRolloutSuppressions]` in
@@ -362,7 +369,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static List<String> checksToRemoveSuppressionsFor(Project project) {
-        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_ROLLOUT_SUPPRESSIONS);
 
         // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
         // We can't explicitly list all possible checks, because some might not exist anymore
@@ -386,7 +393,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static boolean isAnyKindOfPatching(Project project) {
-        return isApplyingSuggestedPatches(project) || isSuppressing(project) || isRemovingSuppressions(project);
+        return isApplyingSuggestedPatches(project)
+                || isSuppressing(project)
+                || isRemovingRolloutSuppressions(project)
+                || isRemovingUnnecessaryRolloutSuppressions(project);
     }
 
     private static boolean isApplyingSuggestedPatches(Project project) {
@@ -394,11 +404,16 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static boolean isSuppressing(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_SUPPRESS);
+        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_SUPPRESS)
+                || isRemovingUnnecessaryRolloutSuppressions(project);
     }
 
-    private static boolean isRemovingSuppressions(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_REMOVE_SUPPRESSIONS);
+    private static boolean isRemovingRolloutSuppressions(Project project) {
+        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_REMOVE_ROLLOUT_SUPPRESSIONS);
+    }
+
+    private static boolean isRemovingUnnecessaryRolloutSuppressions(Project project) {
+        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_REMOVE_UNNECESSARY_SUPPRESSIONS);
     }
 
     static String excludedPathsRegex() {

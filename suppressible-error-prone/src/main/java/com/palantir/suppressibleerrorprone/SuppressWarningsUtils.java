@@ -16,6 +16,7 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,13 @@ final class SuppressWarningsUtils {
 
     public static List<String> modifySuppressions(
             List<String> existingSuppressions, Set<String> newAutomatedSuppressions) {
+        return modifySuppressions(existingSuppressions, newAutomatedSuppressions, false);
+    }
+
+    public static List<String> modifySuppressions(
+            List<String> existingSuppressions,
+            Set<String> encounteredErrors,
+            boolean isRemovingUnusedRolloutSuppressions) {
         Map<SuppressionsType, List<String>> automaticallyAddedOrNotSuppressions = existingSuppressions.stream()
                 .collect(Collectors.groupingBy(SuppressionsType::fromName, Collectors.toList()));
 
@@ -44,13 +52,16 @@ final class SuppressWarningsUtils {
         List<String> humanAuthoredSuppressions =
                 automaticallyAddedOrNotSuppressions.getOrDefault(SuppressionsType.HUMAN_AUTHORED, List.of());
 
-        List<String> existingAutomaticallyAddedSuppressionsWithoutPrefix =
+        Set<String> existingAutomaticallyAddedSuppressionsWithoutPrefix =
                 existingAutomaticallyAddedSuppressions.stream()
                         .map(error -> error.replace(CommonConstants.AUTOMATICALLY_ADDED_PREFIX, ""))
-                        .collect(Collectors.toList());
+                        .collect(Collectors.toSet());
 
-        List<String> modifiedAutomaticallyAddedSuppressions = Stream.concat(
-                        existingAutomaticallyAddedSuppressionsWithoutPrefix.stream(), newAutomatedSuppressions.stream())
+        Set<String> newAutomatedSuppressions = isRemovingUnusedRolloutSuppressions
+                ? encounteredErrors
+                : Sets.union(existingAutomaticallyAddedSuppressionsWithoutPrefix, encounteredErrors);
+
+        List<String> modifiedAutomaticallyAddedSuppressions = newAutomatedSuppressions.stream()
                 .filter(Predicate.not(humanAuthoredSuppressions::contains))
                 .distinct()
                 .sorted()
