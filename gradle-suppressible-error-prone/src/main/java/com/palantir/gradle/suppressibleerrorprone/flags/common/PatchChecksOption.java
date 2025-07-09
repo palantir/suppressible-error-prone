@@ -44,6 +44,10 @@ public interface PatchChecksOption {
         return new SomeChecks(Set.of(patchChecks));
     }
 
+    static PatchChecksOption noChecks() {
+        return new SomeChecks(Set.of());
+    }
+
     enum AllChecks implements PatchChecksOption {
         INSTANCE;
 

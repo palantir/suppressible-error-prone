@@ -16,19 +16,28 @@
 
 package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.Empty;
+import com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorProneExtension;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.None;
 import java.util.Optional;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
+import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 public interface Flag {
     FlagName name();
 
-    default FlagOptions options(Optional<String> flagValue) {
-        return Empty.INSTANCE;
+    default FlagOptions options(FlagOptionContext context) {
+        return None.INSTANCE;
     }
 
-    default void configureJavaCompile(JavaCompile javaCompile) {}
+    record FlagOptionContext(
+            Optional<String> flagValue,
+            SuppressibleErrorProneExtension extension,
+            JavaCompile javaCompile,
+            ErrorProneOptions errorProneOptions) {
 
-    default void configureErrorProneOptions(ErrorProneOptions errorProneOptions) {}
+        public ProjectLayout projectLayout() {
+            return javaCompile.getProject().getLayout();
+        }
+    }
 }

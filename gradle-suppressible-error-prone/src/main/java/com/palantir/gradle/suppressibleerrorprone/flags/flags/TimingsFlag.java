@@ -18,24 +18,20 @@ package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.None;
 import java.nio.file.Path;
 import java.util.List;
-import javax.inject.Inject;
-import org.gradle.api.file.ProjectLayout;
-import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.process.CommandLineArgumentProvider;
 
-public abstract class TimingsFlag implements Flag {
-    @Inject
-    protected abstract ProjectLayout getProjectLayout();
-
+public final class TimingsFlag implements Flag {
     @Override
-    public final FlagName name() {
+    public FlagName name() {
         return FlagName.TIMINGS;
     }
 
     @Override
-    public final void configureJavaCompile(JavaCompile javaCompile) {
+    public FlagOptions options(FlagOptionContext context) {
         // We can't control the working directory of the java compile task, as it actually runs inside some gradle
         // worker. So we can't pass a relative path to the javac plugin; it has to be absolute. When we pass
         // an absolute path, build caching no longer works between machines as the java compiler option args
@@ -43,20 +39,22 @@ public abstract class TimingsFlag implements Flag {
         // not cache from (other) CI builds. It's ok when hidden behind a flag, as then you don't generally don't
         // even want build caching if you're measuring timings. But unfortunately we can't print out timings
         // all the time.
-        Path outputAbsolute = getProjectLayout()
+        Path outputAbsolute = context.projectLayout()
                 .getBuildDirectory()
-                .file("errorprone-timings/" + javaCompile.getName())
+                .file("errorprone-timings/" + context.javaCompile().getName())
                 .get()
                 .getAsFile()
                 .toPath();
 
-        javaCompile.getOutputs().file(outputAbsolute.toFile());
+        context.javaCompile().getOutputs().file(outputAbsolute.toFile());
 
-        javaCompile.getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
+        context.javaCompile().getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
             @Override
             public Iterable<String> asArguments() {
                 return List.of("-Xplugin:SuppressibleErrorProneTimings " + outputAbsolute);
             }
         });
+
+        return None.INSTANCE;
     }
 }

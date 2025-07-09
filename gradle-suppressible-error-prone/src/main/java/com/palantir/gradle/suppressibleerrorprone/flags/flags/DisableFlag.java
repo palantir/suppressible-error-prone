@@ -18,7 +18,7 @@ package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
-import net.ltgt.gradle.errorprone.ErrorProneOptions;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 
 public final class DisableFlag implements Flag {
     @Override
@@ -27,7 +27,9 @@ public final class DisableFlag implements Flag {
     }
 
     @Override
-    public void configureErrorProneOptions(ErrorProneOptions errorProneOptions) {
-        errorProneOptions.getEnabled().set(true);
+    public FlagOptions options(FlagOptionContext context) {
+        context.errorProneOptions().getEnabled().set(true);
+
+        return FlagOptions.none();
     }
 }

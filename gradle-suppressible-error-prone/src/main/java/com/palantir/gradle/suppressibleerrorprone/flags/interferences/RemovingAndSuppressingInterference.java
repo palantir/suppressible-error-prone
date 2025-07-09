@@ -14,26 +14,23 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.flags;
+package com.palantir.gradle.suppressibleerrorprone.flags.interferences;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagSetInterference;
+import java.util.Map;
+import java.util.Set;
 
-public final class ApplyFlag implements Flag {
+public final class RemovingAndSuppressingInterference extends FlagSetInterference {
     @Override
-    public FlagName name() {
-        return FlagName.APPLY;
+    public Set<FlagName> interferingFlags() {
+        return Set.of(FlagName.REMOVE_ROLLOUT, FlagName.SUPPRESS);
     }
 
     @Override
-    public FlagOptions options(FlagOptionContext context) {
-        return new FlagOptions() {
-            @Override
-            public PatchChecksOption patchChecks() {
-                return PatchChecksOption.allChecks();
-            }
-        };
+    public FlagOptions interfere(Map<FlagName, FlagOptions> flagOptions) {
+        throw new IllegalStateException(
+                "%s cannot be used at the same time as %s");
     }
 }

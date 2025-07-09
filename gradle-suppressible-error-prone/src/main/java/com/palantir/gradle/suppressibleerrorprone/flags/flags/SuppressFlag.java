@@ -36,10 +36,10 @@ public final class SuppressFlag implements Flag {
     }
 
     @Override
-    public FlagOptions options(Optional<String> flagValue) {
+    public FlagOptions options(FlagOptionContext context) {
         return new FlagOptions() {
             @Override
-            public boolean modifyErrorProneCheckApi() {
+            public boolean modifyVisitorState() {
                 return true;
             }
         };

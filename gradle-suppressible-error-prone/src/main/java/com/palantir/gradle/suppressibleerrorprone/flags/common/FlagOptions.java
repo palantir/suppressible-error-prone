@@ -16,18 +16,16 @@
 
 package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag.PatchSomeChecksOption;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 public interface FlagOptions {
-    default boolean modifyErrorProneCheckApi() {
+    default boolean modifyVisitorState() {
         return false;
     }
 
     default PatchChecksOption patchChecks() {
-        return new PatchSomeChecksOption(Set.of());
+        return PatchChecksOption.noChecks();
     }
 
     default Map<String, String> extraFlags() {
@@ -37,8 +35,8 @@ public interface FlagOptions {
     default FlagOptions naivelyCombinedWith(FlagOptions other) {
         return new FlagOptions() {
             @Override
-            public boolean modifyErrorProneCheckApi() {
-                return FlagOptions.this.modifyErrorProneCheckApi() || other.modifyErrorProneCheckApi();
+            public boolean modifyVisitorState() {
+                return FlagOptions.this.modifyVisitorState() || other.modifyVisitorState();
             }
 
             @Override
@@ -64,10 +62,14 @@ public interface FlagOptions {
         };
     }
 
-    final class Empty implements FlagOptions {
-        public static final Empty INSTANCE = new Empty();
+    static FlagOptions none() {
+        return None.INSTANCE;
+    }
 
-        private Empty() {}
+    final class None implements FlagOptions {
+        public static final None INSTANCE = new None();
+
+        private None() {}
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")
@@ -79,8 +81,8 @@ public interface FlagOptions {
         }
 
         @Override
-        public boolean modifyErrorProneCheckApi() {
-            return originalOptions.modifyErrorProneCheckApi();
+        public boolean modifyVisitorState() {
+            return originalOptions.modifyVisitorState();
         }
 
         @Override

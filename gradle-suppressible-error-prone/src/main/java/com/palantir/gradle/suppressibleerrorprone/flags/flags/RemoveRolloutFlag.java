@@ -21,7 +21,6 @@ import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
 import java.util.Map;
-import java.util.Optional;
 
 public final class RemoveRolloutFlag implements Flag {
     @Override
@@ -30,7 +29,7 @@ public final class RemoveRolloutFlag implements Flag {
     }
 
     @Override
-    public FlagOptions options(Optional<String> flagValue) {
+    public FlagOptions options(FlagOptionContext context) {
         return new FlagOptions() {
             @Override
             public PatchChecksOption patchChecks() {
@@ -43,7 +42,7 @@ public final class RemoveRolloutFlag implements Flag {
                 // We can't explicitly list all possible checks, because some might not exist anymore
                 // The logic itself needs to consider an empty list as "remove all"
 
-                return Map.of("RemoveRolloutSuppressions", flagValue.orElse(""));
+                return Map.of("RemoveRolloutSuppressions", context.flagValue().orElse(""));
             }
         };
     }
