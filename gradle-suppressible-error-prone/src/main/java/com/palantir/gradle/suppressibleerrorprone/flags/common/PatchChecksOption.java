@@ -16,11 +16,13 @@
 
 package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
+import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.AllChecks;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.SomeChecks;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface PatchChecksOption {
+public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
     String asCommaSeparated();
 
     default PatchChecksOption combine(PatchChecksOption other) {
