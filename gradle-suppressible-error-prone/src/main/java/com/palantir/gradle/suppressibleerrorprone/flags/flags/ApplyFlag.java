@@ -17,7 +17,6 @@
 package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
 import java.util.Arrays;
@@ -27,10 +26,6 @@ import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
 
 public final class ApplyFlag implements Flag {
-    @Override
-    public FlagName name() {
-        return FlagName.APPLY;
-    }
 
     @Override
     public FlagOptions options(FlagOptionContext context) {

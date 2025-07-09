@@ -17,14 +17,9 @@
 package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 
 public final class DisableFlag implements Flag {
-    @Override
-    public FlagName name() {
-        return FlagName.DISABLE;
-    }
 
     @Override
     public FlagOptions options(FlagOptionContext context) {

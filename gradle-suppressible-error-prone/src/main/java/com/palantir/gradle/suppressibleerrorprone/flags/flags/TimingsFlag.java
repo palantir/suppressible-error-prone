@@ -17,7 +17,6 @@
 package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.None;
 import java.nio.file.Path;
@@ -25,10 +24,6 @@ import java.util.List;
 import org.gradle.process.CommandLineArgumentProvider;
 
 public final class TimingsFlag implements Flag {
-    @Override
-    public FlagName name() {
-        return FlagName.TIMINGS;
-    }
 
     @Override
     public FlagOptions options(FlagOptionContext context) {
