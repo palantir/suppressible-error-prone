@@ -46,6 +46,10 @@ public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
         return new SomeChecks(Set.of(patchChecks));
     }
 
+    static PatchChecksOption someChecks(Set<String> patchChecks) {
+        return new SomeChecks(patchChecks);
+    }
+
     static PatchChecksOption noChecks() {
         return new SomeChecks(Set.of());
     }

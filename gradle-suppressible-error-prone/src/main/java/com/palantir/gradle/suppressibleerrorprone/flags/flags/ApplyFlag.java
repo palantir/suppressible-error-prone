@@ -20,6 +20,11 @@ import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import net.ltgt.gradle.errorprone.CheckSeverity;
 
 public final class ApplyFlag implements Flag {
     @Override
@@ -32,8 +37,26 @@ public final class ApplyFlag implements Flag {
         return new FlagOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return PatchChecksOption.allChecks();
+                return PatchChecksOption.someChecks(checksToApplySuggestedPatchesFor(context));
             }
         };
+    }
+
+    private static Set<String> checksToApplySuggestedPatchesFor(FlagOptionContext context) {
+        boolean hasSpecificPatchChecks =
+                context.flagValue().isPresent() && !context.flagValue().get().isBlank();
+
+        if (hasSpecificPatchChecks) {
+            return Arrays.stream(context.flagValue().get().split(","))
+                    .map(String::trim)
+                    .filter(Predicate.not(String::isEmpty))
+                    .collect(Collectors.toSet());
+        }
+
+        return context.extension().patchChecksForCompilation(context.javaCompile()).stream()
+                // Do not patch checks that have been explicitly disabled
+                .filter(check ->
+                        context.errorProneOptions().getChecks().getting(check).getOrNull() != CheckSeverity.OFF)
+                .collect(Collectors.toSet());
     }
 }

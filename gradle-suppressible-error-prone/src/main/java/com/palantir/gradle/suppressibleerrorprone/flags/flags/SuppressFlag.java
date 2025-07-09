@@ -16,18 +16,11 @@
 
 package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
-import com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorProneExtension;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import net.ltgt.gradle.errorprone.CheckSeverity;
-import net.ltgt.gradle.errorprone.ErrorProneOptions;
-import org.gradle.api.tasks.compile.JavaCompile;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
 
 public final class SuppressFlag implements Flag {
     @Override
@@ -36,36 +29,17 @@ public final class SuppressFlag implements Flag {
     }
 
     @Override
+    public ModifyCheckApiOption modifyCheckApi() {
+        return ModifyCheckApiOption.MUST_MODIFY;
+    }
+
+    @Override
     public FlagOptions options(FlagOptionContext context) {
         return new FlagOptions() {
             @Override
-            public boolean modifyVisitorState() {
-                return true;
+            public PatchChecksOption patchChecks() {
+                return PatchChecksOption.allChecks();
             }
         };
-    }
-
-    private static List<String> checksToApplySuggestedPatchesFor(
-            Optional<String> flagValue,
-            SuppressibleErrorProneExtension extension,
-            JavaCompile javaCompile,
-            ErrorProneOptions errorProneOptions) {
-
-        boolean hasSpecificPatchChecks =
-                flagValue.isPresent() && !flagValue.get().isBlank();
-
-        if (hasSpecificPatchChecks) {
-            return Arrays.stream(flagValue.get().split(","))
-                    .map(String::trim)
-                    .filter(Predicate.not(String::isEmpty))
-                    .toList();
-        }
-
-        return extension.patchChecksForCompilation(javaCompile).stream()
-                // Do not patch checks that have been explicitly disabled
-                .filter(check -> errorProneOptions.getChecks().getting(check).getOrNull() != CheckSeverity.OFF)
-                // Sorted so that we maintain arg ordering and continue to get cache hits
-                .sorted()
-                .collect(Collectors.toList());
     }
 }

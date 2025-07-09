@@ -20,10 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public interface FlagOptions {
-    default boolean modifyVisitorState() {
-        return false;
-    }
-
     default PatchChecksOption patchChecks() {
         return PatchChecksOption.noChecks();
     }
@@ -34,11 +30,6 @@ public interface FlagOptions {
 
     default FlagOptions naivelyCombinedWith(FlagOptions other) {
         return new FlagOptions() {
-            @Override
-            public boolean modifyVisitorState() {
-                return FlagOptions.this.modifyVisitorState() || other.modifyVisitorState();
-            }
-
             @Override
             public PatchChecksOption patchChecks() {
                 throw new UnsupportedOperationException("not implemented");
@@ -78,11 +69,6 @@ public interface FlagOptions {
 
         protected DefaultFlagOptions(FlagOptions originalOptions) {
             this.originalOptions = originalOptions;
-        }
-
-        @Override
-        public boolean modifyVisitorState() {
-            return originalOptions.modifyVisitorState();
         }
 
         @Override

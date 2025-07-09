@@ -26,6 +26,10 @@ import org.gradle.api.tasks.compile.JavaCompile;
 public interface Flag {
     FlagName name();
 
+    default ModifyCheckApiOption modifyCheckApi() {
+        return ModifyCheckApiOption.DONT_CARE;
+    }
+
     default FlagOptions options(FlagOptionContext context) {
         return None.INSTANCE;
     }
