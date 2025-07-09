@@ -21,6 +21,7 @@ import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.None;
 import java.util.Optional;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import org.gradle.api.file.ProjectLayout;
+import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 public interface Flag {
@@ -32,14 +33,17 @@ public interface Flag {
         return None.INSTANCE;
     }
 
-    record FlagOptionContext(
-            Optional<String> flagValue,
-            SuppressibleErrorProneExtension extension,
-            JavaCompile javaCompile,
-            ErrorProneOptions errorProneOptions) {
-
+    record FlagOptionContext(Optional<String> flagValue, JavaCompile javaCompile) {
         public ProjectLayout projectLayout() {
             return javaCompile.getProject().getLayout();
+        }
+
+        public SuppressibleErrorProneExtension extension() {
+            return javaCompile.getProject().getExtensions().getByType(SuppressibleErrorProneExtension.class);
+        }
+
+        public ErrorProneOptions errorProneOptions() {
+            return ((ExtensionAware) javaCompile.getOptions()).getExtensions().getByType(ErrorProneOptions.class);
         }
     }
 }
