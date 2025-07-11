@@ -9,6 +9,7 @@ dependencies {
     
     implementation 'org.ow2.asm:asm'
     implementation 'com.palantir.gradle.utils:environment-variables'
+    implementation 'one.util:streamex'
 
     testImplementation 'com.netflix.nebula:nebula-test'
     testImplementation 'org.junit.jupiter:junit-jupiter'

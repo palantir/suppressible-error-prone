@@ -16,6 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone;
 
+import com.palantir.gradle.suppressibleerrorprone.flags.Flags;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -37,11 +38,12 @@ import org.gradle.api.artifacts.ComponentMetadataRule;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.process.CommandLineArgumentProvider;
 
-public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
+public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
     private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemoveRollout";
     private static final String ERROR_PRONE_APPLY = "errorProneApply";
@@ -51,24 +53,17 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     // This is only here for backcompat from when all the errorprone code lived in baseline
     private static final String ERROR_PRONE_BASELINE_DISABLE = "com.palantir.baseline-error-prone.disable";
 
+    @Nested
+    protected abstract Flags getFlags();
+
     @Override
-    public void apply(Project project) {
+    public final void apply(Project project) {
         project.getPluginManager().withPlugin("java", unused -> {
             applyToJavaProject(project);
         });
     }
 
     private void applyToJavaProject(Project project) {
-        if (isDisabled(project) && isAnyKindOfPatching(project)) {
-            throw new IllegalStateException("-PerrorProneDisable cannot be used at the same time as "
-                    + "-PerrorProneApply, -PerrorProneSuppress or -PerrorProneRemoveRollout");
-        }
-
-        if (isRemovingSuppressions(project) && isSuppressing(project)) {
-            throw new IllegalStateException(
-                    "-PerrorProneRemoveRollout cannot be used at the same time as -PerrorProneSuppress");
-        }
-
         project.getPluginManager().apply(ErrorPronePlugin.class);
 
         SuppressibleErrorProneExtension extension =
@@ -79,6 +74,10 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                         SuppressibleErrorPronePlugin.class.getPackage().getImplementationVersion()))
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
+
+//        if (getFlags().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
+//            setupErrorProneOptions(project, mustModify.classesToModify());
+//        }
 
         // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
         //   logic for for-rollout suppressions.

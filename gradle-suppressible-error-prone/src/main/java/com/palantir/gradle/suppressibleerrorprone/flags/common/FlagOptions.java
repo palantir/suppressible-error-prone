@@ -16,8 +16,10 @@
 
 package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import one.util.streamex.EntryStream;
 
 public interface FlagOptions {
     default PatchChecksOption patchChecks() {
@@ -32,14 +34,22 @@ public interface FlagOptions {
         return new FlagOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                throw new UnsupportedOperationException("not implemented");
+                return FlagOptions.this.patchChecks().combine(other.patchChecks());
             }
 
             @Override
             public Map<String, String> extraFlags() {
-                throw new UnsupportedOperationException("not implemented");
+                return EntryStream.of(FlagOptions.this.extraFlags())
+                        .append(other.extraFlags())
+                        .toMap();
             }
         };
+    }
+
+    static FlagOptions naivelyCombine(Collection<FlagOptions> flagOptions) {
+        return flagOptions.stream()
+                .reduce(FlagOptions::naivelyCombinedWith)
+                .orElseThrow(() -> new IllegalArgumentException("need at least one FlagOptions"));
     }
 
     default FlagOptions withExtraFlag(String key, String value) {

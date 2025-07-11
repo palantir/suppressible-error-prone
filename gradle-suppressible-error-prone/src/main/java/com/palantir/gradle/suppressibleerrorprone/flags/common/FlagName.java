@@ -34,6 +34,10 @@ public enum FlagName {
         this.otherNames = Set.of(otherNames);
     }
 
+    public String canonicalName() {
+        return canonicalName;
+    }
+
     public String asGradlePropertyArgument() {
         return "-P" + canonicalName;
     }
