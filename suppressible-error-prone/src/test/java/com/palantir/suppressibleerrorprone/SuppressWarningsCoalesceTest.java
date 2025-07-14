@@ -24,10 +24,10 @@ class SuppressWarningsCoalesceTest {
         fix().addInput(
                         "Test.java",
                         """
-                                    public class Test {
-                                        void f() {}
-                                    }
-                                    """)
+                        public class Test {
+                            void f() {}
+                        }
+                        """)
                 .expectUnchanged()
                 .doTest();
     }

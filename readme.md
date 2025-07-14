@@ -90,27 +90,52 @@ This plugin adds a marker task you can handily use that will run all the compile
 ./gradlew compileAllErrorProne
 ```
 
-To actually suppress all the current failures, you need to run compilation twice:
+To actually suppress all the current failure run:
 
 ```
-./gradlew compileAllErrorProne -PerrorProneSuppressStage1
-./gradlew compileAllErrorProne -PerrorProneSuppressStage2
+./gradlew compileAllErrorProne -PerrorProneSuppress
 ```
 
-If rolling out automatically to lots of repos, we'd recommend running the fixes first before suppressing:
+To apply suggested fixes to all the checks you have opted into via `patchChecks`:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneApply
 ```
 
-You can also run fixes for individual checks:
+You can also apply suggested fixes for individual checks:
 
 ```
 ./gradlew compileAllErrorProne -PerrorProneApply=Check
 ./gradlew compileAllErrorProne -PerrorProneApply=Check,OtherCheck
 ```
 
+Both applying suggested fixes and suppressing errors can be done in one go:
+
+```
+./gradlew compileAllErrorProne -PerrorProneSuppress -PerrorProneApply
+``` 
+
 Errorprone can be disabled by using the `-PerrorProneDisable` property.
+
+You can produce a timings report using `-PerrorProneTimings`. This will place a file with timings under `build/errorprone-timings/compileTaskName` in each project. You probably want to run with `--rerun-tasks` to compile all the code (unless you are purposefully seeing how fast errorprones are during incremental compile):
+
+```
+./gradlew compileAllErrorProne -PerrorProneTimings --rerun-tasks
+```
+
+You can also use to remove all or some of the for-rollout suppression warnings:
+
+```
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout=Check,OtherCheck
+```
+
+This can also be combined with `-PerrorProneApply` to apply suggested fixes for the checks you are removing the suppressions for:
+
+```
+./gradlew compileAllErrorProne -PerrorProneRemoveRollout=Check,OtherCheck -PerrorProneApply=Check
+```
+
 
 ### Using directly from Gradle
 
@@ -135,51 +160,6 @@ dependencies {
 
 suppressibleErrorProne {
     patchChecks.add('SomeCheck')
-}
-```
-
-## Technical Details
-
-We achieve automatic suppression using a two stage process:
-
-1. Intercepting all the errors that errorprone produces, adding an `@RepeatableSuppressWarnings` annotation to the closest parent language element to erroring element that accepts `@SuppressWarnings`.
-2. The second stage comes and coalesces all the `@RepeatableSuppressWarnings` together with any existing `@SuppressWarnings` to produce a final `@SuppressWarnings` (this process happens via a regular old errorprone check).
-
-For example:
-
-```java
-class Example {
-    @SuppressWarnings("ArrayToString")
-    void example() {
-        // Fails CollectionStreamForEach
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
-Would have the `@RepeatableSuppressWarnings` annotation added after stage 1:
-
-```java
-class Example {
-    @RepeatableSuppressWarnings("CollectionStreamForEach")
-    @SuppressWarnings("ArrayToString")
-    void example() {
-        List.of(1).stream().forEach(...)
-        // ...
-    }
-}
-```
-
-Then stage 2 will coalesce the suppress warnings annotations into a single regular `@SuppressWarnings`. Note we prefix the automatically suppressed error with `for-rollout:` so it's easy to tell which suppressions happened because humans did it vs automation.
-
-```java
-class Example {
-    @SuppressWarnings({"ArrayToString", "for-rollout:CollectionStreamForEach"})
-    void example() {
-        List.of(1).stream().forEach(...)
-        // ...
-    }
 }
 ```
 

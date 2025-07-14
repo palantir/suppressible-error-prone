@@ -1,10 +1,12 @@
 apply plugin: 'groovy'
 apply plugin: 'java-gradle-plugin'
 apply plugin: 'com.palantir.external-publish-jar'
+apply plugin: 'com.palantir.gradle-plugin-testing'
 apply plugin: 'com.palantir.external-publish-gradle-plugin'
 
 dependencies {
-    implementation 'net.ltgt.gradle:gradle-errorprone-plugin'
+    api 'net.ltgt.gradle:gradle-errorprone-plugin'
+    
     implementation 'org.ow2.asm:asm'
     implementation 'com.palantir.gradle.utils:environment-variables'
 
@@ -12,6 +14,8 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.assertj:assertj-core'
     testImplementation 'commons-io:commons-io'
+    testImplementation 'com.google.guava:guava'
+    testImplementation 'one.util:streamex'
 }
 
 gradlePlugin {
@@ -36,11 +40,13 @@ test {
 
 // Added as a jar the errorprone configuration inside the plugin, so in nebula-tests needs to exist in maven local
 tasks.test.dependsOn tasks.findByPath(':suppressible-error-prone:publishToMavenLocal')
-// Similarly, added as a jar for compileOnly inside the plugin, so in nebula-tests needs to exist in maven local
-tasks.test.dependsOn tasks.findByPath(':suppressible-error-prone-annotations:publishToMavenLocal')
 
 tasks.withType(JavaCompile) {
     options.errorprone {
         disable('StrictUnusedVariable')
     }
+}
+
+gradleTestUtils {
+    gradleVersions = ['8.14.3']
 }

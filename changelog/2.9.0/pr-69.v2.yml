@@ -1,0 +1,5 @@
+type: improvement
+improvement:
+  description: Allow patching specific unsuppressed checks when using errorProneRemoveRollout
+  links:
+  - https://github.com/palantir/suppressible-error-prone/pull/69
