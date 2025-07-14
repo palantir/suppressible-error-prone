@@ -6,6 +6,7 @@ commons-io:commons-io = 2.17.0
 net.ltgt.gradle:gradle-errorprone-plugin = 4.1.0
 org.assertj:assertj-core = 3.26.3
 org.junit.jupiter:* = 5.11.3
+org.junit.platform:* = 1.13.3
 org.ow2.asm:asm = 9.7.1
 
 # dependency-upgrader:OFF
