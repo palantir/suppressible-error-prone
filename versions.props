@@ -11,5 +11,5 @@ org.ow2.asm:asm = 9.7.1
 
 # dependency-upgrader:OFF
 # We want to avoid upgrading errorprone automatically as it will bring with it new checks.
-com.google.errorprone:* = 2.31.0
+com.google.errorprone:* = 2.40.0
 # dependency-upgrader:ON
