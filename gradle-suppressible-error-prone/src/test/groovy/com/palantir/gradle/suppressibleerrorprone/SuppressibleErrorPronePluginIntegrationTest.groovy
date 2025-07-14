@@ -87,7 +87,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
                     // These interfere with some tests, so disable them
                     // TODO(callumr): Rewrite the tests to use custom testing error-prones rather than built in checks
                     //                to make upgrading error-prone easier.
-                    disable('Varifier', 'ReturnValueIgnored', 'UnusedVariable')
+                    disable('Varifier', 'ReturnValueIgnored', 'UnusedVariable', 'IdentifierName')
+                    ignoreUnknownCheckNames = true
                 }
             }
         '''.stripIndent(true)
@@ -427,15 +428,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
     }
 
     def 'supports suppressing errorprone checks on classes, interfaces, records, enums, etc'() {
-        // language=Gradle
-        buildFile << '''
-            suppressibleErrorProne {
-                configureEachErrorProneOptions {
-                    disable('IdentifierName')
-                }
-            }
-        '''.stripIndent(true)
-
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
