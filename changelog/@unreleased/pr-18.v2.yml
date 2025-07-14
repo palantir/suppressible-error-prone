@@ -1,5 +1,0 @@
-type: feature
-feature:
-  description: Bump error-prone to 2.40.0
-  links:
-  - https://github.com/palantir/suppressible-error-prone/pull/18
