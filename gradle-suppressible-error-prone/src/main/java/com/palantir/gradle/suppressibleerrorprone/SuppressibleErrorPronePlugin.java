@@ -75,9 +75,9 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-//        if (getFlags().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
-//            setupErrorProneOptions(project, mustModify.classesToModify());
-//        }
+        //        if (getFlags().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
+        //            setupErrorProneOptions(project, mustModify.classesToModify());
+        //        }
 
         // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
         //   logic for for-rollout suppressions.
@@ -105,24 +105,6 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 setupErrorProneOptions(project, extension, javaCompile, errorProneOptions);
             });
         });
-
-        if (isAnyKindOfPatching(project)) {
-            project.afterEvaluate(_ignored -> {
-                // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
-                // we need to remove these compiler flags after all configuration has happened.
-                project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-                    javaCompile.getOptions().setWarnings(false);
-                    javaCompile.getOptions().setDeprecation(false);
-                    javaCompile
-                            .getOptions()
-                            .setCompilerArgs(javaCompile.getOptions().getCompilerArgs().stream()
-                                    .filter(arg -> !arg.equals("-Werror"))
-                                    .filter(arg -> !arg.equals("-deprecation"))
-                                    .filter(arg -> !arg.equals("-Xlint:deprecation"))
-                                    .collect(Collectors.toList()));
-                });
-            });
-        }
 
         project.getTasks().register("compileAllErrorProne", Task.class, compileAll -> {
             compileAll.dependsOn(project.provider(
@@ -220,6 +202,20 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
             javaCompile.getOutputs().cacheIf(t -> false);
             javaCompile.getOutputs().upToDateWhen(t -> false);
+
+            project.afterEvaluate(_ignored -> {
+                // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
+                // we need to remove these compiler flags after all configuration has happened.
+                javaCompile.getOptions().setWarnings(false);
+                javaCompile.getOptions().setDeprecation(false);
+                javaCompile
+                        .getOptions()
+                        .setCompilerArgs(javaCompile.getOptions().getCompilerArgs().stream()
+                                .filter(arg -> !arg.equals("-Werror"))
+                                .filter(arg -> !arg.equals("-deprecation"))
+                                .filter(arg -> !arg.equals("-Xlint:deprecation"))
+                                .collect(Collectors.toList()));
+            });
         }
     }
 

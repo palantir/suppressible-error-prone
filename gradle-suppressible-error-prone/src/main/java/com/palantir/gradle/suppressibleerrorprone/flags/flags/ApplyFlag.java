@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
 
 public final class ApplyFlag implements Flag {
-
     @Override
     public FlagOptions options(FlagOptionContext context) {
         return new FlagOptions() {

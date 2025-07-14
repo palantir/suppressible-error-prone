@@ -46,6 +46,18 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
         VISITOR_STATE
     }
 
+    static ModifyCheckApiOption doNotModify() {
+        return DoNotModify.INSTANCE;
+    }
+
+    static ModifyCheckApiOption dontCare() {
+        return DontCare.INSTANCE;
+    }
+
+    static ModifyCheckApiOption mustModify(ClassesToModify... classesToModify) {
+        return new MustModify(Set.of(classesToModify));
+    }
+
     sealed interface FinalValue permits DoNotModify, MustModify {}
 
     static FinalValue combine(Collection<ModifyCheckApiOption> options) {

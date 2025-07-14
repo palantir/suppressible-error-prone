@@ -18,10 +18,15 @@ package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
 import java.util.Map;
 
 public final class RemoveRolloutFlag implements Flag {
+    @Override
+    public ModifyCheckApiOption modifyCheckApi() {
+        return ModifyCheckApiOption.doNotModify();
+    }
 
     @Override
     public FlagOptions options(FlagOptionContext context) {
