@@ -48,7 +48,7 @@ public record IfModuleIsUsed(String group, String module) implements Spec<JavaCo
         return configuration
                 .getIncoming()
                 .artifactView(viewConfiguration -> viewConfiguration.componentFilter(ci ->
-                        ci instanceof ModuleComponentIdentifier && spec.isSatisfiedBy((ModuleComponentIdentifier) ci)))
+                        ci instanceof ModuleComponentIdentifier moduleComponentIdentifier && spec.isSatisfiedBy(moduleComponentIdentifier)))
                 .getArtifacts()
                 .iterator()
                 .hasNext();
