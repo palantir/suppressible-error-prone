@@ -24,9 +24,23 @@ moduleJvmArgs {
             'jdk.compiler/com.sun.tools.javac.util')
 }
 
-javaVersion {
-    target = 17
-    runtime = 17
+// This project uses baseline-error-prone during compilation tasks. baseline-error-prone brings in
+// suppressible-error-prone. In gradle-suppressible-error-prone, we set up an artifact transform
+// that transforms every dependency in the `annotationProcessor` configurations, including the
+// suppressible-error-prone brought in by baseline-error-prone. Without the change below, Gradle
+// thinks that the suppressible-error-prone requested is the same as this project, and tried to
+// use the project version as an input to the artifact transform. This leads to an irresolvable
+// circular dependency, where in order to compile the suppressible-error-prone, we need to already
+// have the compiled jar. So instead, we change the group of this project to have `-internal` on
+// the end (but make sure that we use the correct groupId in publishing) so Gradle doesn't think
+// that the suppressible-error-prone dep is the same as this project.
+def originalGroup = project.group
+project.group = originalGroup + '-internal'
+
+publishing {
+    publications.withType(MavenPublication).configureEach {
+        groupId = originalGroup
+    }
 }
 
 tasks.withType(JavaCompile) {
