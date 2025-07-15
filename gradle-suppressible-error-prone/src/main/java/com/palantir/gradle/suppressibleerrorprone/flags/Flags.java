@@ -100,7 +100,7 @@ public abstract class Flags {
                 .mapToEntry(flagName -> getProviderFactory().gradleProperty(flagName.canonicalName()))
                 .filterValues(Provider::isPresent)
                 .mapValues(Provider::get)
-                .mapValues(value -> Optional.of(value).filter(String::isBlank))
+                .mapValues(value -> Optional.of(value).filter(Predicate.not(String::isBlank)))
                 .toMap();
     }
 }

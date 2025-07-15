@@ -63,7 +63,8 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
                 .collect(Collectors.toSet());
 
         if (withoutDontCares.isEmpty()) {
-            return DoNotModify.INSTANCE;
+            // By default, we need to modify the check API to support for-rollout suppressions
+            return new MustModify(false);
         }
 
         boolean doNotModify = withoutDontCares.contains(DoNotModify.INSTANCE);

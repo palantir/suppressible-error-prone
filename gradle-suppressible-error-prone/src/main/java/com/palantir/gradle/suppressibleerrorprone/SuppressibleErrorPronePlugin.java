@@ -79,7 +79,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
             FlagOptions flagOptions = getFlags().flagOptionsFor(javaCompile);
 
-            configureJavaCompile(project, flagOptions, javaCompile);
+            configureJavaCompile(flagOptions, javaCompile);
 
             configureErrorProneOptions(javaCompile, errorProneOptions -> {
                 setupErrorProneOptions(flagOptions, errorProneOptions);
@@ -152,25 +152,23 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void configureJavaCompile(Project project, FlagOptions flagOptions, JavaCompile javaCompile) {
+    private void configureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
         if (flagOptions.patchChecks().anyChecks()) {
             // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
             javaCompile.getOutputs().cacheIf(t -> false);
             javaCompile.getOutputs().upToDateWhen(t -> false);
 
-            project.afterEvaluate(_ignored -> {
-                // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
-                // we need to remove these compiler flags after all configuration has happened.
-                javaCompile.getOptions().setWarnings(false);
-                javaCompile.getOptions().setDeprecation(false);
-                javaCompile
-                        .getOptions()
-                        .setCompilerArgs(javaCompile.getOptions().getCompilerArgs().stream()
-                                .filter(arg -> !arg.equals("-Werror"))
-                                .filter(arg -> !arg.equals("-deprecation"))
-                                .filter(arg -> !arg.equals("-Xlint:deprecation"))
-                                .collect(Collectors.toList()));
-            });
+            // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
+            // we need to remove these compiler flags after all configuration has happened.
+            javaCompile.getOptions().setWarnings(false);
+            javaCompile.getOptions().setDeprecation(false);
+            javaCompile
+                    .getOptions()
+                    .setCompilerArgs(javaCompile.getOptions().getCompilerArgs().stream()
+                            .filter(arg -> !arg.equals("-Werror"))
+                            .filter(arg -> !arg.equals("-deprecation"))
+                            .filter(arg -> !arg.equals("-Xlint:deprecation"))
+                            .collect(Collectors.toList()));
         }
     }
 
