@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import one.util.streamex.StreamEx;
 
 public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, MustModify {
     enum DoNotModify implements ModifyCheckApiOption, FinalValue {
@@ -34,16 +33,10 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
         INSTANCE
     }
 
-    record MustModify(Set<ClassesToModify> classesToModify) implements ModifyCheckApiOption, FinalValue {
+    record MustModify(boolean modifyVisitorState) implements ModifyCheckApiOption, FinalValue {
         public MustModify combine(MustModify other) {
-            return new MustModify(
-                    StreamEx.of(classesToModify).append(other.classesToModify).toSet());
+            return new MustModify(modifyVisitorState || other.modifyVisitorState);
         }
-    }
-
-    enum ClassesToModify {
-        BUG_CHECKER_INFO,
-        VISITOR_STATE
     }
 
     static ModifyCheckApiOption doNotModify() {
@@ -54,8 +47,12 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
         return DontCare.INSTANCE;
     }
 
-    static ModifyCheckApiOption mustModify(ClassesToModify... classesToModify) {
-        return new MustModify(Set.of(classesToModify));
+    static ModifyCheckApiOption mustModify() {
+        return new MustModify(false);
+    }
+
+    static ModifyCheckApiOption mustModifyIncludingVisitorState() {
+        return new MustModify(true);
     }
 
     sealed interface FinalValue permits DoNotModify, MustModify {}

@@ -19,13 +19,12 @@ package com.palantir.gradle.suppressibleerrorprone.flags.flags;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption.ClassesToModify;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
 
 public final class SuppressFlag implements Flag {
     @Override
     public ModifyCheckApiOption modifyCheckApi() {
-        return ModifyCheckApiOption.mustModify(ClassesToModify.BUG_CHECKER_INFO, ClassesToModify.VISITOR_STATE);
+        return ModifyCheckApiOption.mustModifyIncludingVisitorState();
     }
 
     @Override

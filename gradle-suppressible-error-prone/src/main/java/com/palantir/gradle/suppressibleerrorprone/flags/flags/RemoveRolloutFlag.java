@@ -25,6 +25,8 @@ import java.util.Map;
 public final class RemoveRolloutFlag implements Flag {
     @Override
     public ModifyCheckApiOption modifyCheckApi() {
+        // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
+        // logic for for-rollout suppressions.
         return ModifyCheckApiOption.doNotModify();
     }
 

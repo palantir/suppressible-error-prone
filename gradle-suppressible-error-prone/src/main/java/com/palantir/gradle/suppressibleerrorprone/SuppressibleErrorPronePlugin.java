@@ -17,6 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.Flags;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -75,18 +76,10 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        //        if (getFlags().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
-        //            setupErrorProneOptions(project, mustModify.classesToModify());
-        //        }
-
-        // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
-        //   logic for for-rollout suppressions.
-        // Note that this means we need to handle the requested patches with care, so as to not apply patches to
-        //   checks that are suppressed with for-rollout, but for which we're not going to remove the suppressions.
-        if (!isRemovingSuppressions(project)) {
+        if (getFlags().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
             // When auto-suppressing, the logic will run a bytecode patched version of errorprone
             // (via an artifact transform) that intercepts every error from every check and adds a custom fix
-            setupErrorProneArtifactTransform(project);
+            setupErrorProneArtifactTransform(project, mustModify.modifyVisitorState());
         }
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
@@ -114,7 +107,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
     }
 
-    private static void setupErrorProneArtifactTransform(Project project) {
+    private static void setupErrorProneArtifactTransform(Project project, boolean modifyVisitorState) {
         Attribute<Boolean> suppressible =
                 Attribute.of("com.palantir.suppressible-error-prone.suppressible", Boolean.class);
         project.getDependencies().getAttributesSchema().attribute(suppressible);
@@ -126,7 +119,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .attribute(suppressible, false);
 
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
-            spec.getParameters().getSuppressing().set(isSuppressing(project));
+            spec.getParameters().getModifyVisitorState().set(modifyVisitorState);
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);
             spec.getFrom().attribute(suppressible, false).attribute(artifactType, "jar");
