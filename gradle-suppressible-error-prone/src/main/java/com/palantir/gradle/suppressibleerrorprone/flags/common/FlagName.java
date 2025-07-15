@@ -17,6 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
 import java.util.Set;
+import one.util.streamex.StreamEx;
 
 public enum FlagName {
     APPLY("errorProneApply"),
@@ -27,15 +28,19 @@ public enum FlagName {
     ;
 
     private final String canonicalName;
-    private final Set<String> otherNames;
+    private final Set<String> allNames;
 
     FlagName(String canonicalName, String... otherNames) {
         this.canonicalName = canonicalName;
-        this.otherNames = Set.of(otherNames);
+        this.allNames = StreamEx.of(canonicalName).append(otherNames).toSet();
     }
 
     public String canonicalName() {
         return canonicalName;
+    }
+
+    public Set<String> allNames() {
+        return allNames;
     }
 
     public String asGradlePropertyArgument() {

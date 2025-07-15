@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 public final class DisableFlagInterference implements FlagInterference {
     @Override
     public Set<FlagName> interferesWith(Set<FlagName> flags) {
-        if (flags.contains(FlagName.DISABLE)) {
+        if (flags.contains(FlagName.DISABLE) && flags.size() > 1) {
             return flags;
         }
 

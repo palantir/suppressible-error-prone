@@ -30,6 +30,7 @@ import com.palantir.gradle.suppressibleerrorprone.flags.flags.TimingsFlag;
 import com.palantir.gradle.suppressibleerrorprone.flags.interferences.DisableFlagInterference;
 import com.palantir.gradle.suppressibleerrorprone.flags.interferences.RemovingAndSuppressingInterference;
 import com.palantir.gradle.suppressibleerrorprone.flags.interferences.SuppressingAndApplyingInterference;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -106,9 +107,26 @@ public abstract class Flags {
 
     private Map<FlagName, Optional<String>> flagsEnabledAndValues() {
         return StreamEx.of(flags.keySet())
-                .mapToEntry(flagName -> getProviderFactory().gradleProperty(flagName.canonicalName()))
-                .filterValues(Provider::isPresent)
-                .mapValues(Provider::get)
+                .flatMapToEntry(flagName -> {
+                    Map<String, List<String>> valuesToNames = StreamEx.of(flagName.allNames())
+                            .mapToEntry(getProviderFactory()::gradleProperty)
+                            .filterValues(Provider::isPresent)
+                            .mapValues(Provider::get)
+                            .invert()
+                            .grouping();
+
+                    if (valuesToNames.isEmpty()) {
+                        return Map.of();
+                    }
+
+                    if (valuesToNames.size() > 1) {
+                        throw new IllegalArgumentException(
+                                "Multiple instances of the same flag were supplied with different values: "
+                                        + valuesToNames);
+                    }
+
+                    return Map.of(flagName, valuesToNames.keySet().iterator().next());
+                })
                 .mapValues(value -> Optional.of(value).filter(Predicate.not(String::isBlank)))
                 .toMap();
     }

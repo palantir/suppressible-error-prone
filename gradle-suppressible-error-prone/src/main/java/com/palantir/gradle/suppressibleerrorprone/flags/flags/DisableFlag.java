@@ -23,7 +23,18 @@ public final class DisableFlag implements Flag {
 
     @Override
     public FlagOptions options(FlagOptionContext context) {
-        context.errorProneOptions().getEnabled().set(true);
+        // Options:
+        //   -PerrorProneDisable
+        //   -Pcom.palantir.baseline-error-prone.disable
+        //   -Pcom.palantir.baseline-error-prone.disable=true
+        //   -Pcom.palantir.baseline-error-prone.disable=false
+        // So if the value is true, we actually set errorProneOptions.enabled to false
+
+        context.errorProneOptions()
+                .getEnabled()
+                .set(context.flagValue()
+                        .map(value -> !Boolean.parseBoolean(value))
+                        .orElse(false));
 
         return FlagOptions.none();
     }
