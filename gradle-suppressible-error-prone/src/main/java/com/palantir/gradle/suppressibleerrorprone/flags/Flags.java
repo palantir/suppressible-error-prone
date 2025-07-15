@@ -74,6 +74,9 @@ public abstract class Flags {
                 .invert()
                 .toMap();
 
+        Set<FlagName> allInterferingFlagNames =
+                interferingFlags.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
+
         Map<FlagName, FlagOptions> flagOptions = EntryStream.of(flagToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
                     Flag flag = flags.get(flagName);
@@ -81,15 +84,21 @@ public abstract class Flags {
                 })
                 .toMap();
 
-        Set<FlagOptions> allFlagOptions = EntryStream.of(interferingFlags)
-                .mapKeyValue((interferingFlagNames, flagInterference) -> {
-                    Map<FlagName, FlagOptions> interferinglagOptions = StreamEx.of(interferingFlagNames)
-                            .mapToEntry(flagOptions::remove)
-                            .toMap();
-
-                    return flagInterference.interfere(interferinglagOptions);
+        Map<Set<FlagName>, FlagOptions> interferingFlagOptions = EntryStream.of(interferingFlags)
+                .mapToValue((interferingFlagNames, flagInterference) -> {
+                    return flagInterference.interfere(StreamEx.of(interferingFlagNames)
+                            .mapToEntry(flagOptions::get)
+                            .toMap());
                 })
-                .append(flagOptions.values())
+                .toMap();
+
+        Set<FlagOptions> nonInterferingFlagOptions = EntryStream.of(flagOptions)
+                .filterKeys(Predicate.not(allInterferingFlagNames::contains))
+                .values()
+                .toSet();
+
+        Set<FlagOptions> allFlagOptions = StreamEx.of(interferingFlagOptions.values())
+                .append(nonInterferingFlagOptions)
                 .collect(Collectors.toSet());
 
         return FlagOptions.naivelyCombine(allFlagOptions);
