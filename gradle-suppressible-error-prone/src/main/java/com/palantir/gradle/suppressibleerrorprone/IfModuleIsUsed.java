@@ -47,8 +47,9 @@ public record IfModuleIsUsed(String group, String module) implements Spec<JavaCo
     private static boolean hasDependenciesMatching(Configuration configuration, Spec<ModuleComponentIdentifier> spec) {
         return configuration
                 .getIncoming()
-                .artifactView(viewConfiguration -> viewConfiguration.componentFilter(ci ->
-                        ci instanceof ModuleComponentIdentifier && spec.isSatisfiedBy((ModuleComponentIdentifier) ci)))
+                .artifactView(viewConfiguration -> viewConfiguration.componentFilter(
+                        ci -> ci instanceof ModuleComponentIdentifier moduleComponentIdentifier
+                                && spec.isSatisfiedBy(moduleComponentIdentifier)))
                 .getArtifacts()
                 .iterator()
                 .hasNext();
