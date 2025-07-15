@@ -44,7 +44,9 @@ public final class RemoveRolloutFlag implements Flag {
                 // We can't explicitly list all possible checks, because some might not exist anymore
                 // The logic itself needs to consider an empty list as "remove all"
 
-                return Map.of("RemoveRolloutSuppressions", context.flagValue().orElse(""));
+                return Map.of(
+                        "SuppressibleErrorProne:RemoveRolloutSuppressions",
+                        context.flagValue().orElse(""));
             }
         };
     }

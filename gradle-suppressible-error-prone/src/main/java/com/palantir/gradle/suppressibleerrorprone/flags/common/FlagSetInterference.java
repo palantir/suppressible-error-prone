@@ -23,6 +23,6 @@ public abstract class FlagSetInterference implements FlagInterference {
 
     @Override
     public final Set<FlagName> interferesWith(Set<FlagName> flags) {
-        return interferingFlags().containsAll(flags) ? interferingFlags() : Set.of();
+        return flags.containsAll(interferingFlags()) ? interferingFlags() : Set.of();
     }
 }

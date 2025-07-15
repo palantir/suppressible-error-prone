@@ -41,6 +41,8 @@ public final class SuppressingAndApplyingInterference extends FlagSetInterferenc
         // use inside error-prone/the compiler.
 
         return suppress.naivelyCombinedWith(apply)
-                .withExtraFlag("PreferPatchChecks", apply.patchChecks().asCommaSeparated());
+                .withExtraFlag(
+                        "SuppressibleErrorProne:PreferPatchChecks",
+                        apply.patchChecks().asCommaSeparated());
     }
 }

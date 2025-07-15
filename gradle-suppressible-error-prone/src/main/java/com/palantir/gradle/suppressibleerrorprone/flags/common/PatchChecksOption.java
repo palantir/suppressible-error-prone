@@ -23,6 +23,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
+    boolean anyChecks();
+
     String asCommaSeparated();
 
     default PatchChecksOption combine(PatchChecksOption other) {
@@ -58,6 +60,11 @@ public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
         INSTANCE;
 
         @Override
+        public boolean anyChecks() {
+            return true;
+        }
+
+        @Override
         public String asCommaSeparated() {
             return "";
         }
@@ -65,8 +72,13 @@ public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
 
     record SomeChecks(Set<String> patchChecks) implements PatchChecksOption {
         @Override
+        public boolean anyChecks() {
+            return !patchChecks.isEmpty();
+        }
+
+        @Override
         public String asCommaSeparated() {
-            return String.join(",", patchChecks);
+            return patchChecks.stream().sorted().collect(Collectors.joining(","));
         }
     }
 }

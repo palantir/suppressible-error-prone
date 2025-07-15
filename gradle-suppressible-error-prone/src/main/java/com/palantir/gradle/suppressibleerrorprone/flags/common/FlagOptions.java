@@ -47,9 +47,7 @@ public interface FlagOptions {
     }
 
     static FlagOptions naivelyCombine(Collection<FlagOptions> flagOptions) {
-        return flagOptions.stream()
-                .reduce(FlagOptions::naivelyCombinedWith)
-                .orElseThrow(() -> new IllegalArgumentException("need at least one FlagOptions"));
+        return flagOptions.stream().reduce(FlagOptions.none(), FlagOptions::naivelyCombinedWith);
     }
 
     default FlagOptions withExtraFlag(String key, String value) {

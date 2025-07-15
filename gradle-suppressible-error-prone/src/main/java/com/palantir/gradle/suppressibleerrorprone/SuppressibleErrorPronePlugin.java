@@ -17,17 +17,12 @@
 package com.palantir.gradle.suppressibleerrorprone;
 
 import com.palantir.gradle.suppressibleerrorprone.flags.Flags;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import net.ltgt.gradle.errorprone.CheckSeverity;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import net.ltgt.gradle.errorprone.ErrorPronePlugin;
 import org.gradle.api.Action;
@@ -45,15 +40,6 @@ import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.process.CommandLineArgumentProvider;
 
 public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
-    private static final String ERROR_PRONE_SUPPRESS = "errorProneSuppress";
-    private static final String ERROR_PRONE_REMOVE_SUPPRESSIONS = "errorProneRemoveRollout";
-    private static final String ERROR_PRONE_APPLY = "errorProneApply";
-    private static final String ERROR_PRONE_DISABLE = "errorProneDisable";
-    private static final String ERROR_PRONE_TIMINGS = "errorProneTimings";
-
-    // This is only here for backcompat from when all the errorprone code lived in baseline
-    private static final String ERROR_PRONE_BASELINE_DISABLE = "com.palantir.baseline-error-prone.disable";
-
     @Nested
     protected abstract Flags getFlags();
 
@@ -67,8 +53,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
     private void applyToJavaProject(Project project) {
         project.getPluginManager().apply(ErrorPronePlugin.class);
 
-        SuppressibleErrorProneExtension extension =
-                project.getExtensions().create("suppressibleErrorProne", SuppressibleErrorProneExtension.class);
+        project.getExtensions().create("suppressibleErrorProne", SuppressibleErrorProneExtension.class);
 
         String version = Optional.ofNullable((String) project.findProperty("suppressibleErrorProneVersion"))
                 .or(() -> Optional.ofNullable(
@@ -92,10 +77,12 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
 
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-            configureJavaCompile(project, javaCompile);
+            FlagOptions flagOptions = getFlags().flagOptionsFor(javaCompile);
+
+            configureJavaCompile(project, flagOptions, javaCompile);
 
             configureErrorProneOptions(javaCompile, errorProneOptions -> {
-                setupErrorProneOptions(project, extension, javaCompile, errorProneOptions);
+                setupErrorProneOptions(flagOptions, errorProneOptions);
             });
         });
 
@@ -165,33 +152,8 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void configureJavaCompile(Project project, JavaCompile javaCompile) {
-        if (project.hasProperty(ERROR_PRONE_TIMINGS)) {
-            // We can't control the working directory of the java compile task, as it actually runs inside some gradle
-            // worker. So we can't pass a relative path to the javac plugin; it has to be absolute. When we pass
-            // an absolute path, build caching no longer works between machines as the java compiler option args
-            // are different on each machine. So we can't have this on all the time, otherwise local/CI build would
-            // not cache from (other) CI builds. It's ok when hidden behind a flag, as then you don't generally don't
-            // even want build caching if you're measuring timings. But unfortunately we can't print out timings
-            // all the time.
-            Path outputAbsolute = project.getLayout()
-                    .getBuildDirectory()
-                    .file("errorprone-timings/" + javaCompile.getName())
-                    .get()
-                    .getAsFile()
-                    .toPath();
-
-            javaCompile.getOutputs().file(outputAbsolute.toFile());
-
-            javaCompile.getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
-                @Override
-                public Iterable<String> asArguments() {
-                    return List.of("-Xplugin:SuppressibleErrorProneTimings " + outputAbsolute);
-                }
-            });
-        }
-
-        if (isAnyKindOfPatching(project)) {
+    private void configureJavaCompile(Project project, FlagOptions flagOptions, JavaCompile javaCompile) {
+        if (flagOptions.patchChecks().anyChecks()) {
             // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
             javaCompile.getOutputs().cacheIf(t -> false);
             javaCompile.getOutputs().upToDateWhen(t -> false);
@@ -212,13 +174,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void setupErrorProneOptions(
-            Project project,
-            SuppressibleErrorProneExtension extension,
-            JavaCompile javaCompile,
-            ErrorProneOptions errorProneOptions) {
-
-        errorProneOptions.getEnabled().set(project.provider(() -> !isDisabled(project)));
+    private void setupErrorProneOptions(FlagOptions flagOptions, ErrorProneOptions errorProneOptions) {
 
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
@@ -226,143 +182,24 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
-        if (isRemovingSuppressions(project)) {
+        if (flagOptions.patchChecks().anyChecks()) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {
-                    List<String> suppressionsToRemove = checksToRemoveSuppressionsFor(project);
-
-                    Set<String> checksToPatch = new HashSet<>();
-                    checksToPatch.add("RemoveRolloutSuppressions");
-
-                    if (isApplyingSuggestedPatches(project)) {
-                        List<String> extraChecksToPatch =
-                                checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
-
-                        // If we're also applying suggested patches, we want to make sure that these are a subset of
-                        //   the checks we're removing suppressions for.
-                        // Otherwise, we might apply fixes for a check that we're not removing the suppression for, if
-                        //   suppressed using a for-rollout suppression (because we're not applying the for-rollout fix)
-                        // However, if we're not specifiying specific checks to remove the suppressions for, we're
-                        //   going to remove all the for-rollout suppressions, thus can accept any and all checks to
-                        //   apply patches for
-                        if (!suppressionsToRemove.isEmpty()) {
-                            Set<String> suppressionsToRemoveSet = new HashSet<>(suppressionsToRemove);
-                            List<String> checksNotInSuppressionRemovals = extraChecksToPatch.stream()
-                                    .filter(check -> !suppressionsToRemoveSet.contains(check))
-                                    .toList();
-                            if (!checksNotInSuppressionRemovals.isEmpty()) {
-                                throw new IllegalStateException(
-                                        "Checks to patch must be a subset of the checks to remove suppressions for. "
-                                                + "Checks not in the errorProneRemoveRollout list: "
-                                                + checksNotInSuppressionRemovals);
-                            }
-                        }
-                        checksToPatch.addAll(extraChecksToPatch);
-                    }
-
                     return List.of(
                             "-XepPatchLocation:IN_PLACE",
-                            "-XepPatchChecks:" + String.join(",", checksToPatch),
-                            "-XepOpt:SuppressibleErrorProne:RemoveRolloutSuppressions="
-                                    + String.join(",", suppressionsToRemove));
+                            "-XepPatchChecks:" + flagOptions.patchChecks().asCommaSeparated());
                 }
             });
+        }
 
-            return;
+        if (!flagOptions.extraFlags().isEmpty()) {
+            errorProneOptions.getCheckOptions().set(flagOptions.extraFlags());
         }
 
         // If we're not removing suppressions, disable it to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check.
         errorProneOptions.disable("RemoveRolloutSuppressions");
-
-        if (isSuppressing(project)) {
-            errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
-                @Override
-                public Iterable<String> asArguments() {
-                    // "-XepPatchChecks:" patches *all* the checks that are enabled, allowing us to suppress any check
-                    return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:");
-                }
-            });
-
-            if (isApplyingSuggestedPatches(project)) {
-                // If we're applying suggested patches at the same time as suppressing, we still need to tell
-                // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.
-                // However, inside our changes to errorprone, we need to get the list of checks that we're going
-                // to use the default suggested fixes for, so we can work out which ones to use the suggested
-                // fixes for and which to suppress. So we add the PreferPatchChecks argument here, which we can
-                // use inside error-prone/the compiler.
-                errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
-                    @Override
-                    public Iterable<String> asArguments() {
-                        List<String> patchChecks =
-                                checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
-
-                        return List.of(
-                                "-XepOpt:SuppressibleErrorProne:PreferPatchChecks=" + String.join(",", patchChecks));
-                    }
-                });
-            }
-
-            return;
-        }
-
-        if (isApplyingSuggestedPatches(project)) {
-            errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
-                @Override
-                public Iterable<String> asArguments() {
-                    List<String> patchChecks =
-                            checksToApplySuggestedPatchesFor(extension, javaCompile, errorProneOptions);
-
-                    // If there are no checks to patch, we don't patch anything and just do a regular compile.
-                    // The behaviour of "-XepPatchChecks:" is to patch *all* checks that are enabled, so we can't
-                    // just leave it as that.
-                    if (patchChecks.isEmpty()) {
-                        return List.of();
-                    }
-
-                    return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + String.join(",", patchChecks));
-                }
-            });
-        }
-    }
-
-    private static List<String> checksToApplySuggestedPatchesFor(
-            SuppressibleErrorProneExtension extension, JavaCompile javaCompile, ErrorProneOptions errorProneOptions) {
-
-        String possibleSpecificPatchChecks = (String) javaCompile.getProject().property(ERROR_PRONE_APPLY);
-
-        boolean hasSpecificPatchChecks = possibleSpecificPatchChecks != null && !possibleSpecificPatchChecks.isBlank();
-
-        if (hasSpecificPatchChecks) {
-            return Arrays.stream(possibleSpecificPatchChecks.split(","))
-                    .map(String::trim)
-                    .filter(Predicate.not(String::isEmpty))
-                    .toList();
-        }
-
-        return extension.patchChecksForCompilation(javaCompile).stream()
-                // Do not patch checks that have been explicitly disabled
-                .filter(check -> errorProneOptions.getChecks().getting(check).getOrNull() != CheckSeverity.OFF)
-                // Sorted so that we maintain arg ordering and continue to get cache hits
-                .sorted()
-                .collect(Collectors.toList());
-    }
-
-    private static List<String> checksToRemoveSuppressionsFor(Project project) {
-        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
-
-        // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
-        // We can't explicitly list all possible checks, because some might not exist anymore
-        // The logic itself needs to consider an empty list as "remove all"
-        if (possibleChecksToRemove == null) {
-            return List.of();
-        }
-
-        return Arrays.stream(possibleChecksToRemove.split(","))
-                .map(String::trim)
-                .filter(Predicate.not(String::isEmpty))
-                .toList();
     }
 
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {
@@ -373,22 +210,6 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         ((ExtensionAware) javaCompile.getOptions()).getExtensions().configure(ErrorProneOptions.class, action);
     }
 
-    private static boolean isAnyKindOfPatching(Project project) {
-        return isApplyingSuggestedPatches(project) || isSuppressing(project) || isRemovingSuppressions(project);
-    }
-
-    private static boolean isApplyingSuggestedPatches(Project project) {
-        return project.hasProperty(ERROR_PRONE_APPLY);
-    }
-
-    private static boolean isSuppressing(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_SUPPRESS);
-    }
-
-    private static boolean isRemovingSuppressions(Project project) {
-        return project.hasProperty(SuppressibleErrorPronePlugin.ERROR_PRONE_REMOVE_SUPPRESSIONS);
-    }
-
     static String excludedPathsRegex() {
         // Error-prone normalizes filenames to use '/' path separator:
         // https://github.com/google/error-prone/blob/c601758e81723a8efc4671726b8363be7a306dce
@@ -396,16 +217,5 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         // language=RegExp
         return ".*/(build|generated_.*[sS]rc|src/generated.*)/.*";
-    }
-
-    private static boolean isDisabled(Project project) {
-        boolean newDisable = project.hasProperty(ERROR_PRONE_DISABLE);
-        boolean oldDisable = isDisabledViaLegacyBaselineProperty(project);
-        return newDisable || oldDisable;
-    }
-
-    private static boolean isDisabledViaLegacyBaselineProperty(Project project) {
-        Object disable = project.findProperty(ERROR_PRONE_BASELINE_DISABLE);
-        return disable != null && !disable.equals("false");
     }
 }
