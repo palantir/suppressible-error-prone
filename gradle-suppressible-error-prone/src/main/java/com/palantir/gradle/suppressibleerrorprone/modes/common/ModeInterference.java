@@ -33,12 +33,12 @@ public interface ModeInterference {
     Set<ModeName> interferesWith(Set<ModeName> modeNames);
 
     /**
-     * Modify the FlagOptions if the flags interfere with each other.
-     * @param flagOptions A map from the {@link ModeName}s that were indicated to be interfering in
+     * Modify the modeOptions if the flags interfere with each other.
+     * @param modeOptions A map from the {@link ModeName}s that were indicated to be interfering in
      *                    {@link #interferesWith} to their corresponding {@link ModeOptions}.
      * @return The modified {@link ModeOptions} that will be used in place of the originals that the flags produced
      */
-    default ModeOptions interfere(Map<ModeName, ModeOptions> flagOptions) {
+    default ModeOptions interfere(Map<ModeName, ModeOptions> modeOptions) {
         throw new UnsupportedOperationException("interfere is not implemented");
     }
 }
