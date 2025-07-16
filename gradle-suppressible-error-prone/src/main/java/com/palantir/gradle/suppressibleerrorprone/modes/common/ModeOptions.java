@@ -70,10 +70,8 @@ public interface ModeOptions {
         return DontCare.INSTANCE;
     }
 
-    final class DontCare implements ModeOptions {
-        public static final DontCare INSTANCE = new DontCare();
-
-        private DontCare() {}
+    enum DontCare implements ModeOptions {
+        INSTANCE
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")
