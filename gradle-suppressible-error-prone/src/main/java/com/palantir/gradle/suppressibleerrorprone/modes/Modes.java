@@ -17,7 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.modes;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.FlagOptionContext;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.ModeOptionContext;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
@@ -81,7 +81,7 @@ public abstract class Modes {
         Map<ModeName, ModeOptions> modeOptions = EntryStream.of(modeNameToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
                     Mode mode = modes.get(flagName);
-                    return mode.options(new FlagOptionContext(flagValue, javaCompile));
+                    return mode.options(new ModeOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 

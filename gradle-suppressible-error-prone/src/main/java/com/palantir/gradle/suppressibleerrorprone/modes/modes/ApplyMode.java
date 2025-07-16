@@ -16,18 +16,17 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
+import com.google.common.base.Splitter;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
-import java.util.Arrays;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.ltgt.gradle.errorprone.CheckSeverity;
 
 public final class ApplyMode implements Mode {
     @Override
-    public ModeOptions options(FlagOptionContext context) {
+    public ModeOptions options(ModeOptionContext context) {
         return new ModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {
@@ -36,14 +35,15 @@ public final class ApplyMode implements Mode {
         };
     }
 
-    private static Set<String> checksToApplySuggestedPatchesFor(FlagOptionContext context) {
+    private static Set<String> checksToApplySuggestedPatchesFor(ModeOptionContext context) {
         boolean hasSpecificPatchChecks =
                 context.flagValue().isPresent() && !context.flagValue().get().isBlank();
 
         if (hasSpecificPatchChecks) {
-            return Arrays.stream(context.flagValue().get().split(","))
+            return Splitter.on(',')
+                    .omitEmptyStrings()
+                    .splitToStream(context.flagValue().get())
                     .map(String::trim)
-                    .filter(Predicate.not(String::isEmpty))
                     .collect(Collectors.toSet());
         }
 

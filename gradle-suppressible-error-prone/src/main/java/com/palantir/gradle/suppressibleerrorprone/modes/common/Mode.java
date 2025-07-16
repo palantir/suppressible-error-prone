@@ -32,11 +32,11 @@ public interface Mode {
         return ModifyCheckApiOption.dontCare();
     }
 
-    default ModeOptions options(FlagOptionContext context) {
+    default ModeOptions options(ModeOptionContext context) {
         return None.INSTANCE;
     }
 
-    record FlagOptionContext(Optional<String> flagValue, JavaCompile javaCompile) {
+    record ModeOptionContext(Optional<String> flagValue, JavaCompile javaCompile) {
         public ProjectLayout projectLayout() {
             return javaCompile.getProject().getLayout();
         }

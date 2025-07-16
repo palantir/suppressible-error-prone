@@ -31,7 +31,7 @@ public final class RemoveRolloutMode implements Mode {
     }
 
     @Override
-    public ModeOptions options(FlagOptionContext context) {
+    public ModeOptions options(ModeOptionContext context) {
         return new ModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {
