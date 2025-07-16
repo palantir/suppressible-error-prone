@@ -89,7 +89,7 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
 
         @Override
         public boolean anyChecks() {
-            return patchChecks.get().isEmpty();
+            return !patchChecks.get().isEmpty();
         }
 
         @Override
