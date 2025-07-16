@@ -16,20 +16,17 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeSetInterference;
-import java.util.Map;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Set;
 
-public final class RemovingAndSuppressingInterference extends ModeSetInterference {
+public final class RemovingAndSuppressingInterference implements ModeInterference {
     @Override
-    public Set<Flag> interferingFlags() {
-        return Set.of(Flag.REMOVE_ROLLOUT, Flag.SUPPRESS);
-    }
+    public Set<ModeName> interferesWith(Set<ModeName> modeNames) {
+        if (modeNames.containsAll(Set.of(ModeName.REMOVE_ROLLOUT, ModeName.SUPPRESS))) {
+            throw new IllegalStateException("%s cannot be used at the same time as %s");
+        }
 
-    @Override
-    public ModeOptions interfere(Map<Flag, ModeOptions> flagOptions) {
-        throw new IllegalStateException("%s cannot be used at the same time as %s");
+        return Set.of();
     }
 }

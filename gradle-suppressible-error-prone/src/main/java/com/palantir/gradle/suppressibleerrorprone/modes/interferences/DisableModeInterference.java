@@ -16,32 +16,25 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
-import java.util.Map;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public final class DisableModeInterference implements ModeInterference {
     @Override
-    public Set<Flag> interferesWith(Set<Flag> flags) {
-        if (flags.contains(Flag.DISABLE) && flags.size() > 1) {
-            return flags;
+    public Set<ModeName> interferesWith(Set<ModeName> modeNames) {
+        if (modeNames.contains(ModeName.DISABLE) && modeNames.size() > 1) {
+            throw new IllegalStateException("%s cannot be used at the same time as any of %s"
+                    .formatted(
+                            ModeName.DISABLE.asGradlePropertyArgument(),
+                            modeNames.stream()
+                                    .filter(Predicate.not(Predicate.isEqual(ModeName.DISABLE)))
+                                    .map(ModeName::asGradlePropertyArgument)
+                                    .collect(Collectors.joining(", "))));
         }
 
         return Set.of();
-    }
-
-    @Override
-    public ModeOptions interfere(Map<Flag, ModeOptions> flagOptions) {
-        throw new IllegalStateException("%s cannot be used at the same time as any of %s"
-                .formatted(
-                        Flag.DISABLE.asGradlePropertyArgument(),
-                        flagOptions.keySet().stream()
-                                .filter(Predicate.not(Predicate.isEqual(Flag.DISABLE)))
-                                .map(Flag::asGradlePropertyArgument)
-                                .collect(Collectors.joining(", "))));
     }
 }

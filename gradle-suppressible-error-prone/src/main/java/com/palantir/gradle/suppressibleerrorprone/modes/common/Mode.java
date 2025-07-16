@@ -25,7 +25,7 @@ import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 /**
- * A Mode represents a mode of operation in suppressible-error-prone that set by a feature {@link Flag}.
+ * A Mode represents a mode of operation in suppressible-error-prone that set by a feature {@link ModeName}.
  */
 public interface Mode {
     default ModifyCheckApiOption modifyCheckApi() {

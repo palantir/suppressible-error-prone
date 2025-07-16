@@ -23,7 +23,7 @@ public final class DisableMode implements Mode {
 
     @Override
     public ModeOptions options(FlagOptionContext context) {
-        // Options:
+        // Options (including historical backcompat from when this logic live in gradle-baseline):
         //   -PerrorProneDisable
         //   -Pcom.palantir.baseline-error-prone.disable
         //   -Pcom.palantir.baseline-error-prone.disable=true

@@ -19,7 +19,7 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 import java.util.Set;
 import one.util.streamex.StreamEx;
 
-public enum Flag {
+public enum ModeName {
     APPLY("errorProneApply"),
     SUPPRESS("errorProneSuppress"),
     REMOVE_ROLLOUT("errorProneRemoveRollout"),
@@ -28,23 +28,23 @@ public enum Flag {
     DISABLE("errorProneDisable", "com.palantir.baseline-error-prone.disable"),
     ;
 
-    private final String canonicalName;
-    private final Set<String> allNames;
+    private final String canonicalFlag;
+    private final Set<String> allFlags;
 
-    Flag(String canonicalName, String... otherNames) {
-        this.canonicalName = canonicalName;
-        this.allNames = StreamEx.of(canonicalName).append(otherNames).toSet();
+    ModeName(String canonicalFlag, String... otherNames) {
+        this.canonicalFlag = canonicalFlag;
+        this.allFlags = StreamEx.of(canonicalFlag).append(otherNames).toSet();
     }
 
-    public String canonicalName() {
-        return canonicalName;
+    public String canonicalFlag() {
+        return canonicalFlag;
     }
 
-    public Set<String> allNames() {
-        return allNames;
+    public Set<String> allFlags() {
+        return allFlags;
     }
 
     public String asGradlePropertyArgument() {
-        return "-P" + canonicalName;
+        return "-P" + canonicalFlag;
     }
 }

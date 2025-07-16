@@ -16,10 +16,10 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.FlagOptionContext;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.DisableModeInterference;
@@ -47,12 +47,12 @@ public abstract class Modes {
     @Inject
     protected abstract ProviderFactory getProviderFactory();
 
-    private final Map<Flag, Mode> flags = Map.of(
-            Flag.APPLY, new ApplyMode(),
-            Flag.DISABLE, new DisableMode(),
-            Flag.REMOVE_ROLLOUT, new RemoveRolloutMode(),
-            Flag.SUPPRESS, new SuppressMode(),
-            Flag.TIMINGS, new TimingsMode());
+    private final Map<ModeName, Mode> modes = Map.of(
+            ModeName.APPLY, new ApplyMode(),
+            ModeName.DISABLE, new DisableMode(),
+            ModeName.REMOVE_ROLLOUT, new RemoveRolloutMode(),
+            ModeName.SUPPRESS, new SuppressMode(),
+            ModeName.TIMINGS, new TimingsMode());
 
     private final Set<ModeInterference> interferences = Set.of(
             new DisableModeInterference(),
@@ -60,72 +60,73 @@ public abstract class Modes {
             new SuppressingAndApplyingInterference());
 
     public final ModifyCheckApiOption.FinalValue modifyCheckApi() {
-        return ModifyCheckApiOption.combine(flagsEnabledAndValues().keySet().stream()
-                .map(flags::get)
+        return ModifyCheckApiOption.combine(modesEnabledAndFlagValues().keySet().stream()
+                .map(modes::get)
                 .map(Mode::modifyCheckApi)
                 .collect(Collectors.toSet()));
     }
 
-    public final ModeOptions flagOptionsFor(JavaCompile javaCompile) {
-        Map<Flag, Optional<String>> flagToFlagValue = flagsEnabledAndValues();
+    public final ModeOptions modeOptionsFor(JavaCompile javaCompile) {
+        Map<ModeName, Optional<String>> modeNameToFlagValue = modesEnabledAndFlagValues();
 
-        Map<Set<Flag>, ModeInterference> interferingFlags = StreamEx.of(interferences)
-                .mapToEntry(interference -> interference.interferesWith(flagToFlagValue.keySet()))
+        Map<Set<ModeName>, ModeInterference> interferingModes = StreamEx.of(interferences)
+                .mapToEntry(interference -> interference.interferesWith(modeNameToFlagValue.keySet()))
                 .filterValues(Predicate.not(Set::isEmpty))
                 .invert()
                 .toMap();
 
-        Set<Flag> allInterferingFlags =
-                interferingFlags.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
+        Set<ModeName> allInterferingModes =
+                interferingModes.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
 
-        Map<Flag, ModeOptions> flagOptions = EntryStream.of(flagToFlagValue)
+        Map<ModeName, ModeOptions> modeOptions = EntryStream.of(modeNameToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
-                    Mode mode = flags.get(flagName);
+                    Mode mode = modes.get(flagName);
                     return mode.options(new FlagOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 
-        Map<Set<Flag>, ModeOptions> interferingFlagOptions = EntryStream.of(interferingFlags)
-                .mapToValue((interferingFlagNames, modeInterference) -> {
-                    return modeInterference.interfere(StreamEx.of(interferingFlagNames)
-                            .mapToEntry(flagOptions::get)
+        Map<Set<ModeName>, ModeOptions> interferingModeOptions = EntryStream.of(interferingModes)
+                .mapToValue((interferingModeNames, modeInterference) -> {
+                    return modeInterference.interfere(StreamEx.of(interferingModeNames)
+                            .mapToEntry(modeOptions::get)
                             .toMap());
                 })
                 .toMap();
 
-        Set<ModeOptions> nonInterferingModeOptions = EntryStream.of(flagOptions)
-                .filterKeys(Predicate.not(allInterferingFlags::contains))
+        Set<ModeOptions> nonInterferingModeOptions = EntryStream.of(modeOptions)
+                .filterKeys(Predicate.not(allInterferingModes::contains))
                 .values()
                 .toSet();
 
-        Set<ModeOptions> allModeOptions = StreamEx.of(interferingFlagOptions.values())
+        Set<ModeOptions> allModeOptions = StreamEx.of(interferingModeOptions.values())
                 .append(nonInterferingModeOptions)
                 .collect(Collectors.toSet());
 
         return ModeOptions.naivelyCombine(allModeOptions);
     }
 
-    private Map<Flag, Optional<String>> flagsEnabledAndValues() {
-        return StreamEx.of(flags.keySet())
-                .flatMapToEntry(flagName -> {
-                    Map<String, List<String>> valuesToNames = StreamEx.of(flagName.allNames())
+    private Map<ModeName, Optional<String>> modesEnabledAndFlagValues() {
+        return StreamEx.of(modes.keySet())
+                .flatMapToEntry(modeName -> {
+                    Map<String, List<String>> flagValuesToNames = StreamEx.of(modeName.allFlags())
                             .mapToEntry(getProviderFactory()::gradleProperty)
                             .filterValues(Provider::isPresent)
                             .mapValues(Provider::get)
                             .invert()
                             .grouping();
 
-                    if (valuesToNames.isEmpty()) {
+                    if (flagValuesToNames.isEmpty()) {
                         return Map.of();
                     }
 
-                    if (valuesToNames.size() > 1) {
+                    if (flagValuesToNames.size() > 1) {
                         throw new IllegalArgumentException(
-                                "Multiple instances of the same flag were supplied with different values: "
-                                        + valuesToNames);
+                                "Multiple instances of flags for the same mode were supplied with different values: "
+                                        + flagValuesToNames);
                     }
 
-                    return Map.of(flagName, valuesToNames.keySet().iterator().next());
+                    return Map.of(
+                            modeName, flagValuesToNames.keySet().iterator().next());
                 })
                 .mapValues(value -> Optional.of(value).filter(Predicate.not(String::isBlank)))
                 .toMap();

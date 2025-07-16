@@ -27,16 +27,18 @@ import java.util.Set;
 public interface ModeInterference {
     /**
      * Identify which of the flags interfere with each other.
-     * @param flags The flags that are enabled in this run
+     * @param modeNames The flags that are enabled in this run
      * @return Either the flags that interfere with each other, or throw an exception if they are incompatible
      */
-    Set<Flag> interferesWith(Set<Flag> flags);
+    Set<ModeName> interferesWith(Set<ModeName> modeNames);
 
     /**
      * Modify the FlagOptions if the flags interfere with each other.
-     * @param flagOptions A map from the {@link Flag}s that were indicated to be interfering in
+     * @param flagOptions A map from the {@link ModeName}s that were indicated to be interfering in
      *                    {@link #interferesWith} to their corresponding {@link ModeOptions}.
      * @return The modified {@link ModeOptions} that will be used in place of the originals that the flags produced
      */
-    ModeOptions interfere(Map<Flag, ModeOptions> flagOptions);
+    default ModeOptions interfere(Map<ModeName, ModeOptions> flagOptions) {
+        throw new UnsupportedOperationException("interfere is not implemented");
+    }
 }

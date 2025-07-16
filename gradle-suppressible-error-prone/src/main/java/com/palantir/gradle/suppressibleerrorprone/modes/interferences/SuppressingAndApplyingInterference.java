@@ -16,22 +16,22 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeSetInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.SpecifcModeInterference;
 import java.util.Map;
 import java.util.Set;
 
-public final class SuppressingAndApplyingInterference extends ModeSetInterference {
+public final class SuppressingAndApplyingInterference extends SpecifcModeInterference {
     @Override
-    public Set<Flag> interferingFlags() {
-        return Set.of(Flag.SUPPRESS, Flag.APPLY);
+    protected Set<ModeName> interferingModes() {
+        return Set.of(ModeName.SUPPRESS, ModeName.APPLY);
     }
 
     @Override
-    public ModeOptions interfere(Map<Flag, ModeOptions> flagOptions) {
-        ModeOptions suppress = flagOptions.get(Flag.SUPPRESS);
-        ModeOptions apply = flagOptions.get(Flag.APPLY);
+    public ModeOptions interfere(Map<ModeName, ModeOptions> flagOptions) {
+        ModeOptions suppress = flagOptions.get(ModeName.SUPPRESS);
+        ModeOptions apply = flagOptions.get(ModeName.APPLY);
 
         // If we're applying suggested patches at the same time as suppressing, we still need to tell
         // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.

@@ -18,11 +18,15 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Set;
 
-public abstract class ModeSetInterference implements ModeInterference {
-    public abstract Set<Flag> interferingFlags();
+public abstract class SpecifcModeInterference implements ModeInterference {
+    protected abstract Set<ModeName> interferingModes();
 
     @Override
-    public final Set<Flag> interferesWith(Set<Flag> flags) {
-        return flags.containsAll(interferingFlags()) ? interferingFlags() : Set.of();
+    public final Set<ModeName> interferesWith(Set<ModeName> modeNames) {
+        if (modeNames.containsAll(interferingModes())) {
+            return interferingModes();
+        }
+
+        return Set.of();
     }
 }
