@@ -43,6 +43,6 @@ public final class SuppressingAndApplyingInterference extends FlagSetInterferenc
         return suppress.naivelyCombinedWith(apply)
                 .withExtraFlag(
                         "SuppressibleErrorProne:PreferPatchChecks",
-                        apply.patchChecks().asCommaSeparated());
+                        apply.patchChecks().asCommaSeparated().orElse(""));
     }
 }

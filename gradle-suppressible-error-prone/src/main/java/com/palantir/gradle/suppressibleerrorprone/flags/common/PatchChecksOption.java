@@ -18,7 +18,6 @@ package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
 import com.google.common.base.Suppliers;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.AllChecks;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.NoChecks;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.PossiblySomeChecks;
 import java.util.Optional;
 import java.util.Set;
@@ -26,8 +25,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public sealed interface PatchChecksOption permits AllChecks, NoChecks, PossiblySomeChecks {
-    boolean possiblyAnyChecks();
+public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks {
+    boolean anyChecks();
 
     Optional<String> asCommaSeparated();
 
@@ -38,7 +37,7 @@ public sealed interface PatchChecksOption permits AllChecks, NoChecks, PossiblyS
 
         if (this instanceof PossiblySomeChecks thisSome && other instanceof PossiblySomeChecks otherSome) {
             return new PossiblySomeChecks(
-                    Stream.concat(thisSome.patchChecks().stream(), otherSome.patchChecks().stream())
+                    () -> Stream.concat(thisSome.patchChecks().stream(), otherSome.patchChecks().stream())
                             .collect(Collectors.toSet()));
         }
 
@@ -58,34 +57,20 @@ public sealed interface PatchChecksOption permits AllChecks, NoChecks, PossiblyS
     }
 
     static PatchChecksOption noChecks() {
-        return NoChecks.INSTANCE;
+        return new PossiblySomeChecks(Set::of);
     }
 
     enum AllChecks implements PatchChecksOption {
         INSTANCE;
 
         @Override
-        public boolean possiblyAnyChecks() {
+        public boolean anyChecks() {
             return true;
         }
 
         @Override
         public Optional<String> asCommaSeparated() {
             return Optional.of("");
-        }
-    }
-
-    enum NoChecks implements PatchChecksOption {
-        INSTANCE;
-
-        @Override
-        public boolean possiblyAnyChecks() {
-            return false;
-        }
-
-        @Override
-        public Optional<String> asCommaSeparated() {
-            throw new IllegalStateException("There are no checks ");
         }
     }
 
@@ -96,8 +81,12 @@ public sealed interface PatchChecksOption permits AllChecks, NoChecks, PossiblyS
             this.patchChecks = Suppliers.memoize(patchChecks::get);
         }
 
+        public Set<String> patchChecks() {
+            return patchChecks.get();
+        }
+
         @Override
-        public boolean possiblyAnyChecks() {
+        public boolean anyChecks() {
             return true;
         }
 

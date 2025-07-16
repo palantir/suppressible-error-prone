@@ -23,6 +23,7 @@ import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneChec
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import net.ltgt.gradle.errorprone.ErrorPronePlugin;
 import org.gradle.api.Action;
@@ -34,12 +35,16 @@ import org.gradle.api.artifacts.ComponentMetadataRule;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.process.CommandLineArgumentProvider;
 
 public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
+    @Inject
+    protected abstract ProviderFactory getProviderFactory();
+
     @Nested
     protected abstract Flags getFlags();
 
@@ -162,15 +167,13 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static void configureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
-        if (flagOptions.patchChecks().possiblyAnyChecks()) {
-            // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
-            javaCompile.getOutputs().cacheIf(t -> false);
-            javaCompile.getOutputs().upToDateWhen(t -> false);
-        }
+        // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
+        javaCompile.getOutputs().cacheIf(t -> !flagOptions.patchChecks().anyChecks());
+        javaCompile.getOutputs().upToDateWhen(t -> !flagOptions.patchChecks().anyChecks());
     }
 
     private static void afterEvaluateConfigureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
-        if (flagOptions.patchChecks().possiblyAnyChecks()) {
+        if (flagOptions.patchChecks().anyChecks()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
@@ -185,27 +188,26 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private static void setupErrorProneOptions(FlagOptions flagOptions, ErrorProneOptions errorProneOptions) {
+    private void setupErrorProneOptions(FlagOptions flagOptions, ErrorProneOptions errorProneOptions) {
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
         errorProneOptions.getDisableWarningsInGeneratedCode().set(true);
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
-        if (flagOptions.patchChecks().possiblyAnyChecks()) {
-            errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
-                @Override
-                public Iterable<String> asArguments() {
-                    return List.of(
-                            "-XepPatchLocation:IN_PLACE",
-                            "-XepPatchChecks:" + flagOptions.patchChecks().asCommaSeparated());
-                }
-            });
-        }
+        errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
+            @Override
+            public Iterable<String> asArguments() {
+                return flagOptions
+                        .patchChecks()
+                        .asCommaSeparated()
+                        .map(commaSeparated ->
+                                List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + commaSeparated))
+                        .orElseGet(List::of);
+            }
+        });
 
-        if (!flagOptions.extraFlags().isEmpty()) {
-            errorProneOptions.getCheckOptions().set(flagOptions.extraFlags());
-        }
+        errorProneOptions.getCheckOptions().putAll(getProviderFactory().provider(flagOptions::extraFlags));
 
         // If we're not removing suppressions, disable it to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check.

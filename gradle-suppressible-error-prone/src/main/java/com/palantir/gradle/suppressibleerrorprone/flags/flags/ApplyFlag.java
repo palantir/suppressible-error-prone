@@ -31,7 +31,7 @@ public final class ApplyFlag implements Flag {
         return new FlagOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return PatchChecksOption.someChecks(checksToApplySuggestedPatchesFor(context));
+                return PatchChecksOption.someChecks(() -> checksToApplySuggestedPatchesFor(context));
             }
         };
     }
