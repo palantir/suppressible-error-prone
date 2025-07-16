@@ -16,25 +16,30 @@
 
 package com.palantir.gradle.suppressibleerrorprone.flags.common;
 
+import com.google.common.base.Suppliers;
 import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.AllChecks;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.SomeChecks;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.NoChecks;
+import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.PossiblySomeChecks;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
-    boolean anyChecks();
+public sealed interface PatchChecksOption permits AllChecks, NoChecks, PossiblySomeChecks {
+    boolean possiblyAnyChecks();
 
-    String asCommaSeparated();
+    Optional<String> asCommaSeparated();
 
     default PatchChecksOption combine(PatchChecksOption other) {
         if (this instanceof AllChecks || other instanceof AllChecks) {
             return AllChecks.INSTANCE;
         }
 
-        if (this instanceof SomeChecks thisSome && other instanceof SomeChecks otherSome) {
-            return new SomeChecks(Stream.concat(thisSome.patchChecks().stream(), otherSome.patchChecks().stream())
-                    .collect(Collectors.toSet()));
+        if (this instanceof PossiblySomeChecks thisSome && other instanceof PossiblySomeChecks otherSome) {
+            return new PossiblySomeChecks(
+                    Stream.concat(thisSome.patchChecks().stream(), otherSome.patchChecks().stream())
+                            .collect(Collectors.toSet()));
         }
 
         throw new IllegalArgumentException("Must be an instance of AllChecks or SomeChecks");
@@ -45,40 +50,66 @@ public sealed interface PatchChecksOption permits AllChecks, SomeChecks {
     }
 
     static PatchChecksOption someChecks(String... patchChecks) {
-        return new SomeChecks(Set.of(patchChecks));
+        return new PossiblySomeChecks(() -> Set.of(patchChecks));
     }
 
-    static PatchChecksOption someChecks(Set<String> patchChecks) {
-        return new SomeChecks(patchChecks);
+    static PatchChecksOption someChecks(Supplier<Set<String>> patchChecks) {
+        return new PossiblySomeChecks(patchChecks);
     }
 
     static PatchChecksOption noChecks() {
-        return new SomeChecks(Set.of());
+        return NoChecks.INSTANCE;
     }
 
     enum AllChecks implements PatchChecksOption {
         INSTANCE;
 
         @Override
-        public boolean anyChecks() {
+        public boolean possiblyAnyChecks() {
             return true;
         }
 
         @Override
-        public String asCommaSeparated() {
-            return "";
+        public Optional<String> asCommaSeparated() {
+            return Optional.of("");
         }
     }
 
-    record SomeChecks(Set<String> patchChecks) implements PatchChecksOption {
+    enum NoChecks implements PatchChecksOption {
+        INSTANCE;
+
         @Override
-        public boolean anyChecks() {
-            return !patchChecks.isEmpty();
+        public boolean possiblyAnyChecks() {
+            return false;
         }
 
         @Override
-        public String asCommaSeparated() {
-            return patchChecks.stream().sorted().collect(Collectors.joining(","));
+        public Optional<String> asCommaSeparated() {
+            throw new IllegalStateException("There are no checks ");
+        }
+    }
+
+    final class PossiblySomeChecks implements PatchChecksOption {
+        private final Supplier<Set<String>> patchChecks;
+
+        public PossiblySomeChecks(Supplier<Set<String>> patchChecks) {
+            this.patchChecks = Suppliers.memoize(patchChecks::get);
+        }
+
+        @Override
+        public boolean possiblyAnyChecks() {
+            return true;
+        }
+
+        @Override
+        public Optional<String> asCommaSeparated() {
+            Set<String> checks = patchChecks.get();
+
+            if (checks.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(checks.stream().sorted().collect(Collectors.joining(",")));
         }
     }
 }
