@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

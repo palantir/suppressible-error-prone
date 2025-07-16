@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.interferences;
+package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagSetInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeSetInterference;
 import java.util.Map;
 import java.util.Set;
 
-public final class SuppressingAndApplyingInterference extends FlagSetInterference {
+public final class SuppressingAndApplyingInterference extends ModeSetInterference {
     @Override
-    public Set<FlagName> interferingFlags() {
-        return Set.of(FlagName.SUPPRESS, FlagName.APPLY);
+    public Set<Flag> interferingFlags() {
+        return Set.of(Flag.SUPPRESS, Flag.APPLY);
     }
 
     @Override
-    public FlagOptions interfere(Map<FlagName, FlagOptions> flagOptions) {
-        FlagOptions suppress = flagOptions.get(FlagName.SUPPRESS);
-        FlagOptions apply = flagOptions.get(FlagName.APPLY);
+    public ModeOptions interfere(Map<Flag, ModeOptions> flagOptions) {
+        ModeOptions suppress = flagOptions.get(Flag.SUPPRESS);
+        ModeOptions apply = flagOptions.get(Flag.APPLY);
 
         // If we're applying suggested patches at the same time as suppressing, we still need to tell
         // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.

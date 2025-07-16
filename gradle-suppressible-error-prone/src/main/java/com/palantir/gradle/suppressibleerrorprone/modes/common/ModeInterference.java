@@ -14,29 +14,29 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Map;
 import java.util.Set;
 
 /**
  * Flags can interfere with each other, for example, removing and suppressing are mutually exclusive.
- * Each of these provide a way to indicate which flags interfere with each other and modify the {@link FlagOptions}
+ * Each of these provide a way to indicate which flags interfere with each other and modify the {@link ModeOptions}
  * they produce.
  */
-public interface FlagInterference {
+public interface ModeInterference {
     /**
      * Identify which of the flags interfere with each other.
      * @param flags The flags that are enabled in this run
      * @return Either the flags that interfere with each other, or throw an exception if they are incompatible
      */
-    Set<FlagName> interferesWith(Set<FlagName> flags);
+    Set<Flag> interferesWith(Set<Flag> flags);
 
     /**
      * Modify the FlagOptions if the flags interfere with each other.
-     * @param flagOptions A map from the {@link FlagName}s that were indicated to be interfering in
-     *                    {@link #interferesWith} to their corresponding {@link FlagOptions}.
-     * @return The modified {@link FlagOptions} that will be used in place of the originals that the flags produced
+     * @param flagOptions A map from the {@link Flag}s that were indicated to be interfering in
+     *                    {@link #interferesWith} to their corresponding {@link ModeOptions}.
+     * @return The modified {@link ModeOptions} that will be used in place of the originals that the flags produced
      */
-    FlagOptions interfere(Map<FlagName, FlagOptions> flagOptions);
+    ModeOptions interfere(Map<Flag, ModeOptions> flagOptions);
 }

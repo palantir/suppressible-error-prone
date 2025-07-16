@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorProneExtension;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.None;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions.None;
 import java.util.Optional;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import org.gradle.api.file.ProjectLayout;
@@ -25,14 +25,14 @@ import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 /**
- * A Flag represents a mode that set by a feature flag
+ * A Mode represents a mode of operation in suppressible-error-prone that set by a feature {@link Flag}.
  */
-public interface Flag {
+public interface Mode {
     default ModifyCheckApiOption modifyCheckApi() {
         return ModifyCheckApiOption.dontCare();
     }
 
-    default FlagOptions options(FlagOptionContext context) {
+    default ModeOptions options(FlagOptionContext context) {
         return None.INSTANCE;
     }
 

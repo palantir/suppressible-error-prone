@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption.DoNotModify;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption.DontCare;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption.MustModify;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DoNotModify;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DontCare;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.MustModify;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;

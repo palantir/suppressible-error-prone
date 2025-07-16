@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.flags;
+package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions.None;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions.None;
 import java.nio.file.Path;
 import java.util.List;
 import org.gradle.process.CommandLineArgumentProvider;
 
-public final class TimingsFlag implements Flag {
+public final class TimingsMode implements Mode {
 
     @Override
-    public FlagOptions options(FlagOptionContext context) {
+    public ModeOptions options(FlagOptionContext context) {
         // We can't control the working directory of the java compile task, as it actually runs inside some gradle
         // worker. So we can't pass a relative path to the javac plugin; it has to be absolute. When we pass
         // an absolute path, build caching no longer works between machines as the java compiler option args

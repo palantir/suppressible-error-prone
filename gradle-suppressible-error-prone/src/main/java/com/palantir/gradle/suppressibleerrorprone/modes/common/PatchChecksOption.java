@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import com.google.common.base.Suppliers;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.AllChecks;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption.PossiblySomeChecks;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption.AllChecks;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption.PossiblySomeChecks;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;

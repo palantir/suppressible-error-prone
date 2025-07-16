@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Set;
 import one.util.streamex.StreamEx;
 
-public enum FlagName {
+public enum Flag {
     APPLY("errorProneApply"),
     SUPPRESS("errorProneSuppress"),
     REMOVE_ROLLOUT("errorProneRemoveRollout"),
@@ -31,7 +31,7 @@ public enum FlagName {
     private final String canonicalName;
     private final Set<String> allNames;
 
-    FlagName(String canonicalName, String... otherNames) {
+    Flag(String canonicalName, String... otherNames) {
         this.canonicalName = canonicalName;
         this.allNames = StreamEx.of(canonicalName).append(otherNames).toSet();
     }

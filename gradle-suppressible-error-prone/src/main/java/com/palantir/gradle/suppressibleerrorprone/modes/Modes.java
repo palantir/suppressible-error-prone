@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags;
+package com.palantir.gradle.suppressibleerrorprone.modes;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag.FlagOptionContext;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagInterference;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
-import com.palantir.gradle.suppressibleerrorprone.flags.flags.ApplyFlag;
-import com.palantir.gradle.suppressibleerrorprone.flags.flags.DisableFlag;
-import com.palantir.gradle.suppressibleerrorprone.flags.flags.RemoveRolloutFlag;
-import com.palantir.gradle.suppressibleerrorprone.flags.flags.SuppressFlag;
-import com.palantir.gradle.suppressibleerrorprone.flags.flags.TimingsFlag;
-import com.palantir.gradle.suppressibleerrorprone.flags.interferences.DisableFlagInterference;
-import com.palantir.gradle.suppressibleerrorprone.flags.interferences.RemovingAndSuppressingInterference;
-import com.palantir.gradle.suppressibleerrorprone.flags.interferences.SuppressingAndApplyingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.FlagOptionContext;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.DisableModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemovingAndSuppressingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.SuppressingAndApplyingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.ApplyMode;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.DisableMode;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.RemoveRolloutMode;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.SuppressMode;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.TimingsMode;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,69 +43,69 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.compile.JavaCompile;
 
-public abstract class Flags {
+public abstract class Modes {
     @Inject
     protected abstract ProviderFactory getProviderFactory();
 
-    private final Map<FlagName, Flag> flags = Map.of(
-            FlagName.APPLY, new ApplyFlag(),
-            FlagName.DISABLE, new DisableFlag(),
-            FlagName.REMOVE_ROLLOUT, new RemoveRolloutFlag(),
-            FlagName.SUPPRESS, new SuppressFlag(),
-            FlagName.TIMINGS, new TimingsFlag());
+    private final Map<Flag, Mode> flags = Map.of(
+            Flag.APPLY, new ApplyMode(),
+            Flag.DISABLE, new DisableMode(),
+            Flag.REMOVE_ROLLOUT, new RemoveRolloutMode(),
+            Flag.SUPPRESS, new SuppressMode(),
+            Flag.TIMINGS, new TimingsMode());
 
-    private final Set<FlagInterference> interferences = Set.of(
-            new DisableFlagInterference(),
+    private final Set<ModeInterference> interferences = Set.of(
+            new DisableModeInterference(),
             new RemovingAndSuppressingInterference(),
             new SuppressingAndApplyingInterference());
 
     public final ModifyCheckApiOption.FinalValue modifyCheckApi() {
         return ModifyCheckApiOption.combine(flagsEnabledAndValues().keySet().stream()
                 .map(flags::get)
-                .map(Flag::modifyCheckApi)
+                .map(Mode::modifyCheckApi)
                 .collect(Collectors.toSet()));
     }
 
-    public final FlagOptions flagOptionsFor(JavaCompile javaCompile) {
-        Map<FlagName, Optional<String>> flagToFlagValue = flagsEnabledAndValues();
+    public final ModeOptions flagOptionsFor(JavaCompile javaCompile) {
+        Map<Flag, Optional<String>> flagToFlagValue = flagsEnabledAndValues();
 
-        Map<Set<FlagName>, FlagInterference> interferingFlags = StreamEx.of(interferences)
+        Map<Set<Flag>, ModeInterference> interferingFlags = StreamEx.of(interferences)
                 .mapToEntry(interference -> interference.interferesWith(flagToFlagValue.keySet()))
                 .filterValues(Predicate.not(Set::isEmpty))
                 .invert()
                 .toMap();
 
-        Set<FlagName> allInterferingFlagNames =
+        Set<Flag> allInterferingFlags =
                 interferingFlags.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
 
-        Map<FlagName, FlagOptions> flagOptions = EntryStream.of(flagToFlagValue)
+        Map<Flag, ModeOptions> flagOptions = EntryStream.of(flagToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
-                    Flag flag = flags.get(flagName);
-                    return flag.options(new FlagOptionContext(flagValue, javaCompile));
+                    Mode mode = flags.get(flagName);
+                    return mode.options(new FlagOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 
-        Map<Set<FlagName>, FlagOptions> interferingFlagOptions = EntryStream.of(interferingFlags)
-                .mapToValue((interferingFlagNames, flagInterference) -> {
-                    return flagInterference.interfere(StreamEx.of(interferingFlagNames)
+        Map<Set<Flag>, ModeOptions> interferingFlagOptions = EntryStream.of(interferingFlags)
+                .mapToValue((interferingFlagNames, modeInterference) -> {
+                    return modeInterference.interfere(StreamEx.of(interferingFlagNames)
                             .mapToEntry(flagOptions::get)
                             .toMap());
                 })
                 .toMap();
 
-        Set<FlagOptions> nonInterferingFlagOptions = EntryStream.of(flagOptions)
-                .filterKeys(Predicate.not(allInterferingFlagNames::contains))
+        Set<ModeOptions> nonInterferingModeOptions = EntryStream.of(flagOptions)
+                .filterKeys(Predicate.not(allInterferingFlags::contains))
                 .values()
                 .toSet();
 
-        Set<FlagOptions> allFlagOptions = StreamEx.of(interferingFlagOptions.values())
-                .append(nonInterferingFlagOptions)
+        Set<ModeOptions> allModeOptions = StreamEx.of(interferingFlagOptions.values())
+                .append(nonInterferingModeOptions)
                 .collect(Collectors.toSet());
 
-        return FlagOptions.naivelyCombine(allFlagOptions);
+        return ModeOptions.naivelyCombine(allModeOptions);
     }
 
-    private Map<FlagName, Optional<String>> flagsEnabledAndValues() {
+    private Map<Flag, Optional<String>> flagsEnabledAndValues() {
         return StreamEx.of(flags.keySet())
                 .flatMapToEntry(flagName -> {
                     Map<String, List<String>> valuesToNames = StreamEx.of(flagName.allNames())

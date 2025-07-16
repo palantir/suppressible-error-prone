@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,7 +25,7 @@ import one.util.streamex.EntryStream;
  * Represents options for configuration that multiple flags can produce, rather than something a single flag can
  * configure. This allows all the options to be combined, interfered between and configured in a single place.
  */
-public interface FlagOptions {
+public interface ModeOptions {
     default PatchChecksOption patchChecks() {
         return PatchChecksOption.noChecks();
     }
@@ -34,28 +34,28 @@ public interface FlagOptions {
         return Map.of();
     }
 
-    default FlagOptions naivelyCombinedWith(FlagOptions other) {
-        return new FlagOptions() {
+    default ModeOptions naivelyCombinedWith(ModeOptions other) {
+        return new ModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return FlagOptions.this.patchChecks().combine(other.patchChecks());
+                return ModeOptions.this.patchChecks().combine(other.patchChecks());
             }
 
             @Override
             public Map<String, String> extraFlags() {
-                return EntryStream.of(FlagOptions.this.extraFlags())
+                return EntryStream.of(ModeOptions.this.extraFlags())
                         .append(other.extraFlags())
                         .toMap();
             }
         };
     }
 
-    static FlagOptions naivelyCombine(Collection<FlagOptions> flagOptions) {
-        return flagOptions.stream().reduce(FlagOptions.none(), FlagOptions::naivelyCombinedWith);
+    static ModeOptions naivelyCombine(Collection<ModeOptions> modeOptions) {
+        return modeOptions.stream().reduce(ModeOptions.none(), ModeOptions::naivelyCombinedWith);
     }
 
-    default FlagOptions withExtraFlag(String key, String value) {
-        return new DefaultFlagOptions(this) {
+    default ModeOptions withExtraFlag(String key, String value) {
+        return new DefaultModeOptions(this) {
             @Override
             public Map<String, String> extraFlags() {
                 Map<String, String> map = new HashMap<>(super.extraFlags());
@@ -65,21 +65,21 @@ public interface FlagOptions {
         };
     }
 
-    static FlagOptions none() {
+    static ModeOptions none() {
         return None.INSTANCE;
     }
 
-    final class None implements FlagOptions {
+    final class None implements ModeOptions {
         public static final None INSTANCE = new None();
 
         private None() {}
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")
-    class DefaultFlagOptions implements FlagOptions {
-        private final FlagOptions originalOptions;
+    class DefaultModeOptions implements ModeOptions {
+        private final ModeOptions originalOptions;
 
-        protected DefaultFlagOptions(FlagOptions originalOptions) {
+        protected DefaultModeOptions(ModeOptions originalOptions) {
             this.originalOptions = originalOptions;
         }
 

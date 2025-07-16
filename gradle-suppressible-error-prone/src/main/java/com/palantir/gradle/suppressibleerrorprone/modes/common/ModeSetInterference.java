@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Set;
 
-public abstract class FlagSetInterference implements FlagInterference {
-    public abstract Set<FlagName> interferingFlags();
+public abstract class ModeSetInterference implements ModeInterference {
+    public abstract Set<Flag> interferingFlags();
 
     @Override
-    public final Set<FlagName> interferesWith(Set<FlagName> flags) {
+    public final Set<Flag> interferesWith(Set<Flag> flags) {
         return flags.containsAll(interferingFlags()) ? interferingFlags() : Set.of();
     }
 }

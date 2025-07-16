@@ -16,9 +16,9 @@
 
 package com.palantir.gradle.suppressibleerrorprone;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.Flags;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.Modes;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.util.List;
 import java.util.Optional;
@@ -46,7 +46,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
     protected abstract ProviderFactory getProviderFactory();
 
     @Nested
-    protected abstract Flags getFlags();
+    protected abstract Modes getModes();
 
     @Override
     public final void apply(Project project) {
@@ -66,7 +66,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .orElseThrow(
                         () -> new RuntimeException("SuppressibleErrorPronePlugin implementation version not found"));
 
-        if (getFlags().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
+        if (getModes().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
             // When auto-suppressing, the logic will run a bytecode patched version of errorprone
             // (via an artifact transform) that intercepts every error from every check and adds a custom fix
             setupErrorProneArtifactTransform(project, mustModify.modifyVisitorState());
@@ -82,12 +82,12 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
 
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-            FlagOptions flagOptions = getFlags().flagOptionsFor(javaCompile);
+            ModeOptions modeOptions = getModes().flagOptionsFor(javaCompile);
 
-            configureJavaCompile(flagOptions, javaCompile);
+            configureJavaCompile(modeOptions, javaCompile);
 
             configureErrorProneOptions(javaCompile, errorProneOptions -> {
-                setupErrorProneOptions(flagOptions, errorProneOptions);
+                setupErrorProneOptions(modeOptions, errorProneOptions);
             });
         });
 
@@ -95,8 +95,8 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // afterEvaluate inside a getTasks().configureEach(), so we have to do this seperately here
         project.afterEvaluate(_ignored -> {
             project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-                FlagOptions flagOptions = getFlags().flagOptionsFor(javaCompile);
-                afterEvaluateConfigureJavaCompile(flagOptions, javaCompile);
+                ModeOptions modeOptions = getModes().flagOptionsFor(javaCompile);
+                afterEvaluateConfigureJavaCompile(modeOptions, javaCompile);
             });
         });
 
@@ -166,14 +166,14 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private static void configureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
+    private static void configureJavaCompile(ModeOptions modeOptions, JavaCompile javaCompile) {
         // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
-        javaCompile.getOutputs().cacheIf(t -> !flagOptions.patchChecks().anyChecks());
-        javaCompile.getOutputs().upToDateWhen(t -> !flagOptions.patchChecks().anyChecks());
+        javaCompile.getOutputs().cacheIf(t -> !modeOptions.patchChecks().anyChecks());
+        javaCompile.getOutputs().upToDateWhen(t -> !modeOptions.patchChecks().anyChecks());
     }
 
-    private static void afterEvaluateConfigureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
-        if (flagOptions.patchChecks().anyChecks()) {
+    private static void afterEvaluateConfigureJavaCompile(ModeOptions modeOptions, JavaCompile javaCompile) {
+        if (modeOptions.patchChecks().anyChecks()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
@@ -188,7 +188,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void setupErrorProneOptions(FlagOptions flagOptions, ErrorProneOptions errorProneOptions) {
+    private void setupErrorProneOptions(ModeOptions modeOptions, ErrorProneOptions errorProneOptions) {
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
         errorProneOptions.getDisableWarningsInGeneratedCode().set(true);
@@ -198,7 +198,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
             @Override
             public Iterable<String> asArguments() {
-                return flagOptions
+                return modeOptions
                         .patchChecks()
                         .asCommaSeparated()
                         .map(commaSeparated ->
@@ -207,7 +207,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             }
         });
 
-        errorProneOptions.getCheckOptions().putAll(getProviderFactory().provider(flagOptions::extraFlags));
+        errorProneOptions.getCheckOptions().putAll(getProviderFactory().provider(modeOptions::extraFlags));
 
         // If we're not removing suppressions, disable it to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check.

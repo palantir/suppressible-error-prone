@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.flags;
+package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.Flag;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.PatchChecksOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 
-public final class SuppressFlag implements Flag {
+public final class SuppressMode implements Mode {
     @Override
     public ModifyCheckApiOption modifyCheckApi() {
         return ModifyCheckApiOption.mustModifyIncludingVisitorState();
     }
 
     @Override
-    public FlagOptions options(FlagOptionContext context) {
-        return new FlagOptions() {
+    public ModeOptions options(FlagOptionContext context) {
+        return new ModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {
                 return PatchChecksOption.allChecks();

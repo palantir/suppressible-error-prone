@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.interferences;
+package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagInterference;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagName;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.FlagOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.Flag;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public final class DisableFlagInterference implements FlagInterference {
+public final class DisableModeInterference implements ModeInterference {
     @Override
-    public Set<FlagName> interferesWith(Set<FlagName> flags) {
-        if (flags.contains(FlagName.DISABLE) && flags.size() > 1) {
+    public Set<Flag> interferesWith(Set<Flag> flags) {
+        if (flags.contains(Flag.DISABLE) && flags.size() > 1) {
             return flags;
         }
 
@@ -35,13 +35,13 @@ public final class DisableFlagInterference implements FlagInterference {
     }
 
     @Override
-    public FlagOptions interfere(Map<FlagName, FlagOptions> flagOptions) {
+    public ModeOptions interfere(Map<Flag, ModeOptions> flagOptions) {
         throw new IllegalStateException("%s cannot be used at the same time as any of %s"
                 .formatted(
-                        FlagName.DISABLE.asGradlePropertyArgument(),
+                        Flag.DISABLE.asGradlePropertyArgument(),
                         flagOptions.keySet().stream()
-                                .filter(Predicate.not(Predicate.isEqual(FlagName.DISABLE)))
-                                .map(FlagName::asGradlePropertyArgument)
+                                .filter(Predicate.not(Predicate.isEqual(Flag.DISABLE)))
+                                .map(Flag::asGradlePropertyArgument)
                                 .collect(Collectors.joining(", "))));
     }
 }

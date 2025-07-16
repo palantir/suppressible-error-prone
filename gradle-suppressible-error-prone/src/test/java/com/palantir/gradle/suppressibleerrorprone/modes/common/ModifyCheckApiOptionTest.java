@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.flags.common;
+package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption.DoNotModify;
-import com.palantir.gradle.suppressibleerrorprone.flags.common.ModifyCheckApiOption.MustModify;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DoNotModify;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.MustModify;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
