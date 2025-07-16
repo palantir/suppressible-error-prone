@@ -86,6 +86,15 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             });
         });
 
+        // Some JavaCompile configuration needs to happen in an afterEvaluate block - however, you can't call
+        // afterEvaluate inside a getTasks().configureEach(), so we have to do this seperately here
+        project.afterEvaluate(_ignored -> {
+            project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
+                FlagOptions flagOptions = getFlags().flagOptionsFor(javaCompile);
+                afterEvaluateConfigureJavaCompile(flagOptions, javaCompile);
+            });
+        });
+
         project.getTasks().register("compileAllErrorProne", Task.class, compileAll -> {
             compileAll.dependsOn(project.provider(
                     () -> project.getTasks().withType(JavaCompile.class).matching(javaCompile -> {
@@ -152,12 +161,16 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void configureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
-        if (flagOptions.patchChecks().anyChecks()) {
+    private static void configureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
+        if (flagOptions.patchChecks().possiblyAnyChecks()) {
             // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
             javaCompile.getOutputs().cacheIf(t -> false);
             javaCompile.getOutputs().upToDateWhen(t -> false);
+        }
+    }
 
+    private static void afterEvaluateConfigureJavaCompile(FlagOptions flagOptions, JavaCompile javaCompile) {
+        if (flagOptions.patchChecks().possiblyAnyChecks()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
@@ -172,15 +185,14 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void setupErrorProneOptions(FlagOptions flagOptions, ErrorProneOptions errorProneOptions) {
-
+    private static void setupErrorProneOptions(FlagOptions flagOptions, ErrorProneOptions errorProneOptions) {
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
         errorProneOptions.getDisableWarningsInGeneratedCode().set(true);
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
-        if (flagOptions.patchChecks().anyChecks()) {
+        if (flagOptions.patchChecks().possiblyAnyChecks()) {
             errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
                 @Override
                 public Iterable<String> asArguments() {

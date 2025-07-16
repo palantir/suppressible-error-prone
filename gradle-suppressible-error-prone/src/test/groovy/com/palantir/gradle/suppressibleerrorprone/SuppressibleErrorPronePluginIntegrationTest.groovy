@@ -574,13 +574,15 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         buildFile << '''
             tasks.withType(JavaCompile) {
                 options.compilerArgs += ['-Werror', '-Xlint:deprecation']
+                doFirst {
+                    println "COMPILER ARGS: ${options.compilerArgs}"
+                }
             }
             
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-            
-            println 'other src:' + sourceSets.other.allSource.srcDirs
+         
         '''.stripIndent(true)
 
         // language=Java
