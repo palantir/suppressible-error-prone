@@ -43,6 +43,10 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.compile.JavaCompile;
 
+/**
+ * Use this class to determine the final combination of {@link Mode}s and {@link ModeOptions} for the various
+ * flags given to suppressible-error-prone.
+ */
 public abstract class Modes {
     @Inject
     protected abstract ProviderFactory getProviderFactory();
