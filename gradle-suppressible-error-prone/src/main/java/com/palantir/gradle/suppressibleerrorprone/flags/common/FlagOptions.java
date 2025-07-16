@@ -21,6 +21,10 @@ import java.util.HashMap;
 import java.util.Map;
 import one.util.streamex.EntryStream;
 
+/**
+ * Represents options for configuration that multiple flags can produce, rather than something a single flag can
+ * configure. This allows all the options to be combined, interfered between and configured in a single place.
+ */
 public interface FlagOptions {
     default PatchChecksOption patchChecks() {
         return PatchChecksOption.noChecks();

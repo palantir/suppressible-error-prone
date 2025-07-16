@@ -24,6 +24,9 @@ import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.compile.JavaCompile;
 
+/**
+ * A Flag represents a mode that set by a feature flag
+ */
 public interface Flag {
     default ModifyCheckApiOption modifyCheckApi() {
         return ModifyCheckApiOption.dontCare();

@@ -24,6 +24,7 @@ public enum FlagName {
     SUPPRESS("errorProneSuppress"),
     REMOVE_ROLLOUT("errorProneRemoveRollout"),
     TIMINGS("errorProneTimings"),
+    // Historically, the logic of this plugin lived in baseline, so we need to support the old disable flag.
     DISABLE("errorProneDisable", "com.palantir.baseline-error-prone.disable"),
     ;
 
