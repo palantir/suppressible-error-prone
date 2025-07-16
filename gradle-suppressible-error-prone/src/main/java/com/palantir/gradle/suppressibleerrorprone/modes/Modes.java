@@ -22,6 +22,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.CombinedValue;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.DisableModeInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemovingAndSuppressingInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.SuppressingAndApplyingInterference;
@@ -63,7 +64,7 @@ public abstract class Modes {
             new RemovingAndSuppressingInterference(),
             new SuppressingAndApplyingInterference());
 
-    public final ModifyCheckApiOption.FinalValue modifyCheckApi() {
+    public final CombinedValue modifyCheckApi() {
         return ModifyCheckApiOption.combine(modesEnabledAndFlagValues().keySet().stream()
                 .map(modes::get)
                 .map(Mode::modifyCheckApi)

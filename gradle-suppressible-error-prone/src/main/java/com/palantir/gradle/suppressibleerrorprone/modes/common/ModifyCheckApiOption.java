@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
  * sensibly.
  */
 public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, MustModify {
-    enum DoNotModify implements ModifyCheckApiOption, FinalValue {
+    enum DoNotModify implements ModifyCheckApiOption, CombinedValue {
         INSTANCE
     }
 
@@ -39,7 +39,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
         INSTANCE
     }
 
-    record MustModify(boolean modifyVisitorState) implements ModifyCheckApiOption, FinalValue {
+    record MustModify(boolean modifyVisitorState) implements ModifyCheckApiOption, CombinedValue {
         public MustModify combine(MustModify other) {
             return new MustModify(modifyVisitorState || other.modifyVisitorState);
         }
@@ -61,9 +61,9 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
         return new MustModify(true);
     }
 
-    sealed interface FinalValue permits DoNotModify, MustModify {}
+    sealed interface CombinedValue permits DoNotModify, MustModify {}
 
-    static FinalValue combine(Collection<ModifyCheckApiOption> options) {
+    static CombinedValue combine(Collection<ModifyCheckApiOption> options) {
         Set<ModifyCheckApiOption> withoutDontCares = options.stream()
                 .filter(Predicate.not(Predicate.isEqual(DontCare.INSTANCE)))
                 .collect(Collectors.toSet());

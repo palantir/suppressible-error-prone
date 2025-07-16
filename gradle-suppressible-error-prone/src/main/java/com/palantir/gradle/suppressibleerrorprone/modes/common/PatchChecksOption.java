@@ -75,6 +75,7 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
 
         @Override
         public Optional<String> asCommaSeparated() {
+            // Empty string means "all checks" to Error Prone - ie the option `-XepPatchChecks:`
             return Optional.of("");
         }
     }
