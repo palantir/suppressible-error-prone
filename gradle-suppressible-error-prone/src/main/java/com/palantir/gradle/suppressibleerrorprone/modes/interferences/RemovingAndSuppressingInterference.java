@@ -24,7 +24,10 @@ public final class RemovingAndSuppressingInterference implements ModeInterferenc
     @Override
     public Set<ModeName> interferesWith(Set<ModeName> modeNames) {
         if (modeNames.containsAll(Set.of(ModeName.REMOVE_ROLLOUT, ModeName.SUPPRESS))) {
-            throw new IllegalStateException("%s cannot be used at the same time as %s");
+            throw new IllegalStateException("%s cannot be used at the same time as %s"
+                    .formatted(
+                            ModeName.REMOVE_ROLLOUT.asGradlePropertyArgument(),
+                            ModeName.SUPPRESS.asGradlePropertyArgument()));
         }
 
         return Set.of();
