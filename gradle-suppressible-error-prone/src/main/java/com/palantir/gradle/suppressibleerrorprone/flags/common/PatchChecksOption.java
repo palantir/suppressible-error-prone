@@ -78,7 +78,9 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
         private final Supplier<Set<String>> patchChecks;
 
         public PossiblySomeChecks(Supplier<Set<String>> patchChecks) {
-            this.patchChecks = Suppliers.memoize(patchChecks::get);
+            // Memoize as if this is called at different times in the build, different values could be returned.
+            // At least try to keep it consistent.
+            this.patchChecks = Suppliers.memoize(() -> Set.copyOf(patchChecks.get()));
         }
 
         public Set<String> patchChecks() {
@@ -87,7 +89,7 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
 
         @Override
         public boolean anyChecks() {
-            return true;
+            return patchChecks.get().isEmpty();
         }
 
         @Override
