@@ -22,8 +22,9 @@ import java.util.Map;
 import one.util.streamex.EntryStream;
 
 /**
- * Represents options for configuration that multiple flags can produce, rather than something a single flag can
- * configure. This allows all the options to be combined, interfered between and configured in a single place.
+ * Represents options for configuration that multiple mode can influence, rather than something a single mode can
+ * configure. This allows all the options from multiple modes to be combined, interfered between and
+ * configured in a single place.
  */
 public interface ModeOptions {
     default PatchChecksOption patchChecks() {
@@ -51,7 +52,7 @@ public interface ModeOptions {
     }
 
     static ModeOptions naivelyCombine(Collection<ModeOptions> modeOptions) {
-        return modeOptions.stream().reduce(ModeOptions.none(), ModeOptions::naivelyCombinedWith);
+        return modeOptions.stream().reduce(ModeOptions.dontCare(), ModeOptions::naivelyCombinedWith);
     }
 
     default ModeOptions withExtraErrorProneCheckFlag(String key, String value) {
@@ -65,14 +66,14 @@ public interface ModeOptions {
         };
     }
 
-    static ModeOptions none() {
-        return None.INSTANCE;
+    static ModeOptions dontCare() {
+        return DontCare.INSTANCE;
     }
 
-    final class None implements ModeOptions {
-        public static final None INSTANCE = new None();
+    final class DontCare implements ModeOptions {
+        public static final DontCare INSTANCE = new DontCare();
 
-        private None() {}
+        private DontCare() {}
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")

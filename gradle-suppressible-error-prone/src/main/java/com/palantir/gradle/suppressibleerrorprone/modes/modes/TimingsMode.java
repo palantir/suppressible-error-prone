@@ -18,7 +18,7 @@ package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions.None;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions.DontCare;
 import java.nio.file.Path;
 import java.util.List;
 import org.gradle.process.CommandLineArgumentProvider;
@@ -50,6 +50,6 @@ public final class TimingsMode implements Mode {
             }
         });
 
-        return None.INSTANCE;
+        return DontCare.INSTANCE;
     }
 }
