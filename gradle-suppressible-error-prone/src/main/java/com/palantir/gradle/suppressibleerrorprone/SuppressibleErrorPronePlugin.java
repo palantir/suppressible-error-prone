@@ -207,7 +207,9 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             }
         });
 
-        errorProneOptions.getCheckOptions().putAll(getProviderFactory().provider(modeOptions::extraFlags));
+        errorProneOptions
+                .getCheckOptions()
+                .putAll(getProviderFactory().provider(modeOptions::extraErrorProneCheckFlags));
 
         // If we're not removing suppressions, disable it to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check.

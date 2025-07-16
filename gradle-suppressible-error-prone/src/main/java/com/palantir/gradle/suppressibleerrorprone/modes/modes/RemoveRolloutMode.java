@@ -39,7 +39,7 @@ public final class RemoveRolloutMode implements Mode {
             }
 
             @Override
-            public Map<String, String> extraFlags() {
+            public Map<String, String> extraErrorProneCheckFlags() {
                 // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
                 // We can't explicitly list all possible checks, because some might not exist anymore
                 // The logic itself needs to consider an empty list as "remove all"

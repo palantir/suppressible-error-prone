@@ -24,6 +24,12 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+/**
+ * suppressible-error-prone is powered by an artifact transform that modifies the error_prone_check_api jar.
+ * Some modes must not run with this jar modified, some must run with it modified (and then some may or may not need
+ * the VisitorState class modified), and some don't care. This class represents these states and allows combining them
+ * sensibly.
+ */
 public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, MustModify {
     enum DoNotModify implements ModifyCheckApiOption, FinalValue {
         INSTANCE

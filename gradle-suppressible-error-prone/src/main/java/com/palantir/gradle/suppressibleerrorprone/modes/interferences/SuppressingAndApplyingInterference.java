@@ -41,7 +41,7 @@ public final class SuppressingAndApplyingInterference extends SpecifcModeInterfe
         // use inside error-prone/the compiler.
 
         return suppress.naivelyCombinedWith(apply)
-                .withExtraFlag(
+                .withExtraErrorProneCheckFlag(
                         "SuppressibleErrorProne:PreferPatchChecks",
                         apply.patchChecks().asCommaSeparated().orElse(""));
     }

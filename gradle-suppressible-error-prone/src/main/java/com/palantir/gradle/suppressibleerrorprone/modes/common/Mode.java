@@ -25,13 +25,20 @@ import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 /**
- * A Mode represents a mode of operation in suppressible-error-prone that set by a feature {@link ModeName}.
+ * A Mode represents a mode of operation in suppressible-error-prone that is enabled or enabled by a gradle property
+ * flag (see {@link ModeName}). Each mode will either require either the error_prone_check_api to be modified or not
+ * (see {@link ModifyCheckApiOption}), and return options for configuration shared by multiple Modes
+ * (see {@link ModeOptions}). Modes can interfere with each other, see {@link ModeInterference}.
  */
 public interface Mode {
     default ModifyCheckApiOption modifyCheckApi() {
         return ModifyCheckApiOption.dontCare();
     }
 
+    /**
+     * Apply configuration specific to the mode or return the {@link ModeOptions} for this mode.
+     * @param context Useful information to use to determine options or apply configuration
+     */
     default ModeOptions options(ModeOptionContext context) {
         return None.INSTANCE;
     }

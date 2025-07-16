@@ -30,7 +30,7 @@ public interface ModeOptions {
         return PatchChecksOption.noChecks();
     }
 
-    default Map<String, String> extraFlags() {
+    default Map<String, String> extraErrorProneCheckFlags() {
         return Map.of();
     }
 
@@ -42,9 +42,9 @@ public interface ModeOptions {
             }
 
             @Override
-            public Map<String, String> extraFlags() {
-                return EntryStream.of(ModeOptions.this.extraFlags())
-                        .append(other.extraFlags())
+            public Map<String, String> extraErrorProneCheckFlags() {
+                return EntryStream.of(ModeOptions.this.extraErrorProneCheckFlags())
+                        .append(other.extraErrorProneCheckFlags())
                         .toMap();
             }
         };
@@ -54,11 +54,11 @@ public interface ModeOptions {
         return modeOptions.stream().reduce(ModeOptions.none(), ModeOptions::naivelyCombinedWith);
     }
 
-    default ModeOptions withExtraFlag(String key, String value) {
+    default ModeOptions withExtraErrorProneCheckFlag(String key, String value) {
         return new DefaultModeOptions(this) {
             @Override
-            public Map<String, String> extraFlags() {
-                Map<String, String> map = new HashMap<>(super.extraFlags());
+            public Map<String, String> extraErrorProneCheckFlags() {
+                Map<String, String> map = new HashMap<>(super.extraErrorProneCheckFlags());
                 map.put(key, value);
                 return map;
             }
@@ -89,8 +89,8 @@ public interface ModeOptions {
         }
 
         @Override
-        public Map<String, String> extraFlags() {
-            return originalOptions.extraFlags();
+        public Map<String, String> extraErrorProneCheckFlags() {
+            return originalOptions.extraErrorProneCheckFlags();
         }
     }
 }

@@ -19,6 +19,9 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 import java.util.Set;
 import one.util.streamex.StreamEx;
 
+/**
+ * Representations of the different modes, and which flags (enabled as Gradle properties) they correspond to.
+ */
 public enum ModeName {
     APPLY("errorProneApply"),
     SUPPRESS("errorProneSuppress"),

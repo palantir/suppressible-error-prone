@@ -18,6 +18,10 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Set;
 
+/**
+ * This is a helper class when there are just a set of {@link Mode}s that always interfere with each other, to
+ * reduce some Set logic overhead.
+ */
 public abstract class SpecifcModeInterference implements ModeInterference {
     protected abstract Set<ModeName> interferingModes();
 

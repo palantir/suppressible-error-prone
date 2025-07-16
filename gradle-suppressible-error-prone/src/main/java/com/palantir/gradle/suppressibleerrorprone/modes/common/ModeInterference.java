@@ -20,9 +20,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Flags can interfere with each other, for example, removing and suppressing are mutually exclusive.
- * Each of these provide a way to indicate which flags interfere with each other and modify the {@link ModeOptions}
- * they produce.
+ * {@link Mode}s can interfere with each other, for example, removing and suppressing are mutually exclusive.
+ * Each of these provide a way to indicate which {@link ModeName}s interfere with each other and modify
+ * the {@link ModeOptions} they produce in order to work properly together.
  */
 public interface ModeInterference {
     /**

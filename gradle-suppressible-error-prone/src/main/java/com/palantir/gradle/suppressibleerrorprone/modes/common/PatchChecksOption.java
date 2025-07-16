@@ -25,6 +25,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Error Prone has two different ways to patch checks, either you can patch *all* the checks or just patch specific
+ * checks. This class represents these two options, and allows combining them sensibly. ie if one mode patches all
+ * checks and another mode patches specific checks, then the combined option will patch all checks.
+ */
 public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks {
     boolean anyChecks();
 
