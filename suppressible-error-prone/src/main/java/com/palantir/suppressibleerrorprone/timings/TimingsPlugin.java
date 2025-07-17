@@ -104,6 +104,7 @@ public final class TimingsPlugin implements Plugin {
                     + "ErrorProneName: <time taken> (percentage of all errorprone time)\n\n" + perCheckOutput);
         }
 
+        @SuppressWarnings("for-rollout:PreferUncheckedIoException")
         private void writeOutput(String string) {
             try {
                 Files.writeString(output, string);

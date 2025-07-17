@@ -97,6 +97,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         Optional<byte[]> transformClass(String classJarPath, InputStream inputStream);
     }
 
+    @SuppressWarnings("for-rollout:PreferUncheckedIoException")
     private void visitJar(File output, ClassTransformer classTransformer) {
         try (ZipOutputStream zipOutputStream =
                         new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(output)));
@@ -154,6 +155,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         }
     }
 
+    @SuppressWarnings("for-rollout:PreferUncheckedIoException")
     private static ClassReader newClassReader(InputStream inputStream) {
         try {
             return new ClassReader(inputStream);
