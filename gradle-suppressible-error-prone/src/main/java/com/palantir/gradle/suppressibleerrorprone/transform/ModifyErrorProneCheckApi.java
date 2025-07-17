@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
@@ -97,7 +98,6 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         Optional<byte[]> transformClass(String classJarPath, InputStream inputStream);
     }
 
-    @SuppressWarnings("for-rollout:PreferUncheckedIoException")
     private void visitJar(File output, ClassTransformer classTransformer) {
         try (ZipOutputStream zipOutputStream =
                         new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(output)));
@@ -122,11 +122,11 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
                         zipOutputStream.closeEntry();
                     }
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new UncheckedIOException(e);
                 }
             });
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -155,12 +155,11 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         }
     }
 
-    @SuppressWarnings("for-rollout:PreferUncheckedIoException")
     private static ClassReader newClassReader(InputStream inputStream) {
         try {
             return new ClassReader(inputStream);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 }
