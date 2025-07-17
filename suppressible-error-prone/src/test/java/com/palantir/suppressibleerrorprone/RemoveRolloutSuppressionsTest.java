@@ -156,6 +156,7 @@ class RemoveRolloutSuppressionsTest {
                 .doTest();
     }
 
+    @SuppressWarnings("for-rollout:MisformattedTestData")
     @Test
     void remove_only_annotation_when_there_is_more_on_the_same_line() {
         fix().addInputLines(
@@ -196,6 +197,7 @@ class RemoveRolloutSuppressionsTest {
                 .doTest();
     }
 
+    @SuppressWarnings("for-rollout:MisformattedTestData")
     @Test
     void removes_annotations_on_vaious_elements() {
         fix().addInputLines(
