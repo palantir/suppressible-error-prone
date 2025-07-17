@@ -21,6 +21,7 @@ import com.google.errorprone.BugCheckerInfo;
 import java.lang.reflect.Field;
 
 public final class BugCheckerInfoModifications {
+    @SuppressWarnings("for-rollout:PreferSafeLoggableExceptions")
     public static void addAutomaticallyAddedPrefix(BugCheckerInfo bugCheckerInfo) {
         try {
             // Preferring to use reflection to reduce bytecode editing (even though bytecode editing may result

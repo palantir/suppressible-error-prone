@@ -142,16 +142,16 @@ public final class VisitorStateModifications {
     private static Optional<ModifiersTree> modifiersTree(Tree tree) {
         // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
         // of class-like type definitions.
-        if (tree instanceof ClassTree) {
-            return Optional.of(((ClassTree) tree).getModifiers());
+        if (tree instanceof ClassTree classTree) {
+            return Optional.of(classTree.getModifiers());
         }
 
-        if (tree instanceof MethodTree) {
-            return Optional.of(((MethodTree) tree).getModifiers());
+        if (tree instanceof MethodTree methodTree) {
+            return Optional.of(methodTree.getModifiers());
         }
 
-        if (tree instanceof VariableTree) {
-            return Optional.of(((VariableTree) tree).getModifiers());
+        if (tree instanceof VariableTree variableTree) {
+            return Optional.of(variableTree.getModifiers());
         }
 
         return Optional.empty();

@@ -30,20 +30,19 @@ import javax.lang.model.element.Name;
 final class AnnotationUtils {
     static Stream<String> annotationStringValues(AnnotationTree annotation) {
         return annotation.getArguments().stream().flatMap(arg -> {
-            if (!(arg instanceof AssignmentTree)) {
+            if (!(arg instanceof AssignmentTree assignment)) {
                 return Stream.empty();
             }
-            AssignmentTree assignment = (AssignmentTree) arg;
 
             ExpressionTree expression = assignment.getExpression();
 
-            if (expression instanceof LiteralTree) {
-                LiteralTree literalTree = (LiteralTree) expression;
+            if (expression instanceof LiteralTree literalTree) {
+
                 return Stream.of((String) literalTree.getValue());
             }
 
-            if (expression instanceof NewArrayTree) {
-                NewArrayTree newArray = (NewArrayTree) expression;
+            if (expression instanceof NewArrayTree newArray) {
+
                 return newArray.getInitializers().stream()
                         .map(LiteralTree.class::cast)
                         .map(LiteralTree::getValue)
@@ -56,12 +55,12 @@ final class AnnotationUtils {
     }
 
     static Name annotationName(Tree annotationType) {
-        if (annotationType instanceof IdentifierTree) {
-            return ((IdentifierTree) annotationType).getName();
+        if (annotationType instanceof IdentifierTree identifierTree) {
+            return identifierTree.getName();
         }
 
-        if (annotationType instanceof MemberSelectTree) {
-            return ((MemberSelectTree) annotationType).getIdentifier();
+        if (annotationType instanceof MemberSelectTree memberSelectTree) {
+            return memberSelectTree.getIdentifier();
         }
 
         throw new UnsupportedOperationException(
