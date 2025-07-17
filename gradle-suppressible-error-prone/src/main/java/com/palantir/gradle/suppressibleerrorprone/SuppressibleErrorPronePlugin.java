@@ -92,7 +92,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
 
         // Some JavaCompile configuration needs to happen in an afterEvaluate block - however, you can't call
-        // afterEvaluate inside a getTasks().configureEach(), so we have to do this seperately here
+        // afterEvaluate inside a getTasks().configureEach(), so we have to do this separately here
         project.afterEvaluate(_ignored -> {
             project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
                 ModeOptions modeOptions = getModes().modeOptionsFor(javaCompile);
