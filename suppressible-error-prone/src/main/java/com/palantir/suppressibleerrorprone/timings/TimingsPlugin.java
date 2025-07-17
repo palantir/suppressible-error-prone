@@ -25,6 +25,7 @@ import com.sun.source.util.TaskEvent.Kind;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -104,12 +105,11 @@ public final class TimingsPlugin implements Plugin {
                     + "ErrorProneName: <time taken> (percentage of all errorprone time)\n\n" + perCheckOutput);
         }
 
-        @SuppressWarnings("for-rollout:PreferUncheckedIoException")
         private void writeOutput(String string) {
             try {
                 Files.writeString(output, string);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new UncheckedIOException(e);
             }
         }
 
