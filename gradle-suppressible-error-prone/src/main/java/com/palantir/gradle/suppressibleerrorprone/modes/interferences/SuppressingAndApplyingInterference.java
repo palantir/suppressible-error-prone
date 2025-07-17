@@ -18,11 +18,11 @@ package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.SpecifcModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.SpecificModeInterference;
 import java.util.Map;
 import java.util.Set;
 
-public final class SuppressingAndApplyingInterference extends SpecifcModeInterference {
+public final class SuppressingAndApplyingInterference extends SpecificModeInterference {
     @Override
     protected Set<ModeName> interferingModes() {
         return Set.of(ModeName.SUPPRESS, ModeName.APPLY);
