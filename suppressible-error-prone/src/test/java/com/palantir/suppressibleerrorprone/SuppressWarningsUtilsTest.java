@@ -82,7 +82,7 @@ class SuppressWarningsUtilsTest {
     class SuppressWarningsString {
         @Test
         void zero_warnings_deletes_the_entire_suppresswarnings() {
-            assertThat(SuppressWarningsUtils.suppressWarningsString(List.of())).isEqualTo("");
+            assertThat(SuppressWarningsUtils.suppressWarningsString(List.of())).isEmpty();
         }
 
         @Test
