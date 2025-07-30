@@ -28,7 +28,7 @@ public final class SuppressMode implements Mode {
     }
 
     @Override
-    public CommonModeOptions options(ModeOptionContext context) {
+    public CommonModeOptions commonOptions(ModeOptionContext context) {
         return new CommonModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {

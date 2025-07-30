@@ -88,7 +88,7 @@ public abstract class Modes {
         Map<ModeName, CommonModeOptions> modeOptions = EntryStream.of(modeNameToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
                     Mode mode = modes.get(flagName);
-                    return mode.options(new ModeOptionContext(flagValue, javaCompile));
+                    return mode.commonOptions(new ModeOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 

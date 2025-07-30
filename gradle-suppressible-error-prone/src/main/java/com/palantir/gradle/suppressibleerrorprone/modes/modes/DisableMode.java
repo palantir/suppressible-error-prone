@@ -22,7 +22,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 public final class DisableMode implements Mode {
 
     @Override
-    public CommonModeOptions options(ModeOptionContext context) {
+    public CommonModeOptions commonOptions(ModeOptionContext context) {
         // Options (including historical backcompat from when this logic live in gradle-baseline):
         //   -PerrorProneDisable
         //   -Pcom.palantir.baseline-error-prone.disable

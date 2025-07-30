@@ -39,7 +39,7 @@ public interface Mode {
      * Apply configuration specific to the mode or return the {@link CommonModeOptions} for this mode.
      * @param context Useful information to use to determine options or apply configuration
      */
-    default CommonModeOptions options(ModeOptionContext context) {
+    default CommonModeOptions commonOptions(ModeOptionContext context) {
         return DontCare.INSTANCE;
     }
 
