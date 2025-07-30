@@ -75,37 +75,38 @@ public abstract class Modes {
     public final CommonOptions commonOptionsFor(JavaCompile javaCompile) {
         Map<ModeName, Optional<String>> modeNameToFlagValue = modesEnabledAndFlagValues();
 
-        Map<Set<ModeName>, ModeInterference> interferingModes = StreamEx.of(interferences)
+        Map<Interference, ModeInterference> interferingModes = StreamEx.of(interferences)
                 .mapToEntry(interference -> interference.interferesWith(modeNameToFlagValue.keySet()))
                 .filterValues(modeInterferenceResult -> modeInterferenceResult instanceof Interference)
-                .mapValues(modeInterferenceResult -> ((Interference) modeInterferenceResult).interferingModes())
+                .mapValues(modeInterferenceResult -> (Interference) modeInterferenceResult)
                 .invert()
                 .toMap();
 
-        Set<ModeName> allInterferingModes =
-                interferingModes.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
-
-        Map<ModeName, CommonOptions> commonOptions = EntryStream.of(modeNameToFlagValue)
+        Map<ModeName, CommonOptions> commonOptionsPerMode = EntryStream.of(modeNameToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
                     Mode mode = modes.get(flagName);
                     return mode.configureAndReturnCommonOptions(new ModeOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 
-        Map<Set<ModeName>, CommonOptions> interferingCommonOptions = EntryStream.of(interferingModes)
-                .mapToValue((interferingModeNames, modeInterference) -> {
-                    return modeInterference.interfere(StreamEx.of(interferingModeNames)
-                            .mapToEntry(commonOptions::get)
+        Map<Interference, CommonOptions> commonOptionsAfterIntefering = EntryStream.of(interferingModes)
+                .mapToValue((interference, modeInterference) -> {
+                    return modeInterference.interfere(StreamEx.of(interference.interferingModes())
+                            .mapToEntry(commonOptionsPerMode::get)
                             .toMap());
                 })
                 .toMap();
 
-        Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(commonOptions)
+        Set<ModeName> allInterferingModes = interferingModes.keySet().stream()
+                .flatMap(interference -> interference.interferingModes().stream())
+                .collect(Collectors.toSet());
+
+        Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(commonOptionsPerMode)
                 .filterKeys(Predicate.not(allInterferingModes::contains))
                 .values()
                 .toSet();
 
-        Set<CommonOptions> allCommonOptions = StreamEx.of(interferingCommonOptions.values())
+        Set<CommonOptions> allCommonOptions = StreamEx.of(commonOptionsAfterIntefering.values())
                 .append(nonInterferingCommonOptions)
                 .collect(Collectors.toSet());
 
