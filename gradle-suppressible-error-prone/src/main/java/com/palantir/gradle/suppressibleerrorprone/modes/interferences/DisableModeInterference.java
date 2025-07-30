@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 public final class DisableModeInterference implements ModeInterference {
     @Override
-    public Set<ModeName> interferesWith(Set<ModeName> modeNames) {
+    public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.contains(ModeName.DISABLE) && modeNames.size() > 1) {
             throw new IllegalStateException("%s cannot be used at the same time as any of %s"
                     .formatted(
@@ -35,6 +35,6 @@ public final class DisableModeInterference implements ModeInterference {
                                     .collect(Collectors.joining(", "))));
         }
 
-        return Set.of();
+        return ModeInterferenceResult.noInterference();
     }
 }

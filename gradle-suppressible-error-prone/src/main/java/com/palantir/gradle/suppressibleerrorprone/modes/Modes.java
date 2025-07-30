@@ -19,6 +19,7 @@ package com.palantir.gradle.suppressibleerrorprone.modes;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.ModeOptionContext;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference.ModeInterferenceResult.Interference;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
@@ -76,7 +77,8 @@ public abstract class Modes {
 
         Map<Set<ModeName>, ModeInterference> interferingModes = StreamEx.of(interferences)
                 .mapToEntry(interference -> interference.interferesWith(modeNameToFlagValue.keySet()))
-                .filterValues(Predicate.not(Set::isEmpty))
+                .filterValues(modeInterferenceResult -> modeInterferenceResult instanceof Interference)
+                .mapValues(modeInterferenceResult -> ((Interference) modeInterferenceResult).interferingModes())
                 .invert()
                 .toMap();
 

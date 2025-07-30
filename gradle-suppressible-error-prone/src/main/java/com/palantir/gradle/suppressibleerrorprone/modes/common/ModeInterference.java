@@ -16,6 +16,9 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
+import com.google.common.base.Preconditions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference.ModeInterferenceResult.Interference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference.ModeInterferenceResult.NoInterference;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,10 +30,32 @@ import java.util.Set;
 public interface ModeInterference {
     /**
      * Identify which of the flags interfere with each other.
+     *
      * @param modeNames The flags that are enabled in this run
      * @return Either the flags that interfere with each other, or throw an exception if they are incompatible
      */
-    Set<ModeName> interferesWith(Set<ModeName> modeNames);
+    ModeInterferenceResult interferesWith(Set<ModeName> modeNames);
+
+    sealed interface ModeInterferenceResult permits NoInterference, Interference {
+        static ModeInterferenceResult noInterference() {
+            return NoInterference.INSTANCE;
+        }
+
+        static ModeInterferenceResult interferenceBetween(Set<ModeName> modes) {
+            return new Interference(modes);
+        }
+
+        enum NoInterference implements ModeInterferenceResult {
+            INSTANCE
+        }
+
+        record Interference(Set<ModeName> interferingModes) implements ModeInterferenceResult {
+            public Interference {
+                Preconditions.checkArgument(
+                        interferingModes.size() > 1, "interference must be between at least 2 modes");
+            }
+        }
+    }
 
     /**
      * Modify the modeOptions if the flags interfere with each other.

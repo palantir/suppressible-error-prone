@@ -26,11 +26,11 @@ public abstract class SpecificModeInterference implements ModeInterference {
     protected abstract Set<ModeName> interferingModes();
 
     @Override
-    public final Set<ModeName> interferesWith(Set<ModeName> modeNames) {
+    public final ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.containsAll(interferingModes())) {
-            return interferingModes();
+            return ModeInterferenceResult.interferenceBetween(interferingModes());
         }
 
-        return Set.of();
+        return ModeInterferenceResult.noInterference();
     }
 }

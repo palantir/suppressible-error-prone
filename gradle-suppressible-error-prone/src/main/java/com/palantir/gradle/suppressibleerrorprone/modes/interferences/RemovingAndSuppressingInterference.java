@@ -22,7 +22,7 @@ import java.util.Set;
 
 public final class RemovingAndSuppressingInterference implements ModeInterference {
     @Override
-    public Set<ModeName> interferesWith(Set<ModeName> modeNames) {
+    public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.containsAll(Set.of(ModeName.REMOVE_ROLLOUT, ModeName.SUPPRESS))) {
             throw new IllegalStateException("%s cannot be used at the same time as %s"
                     .formatted(
@@ -30,6 +30,6 @@ public final class RemovingAndSuppressingInterference implements ModeInterferenc
                             ModeName.SUPPRESS.asGradlePropertyArgument()));
         }
 
-        return Set.of();
+        return ModeInterferenceResult.noInterference();
     }
 }
