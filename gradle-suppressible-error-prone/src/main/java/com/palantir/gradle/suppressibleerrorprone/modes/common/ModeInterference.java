@@ -58,12 +58,12 @@ public interface ModeInterference {
     }
 
     /**
-     * Modify the modeOptions if the flags interfere with each other.
-     * @param modeOptions A map from the {@link ModeName}s that were indicated to be interfering in
+     * Modify the modeCommonOptions if the flags interfere with each other.
+     * @param modeCommonOptions A map from the {@link ModeName}s that were indicated to be interfering in
      *                    {@link #interferesWith} to their corresponding {@link CommonOptions}.
      * @return The modified {@link CommonOptions} that will be used in place of the originals that the flags produced
      */
-    default CommonOptions interfere(Map<ModeName, CommonOptions> modeOptions) {
+    default CommonOptions interfere(Map<ModeName, CommonOptions> modeCommonOptions) {
         throw new IllegalStateException(("The interference for this class '%s' has not been implemented. "
                         + "This is a logic error by the class author as either `interferesWith` should throw or "
                         + "this method should be implemented.")

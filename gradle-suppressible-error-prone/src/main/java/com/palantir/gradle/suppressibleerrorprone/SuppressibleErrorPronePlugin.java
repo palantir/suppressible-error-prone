@@ -82,7 +82,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
 
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-            CommonOptions commonOptions = getModes().modeOptionsFor(javaCompile);
+            CommonOptions commonOptions = getModes().commonOptionsFor(javaCompile);
 
             configureJavaCompile(commonOptions, javaCompile);
 
@@ -95,7 +95,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // afterEvaluate inside a getTasks().configureEach(), so we have to do this separately here
         project.afterEvaluate(_ignored -> {
             project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-                CommonOptions commonOptions = getModes().modeOptionsFor(javaCompile);
+                CommonOptions commonOptions = getModes().commonOptionsFor(javaCompile);
                 afterEvaluateConfigureJavaCompile(commonOptions, javaCompile);
             });
         });

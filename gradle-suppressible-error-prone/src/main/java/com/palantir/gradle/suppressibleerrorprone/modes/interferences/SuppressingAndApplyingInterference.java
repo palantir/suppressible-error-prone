@@ -29,9 +29,9 @@ public final class SuppressingAndApplyingInterference extends SpecificModeInterf
     }
 
     @Override
-    public CommonOptions interfere(Map<ModeName, CommonOptions> modeOptions) {
-        CommonOptions suppress = modeOptions.get(ModeName.SUPPRESS);
-        CommonOptions apply = modeOptions.get(ModeName.APPLY);
+    public CommonOptions interfere(Map<ModeName, CommonOptions> modeCommonOptions) {
+        CommonOptions suppress = modeCommonOptions.get(ModeName.SUPPRESS);
+        CommonOptions apply = modeCommonOptions.get(ModeName.APPLY);
 
         // If we're applying suggested patches at the same time as suppressing, we still need to tell
         // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.

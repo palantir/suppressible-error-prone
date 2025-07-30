@@ -72,7 +72,7 @@ public abstract class Modes {
                 .collect(Collectors.toSet()));
     }
 
-    public final CommonOptions modeOptionsFor(JavaCompile javaCompile) {
+    public final CommonOptions commonOptionsFor(JavaCompile javaCompile) {
         Map<ModeName, Optional<String>> modeNameToFlagValue = modesEnabledAndFlagValues();
 
         Map<Set<ModeName>, ModeInterference> interferingModes = StreamEx.of(interferences)
@@ -85,27 +85,27 @@ public abstract class Modes {
         Set<ModeName> allInterferingModes =
                 interferingModes.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
 
-        Map<ModeName, CommonOptions> modeOptions = EntryStream.of(modeNameToFlagValue)
+        Map<ModeName, CommonOptions> commonOptions = EntryStream.of(modeNameToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
                     Mode mode = modes.get(flagName);
                     return mode.configureAndReturnCommonOptions(new ModeOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 
-        Map<Set<ModeName>, CommonOptions> interferingModeOptions = EntryStream.of(interferingModes)
+        Map<Set<ModeName>, CommonOptions> interferingCommonOptions = EntryStream.of(interferingModes)
                 .mapToValue((interferingModeNames, modeInterference) -> {
                     return modeInterference.interfere(StreamEx.of(interferingModeNames)
-                            .mapToEntry(modeOptions::get)
+                            .mapToEntry(commonOptions::get)
                             .toMap());
                 })
                 .toMap();
 
-        Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(modeOptions)
+        Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(commonOptions)
                 .filterKeys(Predicate.not(allInterferingModes::contains))
                 .values()
                 .toSet();
 
-        Set<CommonOptions> allCommonOptions = StreamEx.of(interferingModeOptions.values())
+        Set<CommonOptions> allCommonOptions = StreamEx.of(interferingCommonOptions.values())
                 .append(nonInterferingCommonOptions)
                 .collect(Collectors.toSet());
 
