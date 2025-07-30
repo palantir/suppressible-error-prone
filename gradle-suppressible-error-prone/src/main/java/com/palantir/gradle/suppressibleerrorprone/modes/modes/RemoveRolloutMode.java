@@ -23,6 +23,8 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption
 import java.util.Map;
 
 public final class RemoveRolloutMode implements Mode {
+    private static final String ALL_CHECKS = "";
+
     @Override
     public ModifyCheckApiOption modifyCheckApi() {
         // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
@@ -46,7 +48,7 @@ public final class RemoveRolloutMode implements Mode {
 
                 return Map.of(
                         "SuppressibleErrorProne:RemoveRolloutSuppressions",
-                        context.flagValue().orElse(""));
+                        context.flagValue().orElse(ALL_CHECKS));
             }
         };
     }
