@@ -89,7 +89,7 @@ public abstract class Modes {
                 })
                 .toMap();
 
-        Map<Interference, CommonOptions> commonOptionsAfterIntefering = EntryStream.of(interferingModes)
+        Map<Interference, CommonOptions> commonOptionsAfterInterfering = EntryStream.of(interferingModes)
                 .mapToValue((interference, modeInterference) -> {
                     return modeInterference.interfere(StreamEx.of(interference.interferingModes())
                             .mapToEntry(commonOptionsPerMode::get)
@@ -106,7 +106,7 @@ public abstract class Modes {
                 .values()
                 .toSet();
 
-        Set<CommonOptions> allCommonOptions = StreamEx.of(commonOptionsAfterIntefering.values())
+        Set<CommonOptions> allCommonOptions = StreamEx.of(commonOptionsAfterInterfering.values())
                 .append(nonInterferingCommonOptions)
                 .collect(Collectors.toSet());
 
