@@ -17,7 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorProneExtension;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions.DontCare;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions.DontCare;
 import java.util.Optional;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import org.gradle.api.file.ProjectLayout;
@@ -28,7 +28,7 @@ import org.gradle.api.tasks.compile.JavaCompile;
  * A Mode represents a mode of operation in suppressible-error-prone that is enabled or enabled by a gradle property
  * flag (see {@link ModeName}). Each mode will either require either the error_prone_check_api to be modified or not
  * (see {@link ModifyCheckApiOption}), and return options for configuration shared by multiple Modes
- * (see {@link CommonModeOptions}). Modes can interfere with each other, see {@link ModeInterference}.
+ * (see {@link CommonOptions}). Modes can interfere with each other, see {@link ModeInterference}.
  */
 public interface Mode {
     default ModifyCheckApiOption modifyCheckApi() {
@@ -36,10 +36,10 @@ public interface Mode {
     }
 
     /**
-     * Apply configuration specific to the mode or return the {@link CommonModeOptions} for this mode.
+     * Apply configuration specific to the mode or return the {@link CommonOptions} for this mode.
      * @param context Useful information to use to determine options or apply configuration
      */
-    default CommonModeOptions commonOptions(ModeOptionContext context) {
+    default CommonOptions configureAndReturnCommonOptions(ModeOptionContext context) {
         return DontCare.INSTANCE;
     }
 

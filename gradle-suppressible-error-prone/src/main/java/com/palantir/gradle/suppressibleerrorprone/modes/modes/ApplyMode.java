@@ -17,7 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
 import com.google.common.base.Splitter;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 import java.util.Set;
@@ -26,8 +26,8 @@ import net.ltgt.gradle.errorprone.CheckSeverity;
 
 public final class ApplyMode implements Mode {
     @Override
-    public CommonModeOptions commonOptions(ModeOptionContext context) {
-        return new CommonModeOptions() {
+    public CommonOptions configureAndReturnCommonOptions(ModeOptionContext context) {
+        return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
                 return PatchChecksOption.someChecks(() -> checksToApplySuggestedPatchesFor(context));

@@ -16,7 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.ModeOptionContext;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
@@ -46,7 +46,7 @@ import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 /**
- * Use this class to determine the final combination of {@link Mode}s and {@link CommonModeOptions} for the various
+ * Use this class to determine the final combination of {@link Mode}s and {@link CommonOptions} for the various
  * flags given to suppressible-error-prone.
  */
 public abstract class Modes {
@@ -72,7 +72,7 @@ public abstract class Modes {
                 .collect(Collectors.toSet()));
     }
 
-    public final CommonModeOptions modeOptionsFor(JavaCompile javaCompile) {
+    public final CommonOptions modeOptionsFor(JavaCompile javaCompile) {
         Map<ModeName, Optional<String>> modeNameToFlagValue = modesEnabledAndFlagValues();
 
         Map<Set<ModeName>, ModeInterference> interferingModes = StreamEx.of(interferences)
@@ -85,14 +85,14 @@ public abstract class Modes {
         Set<ModeName> allInterferingModes =
                 interferingModes.keySet().stream().flatMap(Set::stream).collect(Collectors.toSet());
 
-        Map<ModeName, CommonModeOptions> modeOptions = EntryStream.of(modeNameToFlagValue)
+        Map<ModeName, CommonOptions> modeOptions = EntryStream.of(modeNameToFlagValue)
                 .mapToValue((flagName, flagValue) -> {
                     Mode mode = modes.get(flagName);
-                    return mode.commonOptions(new ModeOptionContext(flagValue, javaCompile));
+                    return mode.configureAndReturnCommonOptions(new ModeOptionContext(flagValue, javaCompile));
                 })
                 .toMap();
 
-        Map<Set<ModeName>, CommonModeOptions> interferingModeOptions = EntryStream.of(interferingModes)
+        Map<Set<ModeName>, CommonOptions> interferingModeOptions = EntryStream.of(interferingModes)
                 .mapToValue((interferingModeNames, modeInterference) -> {
                     return modeInterference.interfere(StreamEx.of(interferingModeNames)
                             .mapToEntry(modeOptions::get)
@@ -100,16 +100,16 @@ public abstract class Modes {
                 })
                 .toMap();
 
-        Set<CommonModeOptions> nonInterferingCommonModeOptions = EntryStream.of(modeOptions)
+        Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(modeOptions)
                 .filterKeys(Predicate.not(allInterferingModes::contains))
                 .values()
                 .toSet();
 
-        Set<CommonModeOptions> allCommonModeOptions = StreamEx.of(interferingModeOptions.values())
-                .append(nonInterferingCommonModeOptions)
+        Set<CommonOptions> allCommonOptions = StreamEx.of(interferingModeOptions.values())
+                .append(nonInterferingCommonOptions)
                 .collect(Collectors.toSet());
 
-        return CommonModeOptions.naivelyCombine(allCommonModeOptions);
+        return CommonOptions.naivelyCombine(allCommonOptions);
     }
 
     private Map<ModeName, Optional<String>> modesEnabledAndFlagValues() {
