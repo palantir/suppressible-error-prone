@@ -64,6 +64,9 @@ public interface ModeInterference {
      * @return The modified {@link CommonOptions} that will be used in place of the originals that the flags produced
      */
     default CommonOptions interfere(Map<ModeName, CommonOptions> modeOptions) {
-        throw new UnsupportedOperationException("interfere is not implemented");
+        throw new IllegalStateException(("The interference for this class '%s' has not been implemented. "
+                        + "This is a logic error by the class author as either `interferesWith` should throw or "
+                        + "this method should be implemented.")
+                .formatted(getClass().getCanonicalName()));
     }
 }
