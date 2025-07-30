@@ -16,8 +16,8 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 
@@ -28,8 +28,8 @@ public final class SuppressMode implements Mode {
     }
 
     @Override
-    public ModeOptions options(ModeOptionContext context) {
-        return new ModeOptions() {
+    public CommonModeOptions options(ModeOptionContext context) {
+        return new CommonModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {
                 return PatchChecksOption.allChecks();

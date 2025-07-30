@@ -26,7 +26,7 @@ import one.util.streamex.EntryStream;
  * configure. This allows all the options from multiple modes to be combined, interfered between and
  * configured in a single place.
  */
-public interface ModeOptions {
+public interface CommonModeOptions {
     default PatchChecksOption patchChecks() {
         return PatchChecksOption.noChecks();
     }
@@ -35,28 +35,28 @@ public interface ModeOptions {
         return Map.of();
     }
 
-    default ModeOptions naivelyCombinedWith(ModeOptions other) {
-        return new ModeOptions() {
+    default CommonModeOptions naivelyCombinedWith(CommonModeOptions other) {
+        return new CommonModeOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return ModeOptions.this.patchChecks().combine(other.patchChecks());
+                return CommonModeOptions.this.patchChecks().combine(other.patchChecks());
             }
 
             @Override
             public Map<String, String> extraErrorProneCheckFlags() {
-                return EntryStream.of(ModeOptions.this.extraErrorProneCheckFlags())
+                return EntryStream.of(CommonModeOptions.this.extraErrorProneCheckFlags())
                         .append(other.extraErrorProneCheckFlags())
                         .toMap();
             }
         };
     }
 
-    static ModeOptions naivelyCombine(Collection<ModeOptions> modeOptions) {
-        return modeOptions.stream().reduce(ModeOptions.dontCare(), ModeOptions::naivelyCombinedWith);
+    static CommonModeOptions naivelyCombine(Collection<CommonModeOptions> commonModeOptions) {
+        return commonModeOptions.stream().reduce(CommonModeOptions.dontCare(), CommonModeOptions::naivelyCombinedWith);
     }
 
-    default ModeOptions withExtraErrorProneCheckFlag(String key, String value) {
-        return new DefaultModeOptions(this) {
+    default CommonModeOptions withExtraErrorProneCheckFlag(String key, String value) {
+        return new DefaultCommonModeOptions(this) {
             @Override
             public Map<String, String> extraErrorProneCheckFlags() {
                 Map<String, String> map = new HashMap<>(super.extraErrorProneCheckFlags());
@@ -66,19 +66,19 @@ public interface ModeOptions {
         };
     }
 
-    static ModeOptions dontCare() {
+    static CommonModeOptions dontCare() {
         return DontCare.INSTANCE;
     }
 
-    enum DontCare implements ModeOptions {
+    enum DontCare implements CommonModeOptions {
         INSTANCE
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")
-    class DefaultModeOptions implements ModeOptions {
-        private final ModeOptions originalOptions;
+    class DefaultCommonModeOptions implements CommonModeOptions {
+        private final CommonModeOptions originalOptions;
 
-        protected DefaultModeOptions(ModeOptions originalOptions) {
+        protected DefaultCommonModeOptions(CommonModeOptions originalOptions) {
             this.originalOptions = originalOptions;
         }
 

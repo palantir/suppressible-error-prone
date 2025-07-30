@@ -25,7 +25,7 @@ import java.util.Set;
 /**
  * {@link Mode}s can interfere with each other, for example, removing and suppressing are mutually exclusive.
  * Each of these provide a way to indicate which {@link ModeName}s interfere with each other and modify
- * the {@link ModeOptions} they produce in order to work properly together.
+ * the {@link CommonModeOptions} they produce in order to work properly together.
  */
 public interface ModeInterference {
     /**
@@ -60,10 +60,10 @@ public interface ModeInterference {
     /**
      * Modify the modeOptions if the flags interfere with each other.
      * @param modeOptions A map from the {@link ModeName}s that were indicated to be interfering in
-     *                    {@link #interferesWith} to their corresponding {@link ModeOptions}.
-     * @return The modified {@link ModeOptions} that will be used in place of the originals that the flags produced
+     *                    {@link #interferesWith} to their corresponding {@link CommonModeOptions}.
+     * @return The modified {@link CommonModeOptions} that will be used in place of the originals that the flags produced
      */
-    default ModeOptions interfere(Map<ModeName, ModeOptions> modeOptions) {
+    default CommonModeOptions interfere(Map<ModeName, CommonModeOptions> modeOptions) {
         throw new UnsupportedOperationException("interfere is not implemented");
     }
 }

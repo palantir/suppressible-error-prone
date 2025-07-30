@@ -16,8 +16,8 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.SpecificModeInterference;
 import java.util.Map;
 import java.util.Set;
@@ -29,9 +29,9 @@ public final class SuppressingAndApplyingInterference extends SpecificModeInterf
     }
 
     @Override
-    public ModeOptions interfere(Map<ModeName, ModeOptions> modeOptions) {
-        ModeOptions suppress = modeOptions.get(ModeName.SUPPRESS);
-        ModeOptions apply = modeOptions.get(ModeName.APPLY);
+    public CommonModeOptions interfere(Map<ModeName, CommonModeOptions> modeOptions) {
+        CommonModeOptions suppress = modeOptions.get(ModeName.SUPPRESS);
+        CommonModeOptions apply = modeOptions.get(ModeName.APPLY);
 
         // If we're applying suggested patches at the same time as suppressing, we still need to tell
         // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.

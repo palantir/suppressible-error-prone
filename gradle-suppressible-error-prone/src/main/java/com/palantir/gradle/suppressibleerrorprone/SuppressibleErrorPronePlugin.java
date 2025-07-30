@@ -17,7 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.Modes;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.util.List;
@@ -82,12 +82,12 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
 
         project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-            ModeOptions modeOptions = getModes().modeOptionsFor(javaCompile);
+            CommonModeOptions commonModeOptions = getModes().modeOptionsFor(javaCompile);
 
-            configureJavaCompile(modeOptions, javaCompile);
+            configureJavaCompile(commonModeOptions, javaCompile);
 
             configureErrorProneOptions(javaCompile, errorProneOptions -> {
-                setupErrorProneOptions(modeOptions, errorProneOptions);
+                setupErrorProneOptions(commonModeOptions, errorProneOptions);
             });
         });
 
@@ -95,8 +95,8 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // afterEvaluate inside a getTasks().configureEach(), so we have to do this separately here
         project.afterEvaluate(_ignored -> {
             project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-                ModeOptions modeOptions = getModes().modeOptionsFor(javaCompile);
-                afterEvaluateConfigureJavaCompile(modeOptions, javaCompile);
+                CommonModeOptions commonModeOptions = getModes().modeOptionsFor(javaCompile);
+                afterEvaluateConfigureJavaCompile(commonModeOptions, javaCompile);
             });
         });
 
@@ -166,14 +166,14 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private static void configureJavaCompile(ModeOptions modeOptions, JavaCompile javaCompile) {
+    private static void configureJavaCompile(CommonModeOptions commonModeOptions, JavaCompile javaCompile) {
         // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
-        javaCompile.getOutputs().cacheIf(t -> !modeOptions.patchChecks().anyChecks());
-        javaCompile.getOutputs().upToDateWhen(t -> !modeOptions.patchChecks().anyChecks());
+        javaCompile.getOutputs().cacheIf(t -> !commonModeOptions.patchChecks().anyChecks());
+        javaCompile.getOutputs().upToDateWhen(t -> !commonModeOptions.patchChecks().anyChecks());
     }
 
-    private static void afterEvaluateConfigureJavaCompile(ModeOptions modeOptions, JavaCompile javaCompile) {
-        if (modeOptions.patchChecks().anyChecks()) {
+    private static void afterEvaluateConfigureJavaCompile(CommonModeOptions commonModeOptions, JavaCompile javaCompile) {
+        if (commonModeOptions.patchChecks().anyChecks()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
@@ -188,7 +188,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         }
     }
 
-    private void setupErrorProneOptions(ModeOptions modeOptions, ErrorProneOptions errorProneOptions) {
+    private void setupErrorProneOptions(CommonModeOptions commonModeOptions, ErrorProneOptions errorProneOptions) {
         // This doesn't seem to do what you'd expect: disabling the checks in the generated code. But it was enabled
         // when this code lived in baseline, so we'll keep it enabled.
         errorProneOptions.getDisableWarningsInGeneratedCode().set(true);
@@ -198,7 +198,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
             @Override
             public Iterable<String> asArguments() {
-                return modeOptions
+                return commonModeOptions
                         .patchChecks()
                         .asCommaSeparated()
                         .map(commaSeparated ->
@@ -209,7 +209,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions
                 .getCheckOptions()
-                .putAll(getProviderFactory().provider(modeOptions::extraErrorProneCheckFlags));
+                .putAll(getProviderFactory().provider(commonModeOptions::extraErrorProneCheckFlags));
 
         // We disable this to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check. If the remove rollout mode is enabled,

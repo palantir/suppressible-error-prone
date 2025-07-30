@@ -16,13 +16,13 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonModeOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeOptions;
 
 public final class DisableMode implements Mode {
 
     @Override
-    public ModeOptions options(ModeOptionContext context) {
+    public CommonModeOptions options(ModeOptionContext context) {
         // Options (including historical backcompat from when this logic live in gradle-baseline):
         //   -PerrorProneDisable
         //   -Pcom.palantir.baseline-error-prone.disable
@@ -36,6 +36,6 @@ public final class DisableMode implements Mode {
                         .map(value -> !Boolean.parseBoolean(value))
                         .orElse(false));
 
-        return ModeOptions.dontCare();
+        return CommonModeOptions.dontCare();
     }
 }
