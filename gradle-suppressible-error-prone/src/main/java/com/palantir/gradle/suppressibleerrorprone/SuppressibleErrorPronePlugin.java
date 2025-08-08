@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import net.ltgt.gradle.errorprone.CheckSeverity;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import net.ltgt.gradle.errorprone.ErrorPronePlugin;
@@ -333,7 +334,15 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
                         return List.of();
                     }
 
-                    return List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + String.join(",", patchChecks));
+                    // Add validation by enabling each check at WARN level
+                    return Stream.concat(
+                                    Stream.of(
+                                            "-XepPatchLocation:IN_PLACE",
+                                            "-XepPatchChecks:" + String.join(",", patchChecks)),
+                                    patchChecks.stream()
+                                            .filter(checkName -> errorProneOptions.getChecks().getting(checkName).getOrNull() == null)
+                                            .map(checkName -> "-Xep:" + checkName + ":WARN"))
+                            .toList();
                 }
             });
         }
@@ -362,7 +371,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static List<String> checksToRemoveSuppressionsFor(Project project) {
-        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+        String possibleChecksToRemove = (String) project.findProperty(ERROR_PRONE_REMOVE_SUPPRESSIONS);
 
         // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
         // We can't explicitly list all possible checks, because some might not exist anymore
