@@ -371,7 +371,7 @@ public final class SuppressibleErrorPronePlugin implements Plugin<Project> {
     }
 
     private static List<String> checksToRemoveSuppressionsFor(Project project) {
-        String possibleChecksToRemove = (String) project.findProperty(ERROR_PRONE_REMOVE_SUPPRESSIONS);
+        String possibleChecksToRemove = (String) project.property(ERROR_PRONE_REMOVE_SUPPRESSIONS);
 
         // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
         // We can't explicitly list all possible checks, because some might not exist anymore
