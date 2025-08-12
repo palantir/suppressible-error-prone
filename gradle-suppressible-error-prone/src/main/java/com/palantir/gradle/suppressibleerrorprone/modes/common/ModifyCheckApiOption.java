@@ -31,20 +31,6 @@ import java.util.stream.Collectors;
  * sensibly.
  */
 public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, MustModify {
-    enum DoNotModify implements ModifyCheckApiOption, CombinedValue {
-        INSTANCE
-    }
-
-    enum DontCare implements ModifyCheckApiOption {
-        INSTANCE
-    }
-
-    record MustModify(boolean modifyVisitorState) implements ModifyCheckApiOption, CombinedValue {
-        public MustModify combine(MustModify other) {
-            return new MustModify(modifyVisitorState || other.modifyVisitorState);
-        }
-    }
-
     static ModifyCheckApiOption doNotModify() {
         return DoNotModify.INSTANCE;
     }
@@ -59,6 +45,20 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
 
     static ModifyCheckApiOption mustModifyIncludingVisitorState() {
         return new MustModify(true);
+    }
+
+    enum DoNotModify implements ModifyCheckApiOption, CombinedValue {
+        INSTANCE
+    }
+
+    enum DontCare implements ModifyCheckApiOption {
+        INSTANCE
+    }
+
+    record MustModify(boolean modifyVisitorState) implements ModifyCheckApiOption, CombinedValue {
+        public MustModify combine(MustModify other) {
+            return new MustModify(modifyVisitorState || other.modifyVisitorState);
+        }
     }
 
     sealed interface CombinedValue permits DoNotModify, MustModify {}
