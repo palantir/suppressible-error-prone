@@ -22,7 +22,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOpt
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import one.util.streamex.StreamEx;
 
 /**
  * suppressible-error-prone is powered by an artifact transform that modifies the error_prone_check_api jar.
@@ -64,9 +64,9 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
     sealed interface CombinedValue permits DoNotModify, MustModify {}
 
     static CombinedValue combine(Collection<ModifyCheckApiOption> options) {
-        Set<ModifyCheckApiOption> withoutDontCares = options.stream()
-                .filter(Predicate.not(Predicate.isEqual(DontCare.INSTANCE)))
-                .collect(Collectors.toSet());
+        Set<ModifyCheckApiOption> withoutDontCares = StreamEx.of(options)
+                .remove(Predicate.isEqual(DontCare.INSTANCE))
+                .toSet();
 
         if (withoutDontCares.isEmpty()) {
             // By default, we need to modify the check API to support for-rollout suppressions
