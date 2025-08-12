@@ -16,6 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes;
 
+import com.google.common.collect.Iterables;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.ModeOptionContext;
@@ -102,13 +103,13 @@ public abstract class Modes {
                 .collect(Collectors.toSet());
 
         Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(commonOptionsPerMode)
-                .filterKeys(Predicate.not(allInterferingModes::contains))
+                .removeKeys(allInterferingModes::contains)
                 .values()
                 .toSet();
 
         Set<CommonOptions> allCommonOptions = StreamEx.of(commonOptionsAfterInterfering.values())
                 .append(nonInterferingCommonOptions)
-                .collect(Collectors.toSet());
+                .toSet();
 
         return CommonOptions.naivelyCombine(allCommonOptions);
     }
@@ -133,8 +134,7 @@ public abstract class Modes {
                                         + flagValuesToNames);
                     }
 
-                    return Map.of(
-                            modeName, flagValuesToNames.keySet().iterator().next());
+                    return Map.of(modeName, Iterables.getOnlyElement(flagValuesToNames.keySet()));
                 })
                 .mapValues(value -> Optional.of(value).filter(Predicate.not(String::isBlank)))
                 .toMap();
