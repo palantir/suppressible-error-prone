@@ -56,14 +56,9 @@ public interface CommonOptions {
     }
 
     default CommonOptions withExtraErrorProneCheckFlag(String key, String value) {
-        return new DefaultCommonOptions(this) {
-            @Override
-            public Map<String, String> extraErrorProneCheckFlags() {
-                Map<String, String> map = new HashMap<>(super.extraErrorProneCheckFlags());
-                map.put(key, value);
-                return map;
-            }
-        };
+        Map<String, String> map = new HashMap<>(extraErrorProneCheckFlags());
+        map.put(key, value);
+        return new DefaultCommonOptions(patchChecks(), map);
     }
 
     static CommonOptions dontCare() {
@@ -75,21 +70,6 @@ public interface CommonOptions {
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")
-    class DefaultCommonOptions implements CommonOptions {
-        private final CommonOptions originalOptions;
-
-        protected DefaultCommonOptions(CommonOptions originalOptions) {
-            this.originalOptions = originalOptions;
-        }
-
-        @Override
-        public PatchChecksOption patchChecks() {
-            return originalOptions.patchChecks();
-        }
-
-        @Override
-        public Map<String, String> extraErrorProneCheckFlags() {
-            return originalOptions.extraErrorProneCheckFlags();
-        }
-    }
+    record DefaultCommonOptions(PatchChecksOption patchChecks, Map<String, String> extraErrorProneCheckFlags)
+            implements CommonOptions {}
 }
