@@ -53,31 +53,31 @@ class ModifyCheckApiOptionTest {
     }
 
     @Test
-    void combining_only_dont_care_returns_must_modify() {
+    void combining_only_no_effect_returns_must_modify() {
         assertThat(ModifyCheckApiOption.combine(
-                        List.of(ModifyCheckApiOption.dontCare(), ModifyCheckApiOption.dontCare())))
+                        List.of(ModifyCheckApiOption.noEffect(), ModifyCheckApiOption.noEffect())))
                 .isEqualTo(new MustModify(false));
     }
 
     @Test
-    void combining_do_not_modify_with_dont_care_returns_do_not_modify() {
+    void combining_do_not_modify_with_no_effect_returns_do_not_modify() {
 
         assertThat(ModifyCheckApiOption.combine(
-                        List.of(ModifyCheckApiOption.doNotModify(), ModifyCheckApiOption.dontCare())))
+                        List.of(ModifyCheckApiOption.doNotModify(), ModifyCheckApiOption.noEffect())))
                 .isEqualTo(DoNotModify.INSTANCE);
     }
 
     @Test
-    void combining_must_modify_with_dont_care_causes_no_change() {
+    void combining_must_modify_with_no_effect_causes_no_change() {
         assertThat(ModifyCheckApiOption.combine(
-                        List.of(ModifyCheckApiOption.mustModify(), ModifyCheckApiOption.dontCare())))
+                        List.of(ModifyCheckApiOption.mustModify(), ModifyCheckApiOption.noEffect())))
                 .isEqualTo(new MustModify(false));
     }
 
     @Test
-    void combining_must_modify_including_visitor_state_with_dont_care_causes_no_change() {
+    void combining_must_modify_including_visitor_state_with_no_effect_causes_no_change() {
         assertThat(ModifyCheckApiOption.combine(List.of(
-                        ModifyCheckApiOption.mustModifyIncludingVisitorState(), ModifyCheckApiOption.dontCare())))
+                        ModifyCheckApiOption.mustModifyIncludingVisitorState(), ModifyCheckApiOption.noEffect())))
                 .isEqualTo(new MustModify(true));
     }
 
@@ -86,7 +86,7 @@ class ModifyCheckApiOptionTest {
         assertThat(ModifyCheckApiOption.combine(List.of(
                         ModifyCheckApiOption.mustModify(),
                         ModifyCheckApiOption.mustModifyIncludingVisitorState(),
-                        ModifyCheckApiOption.dontCare())))
+                        ModifyCheckApiOption.noEffect())))
                 .isEqualTo(new MustModify(true));
     }
 

@@ -32,7 +32,7 @@ import org.gradle.api.tasks.compile.JavaCompile;
  */
 public interface Mode {
     default ModifyCheckApiOption modifyCheckApi() {
-        return ModifyCheckApiOption.dontCare();
+        return ModifyCheckApiOption.noEffect();
     }
 
     /**

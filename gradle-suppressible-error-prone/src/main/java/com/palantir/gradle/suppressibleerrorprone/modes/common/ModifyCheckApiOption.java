@@ -17,8 +17,8 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DoNotModify;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DontCare;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.MustModify;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.NoEffect;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -30,13 +30,15 @@ import one.util.streamex.StreamEx;
  * the VisitorState class modified), and some don't care. This class represents these states and allows combining them
  * sensibly.
  */
-public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, MustModify {
+public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, MustModify {
+    // TODO(callumr): javadoc
     static ModifyCheckApiOption doNotModify() {
         return DoNotModify.INSTANCE;
     }
 
-    static ModifyCheckApiOption dontCare() {
-        return DontCare.INSTANCE;
+    // TODO(callumr): no dont care
+    static ModifyCheckApiOption noEffect() {
+        return NoEffect.INSTANCE;
     }
 
     static ModifyCheckApiOption mustModify() {
@@ -51,7 +53,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
         INSTANCE
     }
 
-    enum DontCare implements ModifyCheckApiOption {
+    enum NoEffect implements ModifyCheckApiOption {
         INSTANCE
     }
 
@@ -65,7 +67,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, DontCare, Must
 
     static CombinedValue combine(Collection<ModifyCheckApiOption> options) {
         Set<ModifyCheckApiOption> withoutDontCares = StreamEx.of(options)
-                .remove(Predicate.isEqual(DontCare.INSTANCE))
+                .remove(Predicate.isEqual(NoEffect.INSTANCE))
                 .toSet();
 
         if (withoutDontCares.isEmpty()) {
