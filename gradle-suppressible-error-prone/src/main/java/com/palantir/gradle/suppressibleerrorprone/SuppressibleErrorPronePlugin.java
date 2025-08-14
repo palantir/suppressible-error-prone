@@ -81,22 +81,16 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                             .create("com.palantir.suppressible-error-prone:suppressible-error-prone:" + version));
         });
 
-        project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
-            CommonOptions commonOptions = getModes().commonOptionsFor(javaCompile);
-
-            configureJavaCompile(commonOptions, javaCompile);
-
-            configureErrorProneOptions(javaCompile, errorProneOptions -> {
-                setupErrorProneOptions(commonOptions, errorProneOptions);
-            });
-        });
-
         // Some JavaCompile configuration needs to happen in an afterEvaluate block - however, you can't call
-        // afterEvaluate inside a getTasks().configureEach(), so we have to do this separately here
+        // afterEvaluate inside a getTasks().configureEach(), so we have to configure all the tasks in afterEvaluate
         project.afterEvaluate(_ignored -> {
             project.getTasks().withType(JavaCompile.class).configureEach(javaCompile -> {
                 CommonOptions commonOptions = getModes().commonOptionsFor(javaCompile);
-                afterEvaluateConfigureJavaCompile(commonOptions, javaCompile);
+                configureJavaCompile(commonOptions, javaCompile);
+
+                configureErrorProneOptions(javaCompile, errorProneOptions -> {
+                    setupErrorProneOptions(commonOptions, errorProneOptions);
+                });
             });
         });
 
@@ -170,14 +164,14 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
         javaCompile.getOutputs().cacheIf(t -> !commonOptions.patchChecks().anyChecks());
         javaCompile.getOutputs().upToDateWhen(t -> !commonOptions.patchChecks().anyChecks());
-    }
 
-    private static void afterEvaluateConfigureJavaCompile(CommonOptions commonOptions, JavaCompile javaCompile) {
         if (commonOptions.patchChecks().anyChecks()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
             javaCompile.getOptions().setDeprecation(false);
+            // This needs to be done in afterEvaluate because we're reading the existing values, which may
+            // not be fully set when the plugin is applied.
             javaCompile
                     .getOptions()
                     .setCompilerArgs(javaCompile.getOptions().getCompilerArgs().stream()
