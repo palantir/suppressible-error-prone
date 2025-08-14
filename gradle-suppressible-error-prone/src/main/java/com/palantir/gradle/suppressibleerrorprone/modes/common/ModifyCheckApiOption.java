@@ -31,20 +31,32 @@ import one.util.streamex.StreamEx;
  * sensibly.
  */
 public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, MustModify {
-    // TODO(callumr): javadoc
+    /**
+     * The error_prone_check_api jar must not be modified.
+     */
     static ModifyCheckApiOption doNotModify() {
         return DoNotModify.INSTANCE;
     }
 
-    // TODO(callumr): no dont care
+    /**
+     * It doesn't matter whether the error_prone_check_api jar is modified or not. This will have no effect on the
+     * decision made.
+     */
     static ModifyCheckApiOption noEffect() {
         return NoEffect.INSTANCE;
     }
 
+    /**
+     * The error_prone_check_api jar must be modified to allow `for-rollout:` suppressions to work.
+     */
     static ModifyCheckApiOption mustModify() {
         return new MustModify(false);
     }
 
+    /**
+     * The error_prone_check_api jar must be modified to allow `for-rollout:` suppressions to work, and VisitorState
+     * must be modified to intercept reportMatch.
+     */
     static ModifyCheckApiOption mustModifyIncludingVisitorState() {
         return new MustModify(true);
     }
