@@ -17,6 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Set;
 
@@ -24,7 +25,7 @@ public final class RemovingAndSuppressingInterference implements ModeInterferenc
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.containsAll(Set.of(ModeName.REMOVE_ROLLOUT, ModeName.SUPPRESS))) {
-            throw new IllegalStateException("%s cannot be used at the same time as %s"
+            return ModeInterferenceResult.notCompatible("%s cannot be used at the same time as %s"
                     .formatted(
                             ModeName.REMOVE_ROLLOUT.asGradlePropertyArgument(),
                             ModeName.SUPPRESS.asGradlePropertyArgument()));

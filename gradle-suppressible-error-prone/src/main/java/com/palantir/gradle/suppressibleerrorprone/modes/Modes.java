@@ -21,7 +21,9 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode.ModeOptionContext;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference.ModeInterferenceResult.Interference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult.Interference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult.NotCompatible;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.CombinedValue;
@@ -76,10 +78,23 @@ public abstract class Modes {
     public final CommonOptions commonOptionsFor(JavaCompile javaCompile) {
         Map<ModeName, Optional<String>> modeNameToFlagValue = modesEnabledAndFlagValues();
 
-        Map<Interference, ModeInterference> interferingModes = StreamEx.of(interferences)
+        Map<ModeInterference, ModeInterferenceResult> interferenceResults = StreamEx.of(interferences)
                 .mapToEntry(interference -> interference.interferesWith(modeNameToFlagValue.keySet()))
-                .filterValues(modeInterferenceResult -> modeInterferenceResult instanceof Interference)
-                .mapValues(modeInterferenceResult -> (Interference) modeInterferenceResult)
+                .toMap();
+
+        Set<NotCompatible> notCompatibles = StreamEx.of(interferenceResults.values())
+                .select(NotCompatible.class)
+                .toSet();
+
+        if (!notCompatibles.isEmpty()) {
+            throw new IllegalStateException("Flags were used which are incompatible:\n"
+                    + notCompatibles.stream()
+                            .map(notCompatible -> "* " + notCompatible.message())
+                            .collect(Collectors.joining("\n")));
+        }
+
+        Map<Interference, ModeInterference> interferingModes = EntryStream.of(interferenceResults)
+                .selectValues(Interference.class)
                 .invert()
                 .toMap();
 

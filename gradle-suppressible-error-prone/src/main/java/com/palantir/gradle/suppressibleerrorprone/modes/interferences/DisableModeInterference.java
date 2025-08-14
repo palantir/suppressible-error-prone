@@ -17,6 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -26,13 +27,13 @@ public final class DisableModeInterference implements ModeInterference {
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.contains(ModeName.DISABLE) && modeNames.size() > 1) {
-            throw new IllegalStateException("%s cannot be used at the same time as any of %s"
+            return ModeInterferenceResult.notCompatible(("%s cannot be used at the same time as any of %s"
                     .formatted(
                             ModeName.DISABLE.asGradlePropertyArgument(),
                             modeNames.stream()
                                     .filter(Predicate.not(Predicate.isEqual(ModeName.DISABLE)))
                                     .map(ModeName::asGradlePropertyArgument)
-                                    .collect(Collectors.joining(", "))));
+                                    .collect(Collectors.joining(", ")))));
         }
 
         return ModeInterferenceResult.noInterference();
