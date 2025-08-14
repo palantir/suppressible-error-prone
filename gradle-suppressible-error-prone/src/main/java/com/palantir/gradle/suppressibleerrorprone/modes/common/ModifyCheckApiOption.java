@@ -78,17 +78,17 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
     sealed interface CombinedValue permits DoNotModify, MustModify {}
 
     static CombinedValue combine(Collection<ModifyCheckApiOption> options) {
-        Set<ModifyCheckApiOption> withoutDontCares = StreamEx.of(options)
+        Set<ModifyCheckApiOption> withoutNoEffects = StreamEx.of(options)
                 .remove(Predicate.isEqual(NoEffect.INSTANCE))
                 .toSet();
 
-        if (withoutDontCares.isEmpty()) {
+        if (withoutNoEffects.isEmpty()) {
             // By default, we need to modify the check API to support for-rollout suppressions
             return new MustModify(false);
         }
 
-        boolean doNotModify = withoutDontCares.contains(DoNotModify.INSTANCE);
-        boolean mustModify = withoutDontCares.stream().anyMatch(option -> option instanceof MustModify);
+        boolean doNotModify = withoutNoEffects.contains(DoNotModify.INSTANCE);
+        boolean mustModify = withoutNoEffects.stream().anyMatch(option -> option instanceof MustModify);
 
         if (doNotModify && mustModify) {
             throw new IllegalStateException("Cannot have both do not modify and must modify");
@@ -98,7 +98,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
             return DoNotModify.INSTANCE;
         }
 
-        return withoutDontCares.stream()
+        return withoutNoEffects.stream()
                 .map(MustModify.class::cast)
                 .reduce(MustModify::combine)
                 .get();
