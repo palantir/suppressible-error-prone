@@ -113,9 +113,9 @@ public abstract class Modes {
                 })
                 .toMap();
 
-        Set<ModeName> allInterferingModes = interferingModes.keySet().stream()
+        Set<ModeName> allInterferingModes = StreamEx.of(interferingModes.keySet())
                 .flatMap(interference -> interference.interferingModes().stream())
-                .collect(Collectors.toSet());
+                .toSet();
 
         Set<CommonOptions> nonInterferingCommonOptions = EntryStream.of(commonOptionsPerMode)
                 .removeKeys(allInterferingModes::contains)
