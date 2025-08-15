@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import one.util.streamex.StreamEx;
 
 /**
  * Error Prone has two different ways to patch checks, either you can patch *all* the checks or just patch specific
@@ -41,9 +41,9 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
         }
 
         if (this instanceof PossiblySomeChecks thisSome && other instanceof PossiblySomeChecks otherSome) {
-            return new PossiblySomeChecks(
-                    () -> Stream.concat(thisSome.patchChecks().stream(), otherSome.patchChecks().stream())
-                            .collect(Collectors.toSet()));
+            return new PossiblySomeChecks(() -> StreamEx.of(thisSome.patchChecks())
+                    .append(otherSome.patchChecks())
+                    .toSet());
         }
 
         throw new IllegalArgumentException("Must be an instance of AllChecks or SomeChecks");
