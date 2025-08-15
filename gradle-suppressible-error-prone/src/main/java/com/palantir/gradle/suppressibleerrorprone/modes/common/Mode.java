@@ -17,7 +17,7 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorProneExtension;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions.NoEffect;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions.Empty;
 import java.util.Optional;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import org.gradle.api.file.ProjectLayout;
@@ -40,7 +40,7 @@ public interface Mode {
      * @param context Useful information to use to determine options or apply configuration
      */
     default CommonOptions configureAndReturnCommonOptions(ModeOptionContext context) {
-        return NoEffect.INSTANCE;
+        return Empty.INSTANCE;
     }
 
     record ModeOptionContext(Optional<String> flagValue, JavaCompile javaCompile) {

@@ -53,7 +53,7 @@ public interface CommonOptions extends Serializable {
     }
 
     static CommonOptions naivelyCombine(Collection<CommonOptions> commonOptions) {
-        return commonOptions.stream().reduce(CommonOptions.noEffect(), CommonOptions::naivelyCombinedWith);
+        return commonOptions.stream().reduce(CommonOptions.empty(), CommonOptions::naivelyCombinedWith);
     }
 
     default CommonOptions withExtraErrorProneCheckFlag(String key, String value) {
@@ -63,13 +63,13 @@ public interface CommonOptions extends Serializable {
     }
 
     /**
-     * These options are the defaults and have no effect when combined with other options.
+     * These options are the default empty values and have no effect when combined with other options.
      */
-    static CommonOptions noEffect() {
-        return NoEffect.INSTANCE;
+    static CommonOptions empty() {
+        return Empty.INSTANCE;
     }
 
-    enum NoEffect implements CommonOptions {
+    enum Empty implements CommonOptions {
         INSTANCE
     }
 
