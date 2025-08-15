@@ -31,7 +31,7 @@ import one.util.streamex.StreamEx;
  * checks and another mode patches specific checks, then the combined option will patch all checks.
  */
 public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks {
-    boolean anyChecks();
+    boolean hasChecks();
 
     Optional<String> asCommaSeparated();
 
@@ -69,7 +69,7 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
         INSTANCE;
 
         @Override
-        public boolean anyChecks() {
+        public boolean hasChecks() {
             return true;
         }
 
@@ -94,7 +94,7 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
         }
 
         @Override
-        public boolean anyChecks() {
+        public boolean hasChecks() {
             return !patchChecks.get().isEmpty();
         }
 

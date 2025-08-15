@@ -32,11 +32,11 @@ class PatchChecksOptionTest {
     }
 
     @Test
-    void any_checks_returns_true_for_non_empty_checks_and_false_for_empty_checks() {
-        assertThat(PatchChecksOption.noChecks().anyChecks()).isFalse();
-        assertThat(PatchChecksOption.someChecks().anyChecks()).isFalse();
-        assertThat(PatchChecksOption.someChecks("check1", "check2").anyChecks()).isTrue();
-        assertThat(PatchChecksOption.allChecks().anyChecks()).isTrue();
+    void hasChecks_returns_true_for_non_empty_checks_and_false_for_empty_checks() {
+        assertThat(PatchChecksOption.noChecks().hasChecks()).isFalse();
+        assertThat(PatchChecksOption.someChecks().hasChecks()).isFalse();
+        assertThat(PatchChecksOption.someChecks("check1", "check2").hasChecks()).isTrue();
+        assertThat(PatchChecksOption.allChecks().hasChecks()).isTrue();
     }
 
     @Test
