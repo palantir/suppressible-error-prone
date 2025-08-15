@@ -21,6 +21,10 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceR
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Set;
 
+/**
+ * Removing and suppressing cannot run at the same time, as removing just runs an errorprone to remove the for-rollout:
+ * suppressions - if suppressing happened at the same time, this errorprone would just get suppressed.
+ */
 public final class RemovingAndSuppressingInterference implements ModeInterference {
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
