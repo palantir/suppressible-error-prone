@@ -36,6 +36,6 @@ public final class DisableMode implements Mode {
                         .map(value -> !Boolean.parseBoolean(value))
                         .orElse(false));
 
-        return CommonOptions.dontCare();
+        return CommonOptions.noEffect();
     }
 }

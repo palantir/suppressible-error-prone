@@ -52,7 +52,7 @@ public interface CommonOptions {
     }
 
     static CommonOptions naivelyCombine(Collection<CommonOptions> commonOptions) {
-        return commonOptions.stream().reduce(CommonOptions.dontCare(), CommonOptions::naivelyCombinedWith);
+        return commonOptions.stream().reduce(CommonOptions.noEffect(), CommonOptions::naivelyCombinedWith);
     }
 
     default CommonOptions withExtraErrorProneCheckFlag(String key, String value) {
@@ -61,11 +61,14 @@ public interface CommonOptions {
         return new DefaultCommonOptions(patchChecks(), map);
     }
 
-    static CommonOptions dontCare() {
-        return DontCare.INSTANCE;
+    /**
+     * These options are the defaults and have no effect when combined with other options.
+     */
+    static CommonOptions noEffect() {
+        return NoEffect.INSTANCE;
     }
 
-    enum DontCare implements CommonOptions {
+    enum NoEffect implements CommonOptions {
         INSTANCE
     }
 
