@@ -21,7 +21,6 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 import java.util.Map;
-import org.gradle.api.artifacts.ConfigurationContainer;
 
 public final class RemoveRolloutMode implements Mode {
     private static final String ALL_CHECKS = "";
@@ -35,8 +34,6 @@ public final class RemoveRolloutMode implements Mode {
 
     @Override
     public CommonOptions configureAndReturnCommonOptions(ModeOptionContext context) {
-        ConfigurationContainer cc;
-        cc.resolvable()
         return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
