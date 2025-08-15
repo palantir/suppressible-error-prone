@@ -69,10 +69,11 @@ public abstract class Modes {
             new SuppressingAndApplyingInterference());
 
     public final CombinedValue modifyCheckApi() {
-        return ModifyCheckApiOption.combine(modesEnabledAndFlagValues().keySet().stream()
-                .map(modes::get)
-                .map(Mode::modifyCheckApi)
-                .collect(Collectors.toSet()));
+        return ModifyCheckApiOption.combine(
+                StreamEx.of(modesEnabledAndFlagValues().keySet())
+                        .map(modes::get)
+                        .map(Mode::modifyCheckApi)
+                        .toSet());
     }
 
     public final CommonOptions commonOptionsFor(JavaCompile javaCompile) {
