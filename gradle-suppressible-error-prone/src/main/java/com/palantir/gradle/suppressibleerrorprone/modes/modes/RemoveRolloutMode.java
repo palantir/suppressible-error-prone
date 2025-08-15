@@ -21,6 +21,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 import java.util.Map;
+import org.gradle.api.artifacts.ConfigurationContainer;
 
 public final class RemoveRolloutMode implements Mode {
     private static final String ALL_CHECKS = "";
@@ -34,6 +35,8 @@ public final class RemoveRolloutMode implements Mode {
 
     @Override
     public CommonOptions configureAndReturnCommonOptions(ModeOptionContext context) {
+        ConfigurationContainer cc;
+        cc.resolvable()
         return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
@@ -41,7 +44,7 @@ public final class RemoveRolloutMode implements Mode {
             }
 
             @Override
-            public Map<String, String> extraErrorProneCheckFlags() {
+            public Map<String, String> extraErrorProneCheckOptions() {
                 // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
                 // We can't explicitly list all possible checks, because some might not exist anymore
                 // The logic itself needs to consider an empty list as "remove all"

@@ -16,6 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,12 +27,12 @@ import one.util.streamex.EntryStream;
  * configure. This allows all the options from multiple modes to be combined, interfered between and
  * configured in a single place.
  */
-public interface CommonOptions {
+public interface CommonOptions extends Serializable {
     default PatchChecksOption patchChecks() {
         return PatchChecksOption.noChecks();
     }
 
-    default Map<String, String> extraErrorProneCheckFlags() {
+    default Map<String, String> extraErrorProneCheckOptions() {
         return Map.of();
     }
 
@@ -43,9 +44,9 @@ public interface CommonOptions {
             }
 
             @Override
-            public Map<String, String> extraErrorProneCheckFlags() {
-                return EntryStream.of(CommonOptions.this.extraErrorProneCheckFlags())
-                        .append(other.extraErrorProneCheckFlags())
+            public Map<String, String> extraErrorProneCheckOptions() {
+                return EntryStream.of(CommonOptions.this.extraErrorProneCheckOptions())
+                        .append(other.extraErrorProneCheckOptions())
                         .toMap();
             }
         };
@@ -56,7 +57,7 @@ public interface CommonOptions {
     }
 
     default CommonOptions withExtraErrorProneCheckFlag(String key, String value) {
-        Map<String, String> map = new HashMap<>(extraErrorProneCheckFlags());
+        Map<String, String> map = new HashMap<>(extraErrorProneCheckOptions());
         map.put(key, value);
         return new DefaultCommonOptions(patchChecks(), map);
     }
@@ -73,6 +74,6 @@ public interface CommonOptions {
     }
 
     @SuppressWarnings("checkstyle:DesignForExtension")
-    record DefaultCommonOptions(PatchChecksOption patchChecks, Map<String, String> extraErrorProneCheckFlags)
+    record DefaultCommonOptions(PatchChecksOption patchChecks, Map<String, String> extraErrorProneCheckOptions)
             implements CommonOptions {}
 }
