@@ -39,23 +39,23 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
     }
 
     /**
-     * It doesn't matter whether the {@code error_prone_check_api} jar is modified or not. This will have no effect on the
-     * decision made.
+     * It doesn't matter whether the {@code error_prone_check_api} jar is modified or not. This will have no effect
+     * on the decision made.
      */
     static ModifyCheckApiOption noEffect() {
         return NoEffect.INSTANCE;
     }
 
     /**
-     * The {@code error_prone_check_api} jar must be modified to allow `for-rollout:` suppressions to work.
+     * The {@code error_prone_check_api} jar must be modified to allow {@code `for-rollout:`} suppressions to work.
      */
     static ModifyCheckApiOption mustModify() {
         return new MustModify(false);
     }
 
     /**
-     * The {@code error_prone_check_api} jar must be modified to allow `for-rollout:` suppressions to work, and VisitorState
-     * must be modified to intercept reportMatch.
+     * The {@code error_prone_check_api} jar must be modified to allow {@code `for-rollout:`} suppressions to work,
+     * and {@code VisitorState} must be modified to intercept reportMatch.
      */
     static ModifyCheckApiOption mustModifyIncludingVisitorState() {
         return new MustModify(true);
