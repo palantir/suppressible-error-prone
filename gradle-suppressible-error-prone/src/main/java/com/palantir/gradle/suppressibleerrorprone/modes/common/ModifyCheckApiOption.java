@@ -32,14 +32,14 @@ import one.util.streamex.StreamEx;
  */
 public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, MustModify {
     /**
-     * The error_prone_check_api jar must not be modified.
+     * The {@code error_prone_check_api} jar must not be modified.
      */
     static ModifyCheckApiOption doNotModify() {
         return DoNotModify.INSTANCE;
     }
 
     /**
-     * It doesn't matter whether the error_prone_check_api jar is modified or not. This will have no effect on the
+     * It doesn't matter whether the {@code error_prone_check_api} jar is modified or not. This will have no effect on the
      * decision made.
      */
     static ModifyCheckApiOption noEffect() {
@@ -47,14 +47,14 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
     }
 
     /**
-     * The error_prone_check_api jar must be modified to allow `for-rollout:` suppressions to work.
+     * The {@code error_prone_check_api} jar must be modified to allow `for-rollout:` suppressions to work.
      */
     static ModifyCheckApiOption mustModify() {
         return new MustModify(false);
     }
 
     /**
-     * The error_prone_check_api jar must be modified to allow `for-rollout:` suppressions to work, and VisitorState
+     * The {@code error_prone_check_api} jar must be modified to allow `for-rollout:` suppressions to work, and VisitorState
      * must be modified to intercept reportMatch.
      */
     static ModifyCheckApiOption mustModifyIncludingVisitorState() {
