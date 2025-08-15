@@ -87,7 +87,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // it intercepts all errors and changes them. So when we're just running normal compilation, we want
         // to avoid running our modifications at all, and let the errors continue on their way unchanged.
         if (classJarPath.equals("com/google/errorprone/VisitorState.class")
-                && getParameters().getSuppressing().get()) {
+                && getParameters().getModifyVisitorState().get()) {
             return Optional.of(VisitorStateClassVisitor::new);
         }
 
@@ -132,7 +132,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
 
     public abstract static class Params implements TransformParameters {
         @Input
-        public abstract Property<Boolean> getSuppressing();
+        public abstract Property<Boolean> getModifyVisitorState();
 
         @Input
         public abstract Property<String> getCacheBust();
