@@ -16,7 +16,6 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +26,7 @@ import one.util.streamex.EntryStream;
  * configure. This allows all the options from multiple modes to be combined, interfered between and
  * configured in a single place.
  */
-public interface CommonOptions extends Serializable {
+public interface CommonOptions {
     default PatchChecksOption patchChecks() {
         return PatchChecksOption.noChecks();
     }
