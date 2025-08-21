@@ -18,6 +18,7 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import com.google.common.base.Suppliers;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption.AllChecks;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption.NoChecks;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption.PossiblySomeChecks;
 import java.util.Optional;
 import java.util.Set;
@@ -30,12 +31,16 @@ import one.util.streamex.StreamEx;
  * checks. This class represents these two options, and allows combining them sensibly. ie if one mode patches all
  * checks and another mode patches specific checks, then the combined option will patch all checks.
  */
-public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks {
-    boolean hasChecks();
+public sealed interface PatchChecksOption permits NoChecks, AllChecks, PossiblySomeChecks {
+    boolean isPatching();
 
     Optional<String> asCommaSeparated();
 
     default PatchChecksOption combine(PatchChecksOption other) {
+        if (this instanceof NoChecks) {
+            return other;
+        }
+
         if (this instanceof AllChecks || other instanceof AllChecks) {
             return AllChecks.INSTANCE;
         }
@@ -62,14 +67,28 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
     }
 
     static PatchChecksOption noChecks() {
-        return new PossiblySomeChecks(Set::of);
+        return NoChecks.INSTANCE;
+    }
+
+    enum NoChecks implements PatchChecksOption {
+        INSTANCE;
+
+        @Override
+        public boolean isPatching() {
+            return false;
+        }
+
+        @Override
+        public Optional<String> asCommaSeparated() {
+            return Optional.empty();
+        }
     }
 
     enum AllChecks implements PatchChecksOption {
         INSTANCE;
 
         @Override
-        public boolean hasChecks() {
+        public boolean isPatching() {
             return true;
         }
 
@@ -94,8 +113,8 @@ public sealed interface PatchChecksOption permits AllChecks, PossiblySomeChecks 
         }
 
         @Override
-        public boolean hasChecks() {
-            return !patchChecks.get().isEmpty();
+        public boolean isPatching() {
+            return true;
         }
 
         @Override

@@ -168,10 +168,10 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private static void configureJavaCompile(CommonOptions commonOptions, JavaCompile javaCompile) {
         // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
-        javaCompile.getOutputs().cacheIf(t -> !commonOptions.patchChecks().hasChecks());
-        javaCompile.getOutputs().upToDateWhen(t -> !commonOptions.patchChecks().hasChecks());
+        javaCompile.getOutputs().cacheIf(t -> !commonOptions.patchChecks().isPatching());
+        javaCompile.getOutputs().upToDateWhen(t -> !commonOptions.patchChecks().isPatching());
 
-        if (commonOptions.patchChecks().hasChecks()) {
+        if (commonOptions.patchChecks().isPatching()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
