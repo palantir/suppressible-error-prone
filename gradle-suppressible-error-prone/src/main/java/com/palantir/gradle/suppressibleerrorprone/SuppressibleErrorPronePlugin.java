@@ -237,8 +237,6 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         @org.gradle.api.tasks.Optional
         protected abstract Property<String> getPatchChecksArgument();
 
-        public PatchChecksCommandLineArgumentProvider() {}
-
         @Override
         public final Iterable<String> asArguments() {
             return Optional.ofNullable(getPatchChecksArgument().getOrNull())
