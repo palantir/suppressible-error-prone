@@ -27,13 +27,13 @@ public final class DisableModeInterference implements ModeInterference {
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.contains(ModeName.DISABLE) && modeNames.size() > 1) {
-            return ModeInterferenceResult.notCompatible(("%s cannot be used at the same time as any of %s"
+            return ModeInterferenceResult.notCompatible("%s cannot be used at the same time as any of %s"
                     .formatted(
                             ModeName.DISABLE.asGradlePropertyArgument(),
                             modeNames.stream()
                                     .filter(Predicate.not(Predicate.isEqual(ModeName.DISABLE)))
                                     .map(ModeName::asGradlePropertyArgument)
-                                    .collect(Collectors.joining(", ")))));
+                                    .collect(Collectors.joining(", "))));
         }
 
         return ModeInterferenceResult.noInterference();

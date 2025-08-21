@@ -17,6 +17,7 @@ dependencies {
     testImplementation 'org.assertj:assertj-core'
     testImplementation 'commons-io:commons-io'
     testImplementation 'one.util:streamex'
+    testImplementation 'com.palantir.gradle.plugintesting:configuration-cache-spec'
 }
 
 gradlePlugin {

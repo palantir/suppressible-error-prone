@@ -34,8 +34,11 @@ import org.gradle.api.artifacts.ComponentMetadataContext;
 import org.gradle.api.artifacts.ComponentMetadataRule;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.attributes.Attribute;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.provider.Property;
 import org.gradle.api.provider.ProviderFactory;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.compile.JavaCompile;
@@ -44,6 +47,9 @@ import org.gradle.process.CommandLineArgumentProvider;
 public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
     @Inject
     protected abstract ProviderFactory getProviderFactory();
+
+    @Inject
+    protected abstract ObjectFactory getObjectFactory();
 
     @Nested
     protected abstract Modes getModes();
@@ -162,10 +168,10 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
     private static void configureJavaCompile(CommonOptions commonOptions, JavaCompile javaCompile) {
         // Don't attempt to cache or be up-to-date since it won't capture the source files that might be modified
-        javaCompile.getOutputs().cacheIf(t -> !commonOptions.patchChecks().hasChecks());
-        javaCompile.getOutputs().upToDateWhen(t -> !commonOptions.patchChecks().hasChecks());
+        javaCompile.getOutputs().cacheIf(t -> !commonOptions.patchChecks().isPatching());
+        javaCompile.getOutputs().upToDateWhen(t -> !commonOptions.patchChecks().isPatching());
 
-        if (commonOptions.patchChecks().hasChecks()) {
+        if (commonOptions.patchChecks().isPatching()) {
             // To allow refactoring near usages of deprecated methods, even when -Xlint:deprecation is specified,
             // we need to remove these compiler flags after all configuration has happened.
             javaCompile.getOptions().setWarnings(false);
@@ -189,17 +195,15 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         errorProneOptions.getExcludedPaths().set(excludedPathsRegex());
 
-        errorProneOptions.getErrorproneArgumentProviders().add(new CommandLineArgumentProvider() {
-            @Override
-            public Iterable<String> asArguments() {
-                return commonOptions
-                        .patchChecks()
-                        .asCommaSeparated()
-                        .map(commaSeparated ->
-                                List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + commaSeparated))
-                        .orElseGet(List::of);
-            }
-        });
+        PatchChecksCommandLineArgumentProvider patchChecksCommandLineArgumentProvider =
+                getObjectFactory().newInstance(PatchChecksCommandLineArgumentProvider.class);
+        patchChecksCommandLineArgumentProvider
+                .getPatchChecksArgument()
+                .set(getProviderFactory()
+                        .provider(() ->
+                                commonOptions.patchChecks().asCommaSeparated().orElse(null)));
+
+        errorProneOptions.getErrorproneArgumentProviders().add(patchChecksCommandLineArgumentProvider);
 
         errorProneOptions
                 .getCheckOptions()
@@ -226,5 +230,18 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         // language=RegExp
         return ".*/(build|generated_.*[sS]rc|src/generated.*)/.*";
+    }
+
+    public abstract static class PatchChecksCommandLineArgumentProvider implements CommandLineArgumentProvider {
+        @Input
+        @org.gradle.api.tasks.Optional
+        protected abstract Property<String> getPatchChecksArgument();
+
+        @Override
+        public final Iterable<String> asArguments() {
+            return Optional.ofNullable(getPatchChecksArgument().getOrNull())
+                    .map(commaSeparated -> List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + commaSeparated))
+                    .orElseGet(List::of);
+        }
     }
 }
