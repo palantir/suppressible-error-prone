@@ -16,13 +16,13 @@
 
 package com.palantir.gradle.suppressibleerrorprone
 
-import com.google.common.base.Throwables
-import nebula.test.IntegrationSpec
-import nebula.test.functional.ExecutionResult
+
+import com.palantir.gradle.plugintesting.ConfigurationCacheSpec
 import org.apache.commons.io.FileUtils
+import org.gradle.testkit.runner.BuildResult
 import spock.lang.Unroll
 
-class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
+class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec {
     // We need to put the source sets in a different directory that does not contain the any words that would hit
     // the errorprone excludedPathRegex, ie build in build/nebulatest
     static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
@@ -116,7 +116,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        def stderr = runTasksWithFailure('compileAllErrorProne').output
 
         then:
         stderr.contains('[ArrayToString]')
@@ -242,7 +242,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
         when:
         // Doesn't actually do any patching as the set is empty. It just does a normal compile that fails.
-        def stderr = runTasksWithFailure('compileAllErrorProne', '-PerrorProneApply').standardError
+        def stderr = runTasksWithFailure('compileAllErrorProne', '-PerrorProneApply').output
 
         then:
         stderr.contains('[ArrayToString]')
@@ -679,7 +679,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        def stdout = runTasksSuccessfully('compileAllErrorProne', '--dry-run').standardOutput
+        def stdout = runTasksSuccessfully('compileAllErrorProne', '--dry-run').output
 
         then:
         stdout.contains(':compileJava SKIPPED')
@@ -714,7 +714,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
-        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        def stderr = runTasksWithFailure('compileAllErrorProne').output
         stderr.contains('[FieldCanBeFinal]')
 
         when: 'the check is run at the default SUGGESTION level, and then automated suppressions are not applied'
@@ -798,14 +798,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         then: 'compilation fails'
-        def stderr = runTasksWithFailure('compileAllErrorProne').standardError
+        def stderr = runTasksWithFailure('compileAllErrorProne').output
         stderr.contains('[NonCanonicalStaticImport]')
 
         when: 'we try to suppress it'
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then: 'nothing has changed as we cant put SuppressWarnings on an import'
-        def stderr2 = runTasksWithFailure('compileAllErrorProne').standardError
+        def stderr2 = runTasksWithFailure('compileAllErrorProne').output
         stderr2.contains('[NonCanonicalStaticImport]')
 
         // language=Java
@@ -883,16 +883,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
 
     def 'throws exception when -PerrorProneDisable is combined with -PerrorProneApply or -PerrorProneSuppress'() {
         when:
-        def applyMessage = Throwables.getRootCause(runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneApply').failure).message
+        def applyOutput = runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneApply').output
 
         then:
-        applyMessage.contains '-PerrorProneDisable'
+        applyOutput.contains '-PerrorProneDisable cannot be used'
 
         when:
-        def suppressMessage = Throwables.getRootCause(runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneSuppress').failure).message
+        def suppressOutput = runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneSuppress').output
 
         then:
-        suppressMessage.contains '-PerrorProneDisable'
+        suppressOutput.contains '-PerrorProneDisable cannot be used'
     }
 
     // This test also verifies we're properly passing the arguments to the errorprone plugin
@@ -1239,10 +1239,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        def rootCauseMessage = Throwables.getRootCause(runTasksWithFailure('compileAllErrorProne').failure).message
+        def output = runTasksWithFailure('compileAllErrorProne').output
 
         then:
-        !rootCauseMessage.contains('[RemoveRolloutSuppressions]')
+        !output.contains('[RemoveRolloutSuppressions]')
     }
 
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
@@ -1266,28 +1266,24 @@ class SuppressibleErrorPronePluginIntegrationTest extends IntegrationSpec {
         '''.stripIndent(true)
 
         when:
-        def output = runTasksSuccessfully('printErrorProneVersions').standardOutput
+        def output = runTasksSuccessfully('printErrorProneVersions').output
 
         then: 'every single error-prone dependency has the same version'
         output.contains('ERROR-PRONE: error_prone_annotation-2.3.4.jar')
         output.contains('ERROR-PRONE: error_prone_core-2.3.4.jar')
     }
 
-    @Override
-    ExecutionResult runTasksSuccessfully(String... tasks) {
-        def result = runTasks(tasks)
-        println result.standardError
-        println result.standardOutput
-        result.rethrowFailure()
-    }
-
-    @Override
-    ExecutionResult runTasks(String... tasks) {
+    BuildResult runTasksSuccessfully(String... tasks) {
         def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
         String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        return super.runTasks(strings)
+        return super.runTasksWithConfigurationCache(strings)
     }
 
+    BuildResult runTasksWithFailure(String... tasks) {
+        def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
+        String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
+        return super.runTasksAndFailWithConfigurationCache(strings)
+    }
 
     void writeJavaSourceFileToSourceSets(String source) {
         super.writeJavaSourceFile(source, 'src/main/java', sourceSetRoot)

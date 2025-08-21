@@ -18,14 +18,12 @@ package com.palantir.suppressibleerrorprone;
 
 import java.util.Optional;
 import java.util.function.Function;
-import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * Memoizes the first evaluation of a function with one parameter. Subsequent evaluations will return the value
  * calculated in the first run, even if the argument used in subsequent evaluations differs from the argument used
  * in the first evaluation.
  */
-@NotThreadSafe
 final class FirstTimeMemoizingFunction<T, R> implements Function<T, R> {
     private final Function<T, R> function;
     private Optional<R> cachedValue = Optional.empty();
