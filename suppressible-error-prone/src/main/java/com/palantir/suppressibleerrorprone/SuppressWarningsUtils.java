@@ -50,7 +50,7 @@ final class SuppressWarningsUtils {
                 automaticallyAddedOrNotSuppressions.getOrDefault(SuppressionsType.HUMAN_AUTHORED, List.of());
         
         // If we should remove unnecessary suppressions, filter out human-authored suppressions
-        // that don't correspond to encountered errors
+        // that don't correspond to encountered errors at this specific location
         if (shouldRemoveUnnecessarySuppressions) {
             humanAuthoredSuppressions = humanAuthoredSuppressions.stream()
                     .filter(suppression -> encounteredErrors.contains(suppression))

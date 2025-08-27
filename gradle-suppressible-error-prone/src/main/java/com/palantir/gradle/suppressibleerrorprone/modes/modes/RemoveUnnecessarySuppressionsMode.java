@@ -33,7 +33,8 @@ public final class RemoveUnnecessarySuppressionsMode implements Mode {
         return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return PatchChecksOption.someChecks("RemoveUnnecessarySuppressions");
+                // This mode works by modifying the suppression logic, not by patching a specific check
+                return PatchChecksOption.noChecks();
             }
 
             @Override

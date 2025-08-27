@@ -46,7 +46,7 @@ final class SuppressingFix implements Fix {
         // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
         // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
         this.replacement = new FirstTimeMemoizingFunction<>((EndPosTable endPositions) -> ImmutableSet.of(
-                new SuppressingReplacement(endPositions, newSuppressions, VisitorStateModifications.getGlobalEncounteredErrors(), sourceCode, suppressWarnings, tree, shouldRemoveUnnecessarySuppressions)));
+                new SuppressingReplacement(endPositions, newSuppressions, newSuppressions, sourceCode, suppressWarnings, tree, shouldRemoveUnnecessarySuppressions)));
     }
 
     public void addSuppression(String suppression) {
