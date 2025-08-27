@@ -935,6 +935,186 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
     }
 
+    def 'basic functionality test for remove unnecessary suppressions flag'() {
+        // Test that the flag doesn't break compilation
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("UnnecessaryCheck")
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("Hello, World!");
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions')
+
+        then:
+        def actualContent = file('app/App.java', mainSourceSet).text
+        println("Actual App.java content with RemoveUnnecessarySuppressions flag:")
+        println(actualContent)
+        
+        // Basic test: compilation succeeded
+        result.task(':compileJava').outcome.name() == 'SUCCESS'
+    }
+
+    def 'remove unnecessary suppressions combined with suppress flag works'() {
+        // Test combining removal with suppression
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("UnnecessaryCheck")
+            public final class App {
+                public static void main(String[] args) {
+                    // This triggers ArrayToString
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions', '-PerrorProneSuppress')
+
+        then:
+        def actualContent = file('app/App.java', mainSourceSet).text
+        println("Actual App.java content with both RemoveUnnecessarySuppressions and Suppress flags:")
+        println(actualContent)
+        
+        // Should have automatic suppression for ArrayToString
+        actualContent.contains('for-rollout:ArrayToString')
+        // Basic test: compilation succeeded
+        result.task(':compileJava').outcome.name() == 'SUCCESS'
+    }
+
+    def 'remove unnecessary suppressions keeps necessary human-authored suppressions'() {
+        // Test the case where we have both necessary and unnecessary suppressions
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"UnnecessaryCheck", "ArrayToString"})
+            public final class App {
+                public static void main(String[] args) {
+                    // This triggers ArrayToString
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions')
+
+        then:
+        def actualContent = file('app/App.java', mainSourceSet).text
+        println("Actual App.java content with mixed suppressions:")
+        println(actualContent)
+        
+        // ArrayToString should remain because it's still needed
+        actualContent.contains('ArrayToString')
+        // Should not contain for-rollout prefix since we're only doing removal, not suppression
+        !actualContent.contains('for-rollout')
+        // Basic test: compilation succeeded
+        result.task(':compileJava').outcome.name() == 'SUCCESS'
+    }
+
+    def 'remove unnecessary suppressions with existing automatic suppressions'() {
+        // Test with existing automatic suppressions
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"UnnecessaryCheck", "for-rollout:OtherCheck"})
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("Hello, World!");
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions')
+
+        then:
+        def actualContent = file('app/App.java', mainSourceSet).text
+        println("Actual App.java content with existing automatic suppressions:")
+        println(actualContent)
+        
+        // Should keep automatic suppressions
+        actualContent.contains('for-rollout:OtherCheck')
+        // Basic test: compilation succeeded  
+        result.task(':compileJava').outcome.name() == 'SUCCESS'
+    }
+
+    def 'remove unnecessary suppressions does not interfere with normal compilation without suppressions'() {
+        // Test that the feature doesn't interfere when no suppressions are present
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("Hello, World!");
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions')
+
+        then:
+        def actualContent = file('app/App.java', mainSourceSet).text
+        println("Actual App.java content without suppressions:")
+        println(actualContent)
+        
+        // Content should be unchanged
+        !actualContent.contains('@SuppressWarnings')
+        result.task(':compileJava').outcome.name() == 'SUCCESS'
+    }
+
+    def 'supports three-way combination of remove, suppress and apply flags'() {
+        // Test the most complex scenario: remove unnecessary, suppress new errors, and apply patches
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("UnnecessaryCheck")  
+            public final class App {
+                public static void main(String[] args) {
+                    // This triggers ArrayToString
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        buildFile << '''
+            suppressibleErrorProne {
+                patchChecks.add('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions', '-PerrorProneSuppress', '-PerrorProneApply')
+
+        then:
+        def actualContent = file('app/App.java', mainSourceSet).text
+        println("Actual App.java content with three-way combination:")
+        println(actualContent)
+        
+        // Should have applied the patch for ArrayToString 
+        actualContent.contains('Arrays.toString(new int[3])')
+        result.task(':compileJava').outcome.name() == 'SUCCESS'
+    }
+
+    def 'supports basic suppression without removal flag'() {
+        // Baseline test to ensure normal suppression works
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        appJavaTextContains('@SuppressWarnings("for-rollout:ArrayToString")')
+    }
+
     // This test also verifies we're properly passing the arguments to the errorprone plugin
     def 'does not remove suppressions other than requested'() {
         // language=Java

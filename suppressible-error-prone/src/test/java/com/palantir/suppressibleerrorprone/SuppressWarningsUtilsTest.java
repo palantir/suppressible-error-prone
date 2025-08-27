@@ -76,6 +76,52 @@ class SuppressWarningsUtilsTest {
                             List.of("for-rollout:Something", "HumanAuthored"), Set.of("ArrayToString")))
                     .containsExactly("HumanAuthored", "for-rollout:ArrayToString", "for-rollout:Something");
         }
+        
+        @Test
+        void removes_unnecessary_human_authored_suppressions_when_enabled() {
+            // Only human-authored suppressions are removed if not in encountered errors
+            // Automatic suppressions are kept regardless (they follow different lifecycle)
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            List.of("UnnecessaryCheck", "NecessaryCheck", "for-rollout:AutoCheck"), 
+                            Set.of("NewCheck"), 
+                            Set.of("NecessaryCheck"), 
+                            true))
+                    .containsExactly("NecessaryCheck", "for-rollout:AutoCheck", "for-rollout:NewCheck");
+        }
+        
+        @Test
+        void keeps_all_suppressions_when_remove_unnecessary_is_disabled() {
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            List.of("UnnecessaryCheck", "NecessaryCheck", "for-rollout:AutoCheck"), 
+                            Set.of("NewCheck"), 
+                            Set.of("NecessaryCheck"), 
+                            false))
+                    .containsExactly("UnnecessaryCheck", "NecessaryCheck", "for-rollout:AutoCheck", "for-rollout:NewCheck");
+        }
+        
+        @Test
+        void removes_only_human_authored_unnecessary_suppressions() {
+            // This feature focuses on human-authored suppressions
+            // Automatic suppressions are handled by the existing RemoveRolloutSuppressions feature
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            List.of("UnnecessaryHuman", "NecessaryHuman", "for-rollout:UnnecessaryAuto", "for-rollout:NecessaryAuto"), 
+                            Set.of("NewAuto"), 
+                            Set.of("NecessaryHuman", "NecessaryAuto", "NewAuto"), 
+                            true))
+                    .containsExactly("NecessaryHuman", "for-rollout:NecessaryAuto", "for-rollout:NewAuto", "for-rollout:UnnecessaryAuto");
+        }
+        
+        @Test
+        void handles_empty_encountered_errors_by_removing_all_human_authored() {
+            // When no errors are encountered, remove all human-authored suppressions
+            // but keep automatic ones (they may be for different contexts)
+            assertThat(SuppressWarningsUtils.modifySuppressions(
+                            List.of("HumanCheck1", "HumanCheck2", "for-rollout:AutoCheck"), 
+                            Set.of("NewCheck"), 
+                            Set.of(), 
+                            true))
+                    .containsExactly("for-rollout:AutoCheck", "for-rollout:NewCheck");
+        }
     }
 
     @Nested

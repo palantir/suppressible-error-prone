@@ -37,16 +37,22 @@ final class SuppressingReplacement extends Replacement {
     private final List<String> existingSuppressions;
     private final String suffix;
     private final Set<String> newSuppressions;
+    private final Set<String> encounteredErrors;
+    private final boolean shouldRemoveUnnecessarySuppressions;
 
     SuppressingReplacement(
             EndPosTable endPositions,
             Set<String> newSuppressions,
+            Set<String> encounteredErrors,
             Optional<CharSequence> sourceCode,
             Optional<? extends AnnotationTree> suppressWarnings,
-            Tree tree) {
+            Tree tree,
+            boolean shouldRemoveUnnecessarySuppressions) {
         // Note this is a *mutable* set from SuppressingFix, we need to able to add a new suppression before this
         // instance is instantiated
         this.newSuppressions = newSuppressions;
+        this.encounteredErrors = encounteredErrors;
+        this.shouldRemoveUnnecessarySuppressions = shouldRemoveUnnecessarySuppressions;
 
         // There is an additional issue that by the time error-prone comes around to apply the replacements, the
         // compiler seems to change the representation of the tree for another phase - `App.Builder` becomes
@@ -77,7 +83,7 @@ final class SuppressingReplacement extends Replacement {
     @Override
     public String replaceWith() {
         return SuppressWarningsUtils.suppressWarningsString(
-                        SuppressWarningsUtils.modifySuppressions(existingSuppressions, newSuppressions))
+                        SuppressWarningsUtils.modifySuppressions(existingSuppressions, newSuppressions, encounteredErrors, shouldRemoveUnnecessarySuppressions))
                 + suffix;
     }
 

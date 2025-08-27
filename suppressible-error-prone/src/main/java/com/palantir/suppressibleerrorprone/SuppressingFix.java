@@ -32,8 +32,10 @@ import java.util.function.Function;
 final class SuppressingFix implements Fix {
     private final Set<String> newSuppressions = new HashSet<>();
     private final Function<EndPosTable, ImmutableSet<Replacement>> replacement;
+    private final boolean shouldRemoveUnnecessarySuppressions;
 
-    SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+    SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree, boolean shouldRemoveUnnecessarySuppressions) {
+        this.shouldRemoveUnnecessarySuppressions = shouldRemoveUnnecessarySuppressions;
         // See note in SuppressingReplacement about when we have to calculate stuff
         // We *cannot* simply make this a memoized supplier. The first thing error-prone does with the Fix is to
         // evaluate it to produce a nice error message, and we don't want to fix the number of suppression we make
@@ -44,7 +46,7 @@ final class SuppressingFix implements Fix {
         // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
         // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
         this.replacement = new FirstTimeMemoizingFunction<>((EndPosTable endPositions) -> ImmutableSet.of(
-                new SuppressingReplacement(endPositions, newSuppressions, sourceCode, suppressWarnings, tree)));
+                new SuppressingReplacement(endPositions, newSuppressions, VisitorStateModifications.getGlobalEncounteredErrors(), sourceCode, suppressWarnings, tree, shouldRemoveUnnecessarySuppressions)));
     }
 
     public void addSuppression(String suppression) {

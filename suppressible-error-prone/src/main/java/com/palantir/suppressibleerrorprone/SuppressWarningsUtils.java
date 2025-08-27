@@ -35,6 +35,11 @@ final class SuppressWarningsUtils {
 
     public static List<String> modifySuppressions(
             List<String> existingSuppressions, Set<String> newAutomatedSuppressions) {
+        return modifySuppressions(existingSuppressions, newAutomatedSuppressions, Set.of(), false);
+    }
+
+    public static List<String> modifySuppressions(
+            List<String> existingSuppressions, Set<String> newAutomatedSuppressions, Set<String> encounteredErrors, boolean shouldRemoveUnnecessarySuppressions) {
         Map<SuppressionsType, List<String>> automaticallyAddedOrNotSuppressions = existingSuppressions.stream()
                 .collect(Collectors.groupingBy(SuppressionsType::fromName, Collectors.toList()));
 
@@ -43,6 +48,14 @@ final class SuppressWarningsUtils {
 
         List<String> humanAuthoredSuppressions =
                 automaticallyAddedOrNotSuppressions.getOrDefault(SuppressionsType.HUMAN_AUTHORED, List.of());
+        
+        // If we should remove unnecessary suppressions, filter out human-authored suppressions
+        // that don't correspond to encountered errors
+        if (shouldRemoveUnnecessarySuppressions) {
+            humanAuthoredSuppressions = humanAuthoredSuppressions.stream()
+                    .filter(suppression -> encounteredErrors.contains(suppression))
+                    .collect(Collectors.toList());
+        }
 
         List<String> existingAutomaticallyAddedSuppressionsWithoutPrefix =
                 existingAutomaticallyAddedSuppressions.stream()

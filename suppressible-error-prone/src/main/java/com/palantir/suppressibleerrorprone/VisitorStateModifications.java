@@ -28,6 +28,7 @@ import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +46,9 @@ public final class VisitorStateModifications {
     // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
     // garbage collected.
     private static final Map<Tree, SuppressingFix> FIXES = new WeakHashMap<>();
+    
+    // Global set to track all encountered errors during compilation for unnecessary suppression removal
+    private static final Set<String> GLOBAL_ENCOUNTERED_ERRORS = new HashSet<>();
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -59,6 +63,9 @@ public final class VisitorStateModifications {
         // our suppressions.
         Set<String> patchChecks =
                 visitorState.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:PreferPatchChecks");
+        
+        boolean shouldRemoveUnnecessarySuppressions = 
+                visitorState.errorProneOptions().getFlags().getBoolean("SuppressibleErrorProne:RemoveUnnecessarySuppressions").orElse(false);
 
         boolean shouldPreferDefaultSuggestedFixesForThisCheck = patchChecks.contains(description.checkName);
         boolean checkHasSuggestedFixes = !description.fixes.isEmpty();
@@ -117,9 +124,12 @@ public final class VisitorStateModifications {
         SuppressingFix suppressingFix = FIXES.computeIfAbsent(
                 firstSuppressibleParent,
                 _ignored -> new SuppressingFix(
-                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent, shouldRemoveUnnecessarySuppressions));
 
         suppressingFix.addSuppression(description.checkName);
+        
+        // Track globally encountered errors for unnecessary suppression removal
+        GLOBAL_ENCOUNTERED_ERRORS.add(description.checkName);
 
         // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
         if (alreadyReportedFix) {
@@ -155,6 +165,10 @@ public final class VisitorStateModifications {
         }
 
         return Optional.empty();
+    }
+
+    static Set<String> getGlobalEncounteredErrors() {
+        return GLOBAL_ENCOUNTERED_ERRORS;
     }
 
     private VisitorStateModifications() {}
