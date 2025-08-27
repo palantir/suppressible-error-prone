@@ -51,6 +51,24 @@ public final class VisitorStateModifications {
         if (description == Description.NO_MATCH) {
             return description;
         }
+        
+        // Check if remove unnecessary suppressions mode is enabled
+        boolean removeUnnecessarySuppressions = visitorState.errorProneOptions()
+                .getFlags()
+                .getBoolean("SuppressibleErrorProne:RemoveUnnecessarySuppressions")
+                .orElse(false);
+
+        // If remove unnecessary suppressions is enabled, we need to track ALL encountered errors
+        // on ALL existing SuppressingFix instances, even if this error won't be suppressed.
+        if (removeUnnecessarySuppressions) {
+            for (SuppressingFix fix : FIXES.values()) {
+                fix.addEncounteredError(description.checkName);
+            }
+            
+            // Also, we need to create SuppressingFix instances for existing @SuppressWarnings annotations
+            // even if we're not actively suppressing this error, so we can remove unnecessary suppressions.
+            ensureSuppressingFixForExistingSuppressions(visitorState, description);
+        }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
         // "patchChecks" in the extension we need to use their suggested fixes instead of suppressing, so we can do
@@ -117,7 +135,7 @@ public final class VisitorStateModifications {
         SuppressingFix suppressingFix = FIXES.computeIfAbsent(
                 firstSuppressibleParent,
                 _ignored -> new SuppressingFix(
-                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent, removeUnnecessarySuppressions));
 
         suppressingFix.addSuppression(description.checkName);
 
@@ -155,6 +173,37 @@ public final class VisitorStateModifications {
         }
 
         return Optional.empty();
+    }
+
+    private static void ensureSuppressingFixForExistingSuppressions(VisitorState visitorState, Description description) {
+        TreePath pathToActualError =
+                TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
+
+        // Find all suppressible parents in the path and create SuppressingFix instances for any that have @SuppressWarnings
+        Stream.iterate(pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
+                .filter(path -> suppressibleTree(path.getLeaf()))
+                .forEach(path -> {
+                    Tree suppressibleTree = path.getLeaf();
+                    
+                    ModifiersTree modifiersTree = modifiersTree(suppressibleTree).get();
+                    Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
+                            .filter(annotation -> {
+                                Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
+                                return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
+                            })
+                            .findFirst();
+
+                    // Only create a SuppressingFix if there's an existing @SuppressWarnings annotation
+                    if (suppressWarnings.isPresent()) {
+                        FIXES.computeIfAbsent(
+                                suppressibleTree,
+                                _ignored -> new SuppressingFix(
+                                        Optional.ofNullable(visitorState.getSourceCode()), 
+                                        suppressWarnings, 
+                                        suppressibleTree, 
+                                        true));
+                    }
+                });
     }
 
     private VisitorStateModifications() {}

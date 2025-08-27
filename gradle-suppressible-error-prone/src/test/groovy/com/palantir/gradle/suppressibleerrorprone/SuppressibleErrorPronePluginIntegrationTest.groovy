@@ -1309,4 +1309,182 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         assert file('app/App.java', mainSourceSet).text != source
         assert file('app/App.java', otherSourceSet).text != source
     }
+
+    def 'remove unnecessary suppressions works when combined with suppress flag'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                @SuppressWarnings("ArrayToString")
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+                
+                @SuppressWarnings("UnusedVariable")
+                public static void unused() {
+                    // This method doesn't have the UnusedVariable issue, so suppression should be removed
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions', '-PerrorProneSuppress')
+
+        then:
+        // ArrayToString suppression should remain because it's needed, but converted to for-rollout
+        // UnusedVariable suppression should be removed because it's not encountered
+        // ArrayToString should also get a new for-rollout suppression
+        appJavaTextContains('@SuppressWarnings("for-rollout:ArrayToString")')
+        appJavaTextNotContains('UnusedVariable')
+    }
+
+    def 'remove unnecessary suppressions only works when combined with suppress flag'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                @SuppressWarnings("UnusedVariable")
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def stderr = runTasksWithFailure('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions').output
+
+        then:
+        // Should fail because we're not suppressing the ArrayToString error
+        stderr.contains('[ArrayToString]')
+        // UnusedVariable suppression should remain unchanged since we're not running in suppress mode
+        appJavaTextContains('@SuppressWarnings("UnusedVariable")')
+    }
+
+    def 'remove unnecessary suppressions keeps necessary human-authored suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                @SuppressWarnings("ArrayToString")
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+                
+                @SuppressWarnings("UnusedVariable")  
+                public static void otherMethod() {
+                    String unused = "test";
+                }
+            }
+        '''.stripIndent(true)
+
+        // language=Gradle
+        buildFile << '''\
+            suppressibleErrorProne {
+                configureEachErrorProneOptions {
+                    enable('UnusedVariable')
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions', '-PerrorProneSuppress')
+
+        then:
+        // ArrayToString should be kept and converted to for-rollout prefix
+        appJavaTextContains('@SuppressWarnings("for-rollout:ArrayToString")')
+        // UnusedVariable should be kept as human-authored since it's actually needed
+        appJavaTextContains('@SuppressWarnings("UnusedVariable")')
+    }
+
+    def 'remove unnecessary suppressions with existing automatic suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                @SuppressWarnings({"for-rollout:ArrayToString", "UnusedVariable"})
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions', '-PerrorProneSuppress')
+
+        then:
+        // ArrayToString should remain as for-rollout since it's encountered
+        appJavaTextContains('@SuppressWarnings("for-rollout:ArrayToString")')
+        // UnusedVariable should be removed since it's not encountered
+        appJavaTextNotContains('UnusedVariable')
+    }
+
+    def 'remove unnecessary suppressions does not interfere with normal compilation without suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("Hello world");
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions')
+
+        then:
+        // Should compile successfully without any changes
+        appJavaTextNotContains('@SuppressWarnings')
+    }
+
+    def 'supports three-way combination of remove, suppress, and apply flags'() {
+        // language=Gradle
+        buildFile << '''\
+            suppressibleErrorProne {
+                patchChecks.add('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                @SuppressWarnings({"ArrayToString", "UnusedVariable"})
+                public static void main(String[] args) {
+                    new int[3].toString();
+                    new int[2].equals(new int[1]);
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions', '-PerrorProneSuppress', '-PerrorProneApply')
+
+        then:
+        // ArrayToString should be fixed since it's in patchChecks
+        appJavaTextContains('Arrays.toString(new int[3])')
+        // ArrayEquals should be suppressed with for-rollout prefix
+        appJavaTextContains('@SuppressWarnings("for-rollout:ArrayEquals")')
+        // UnusedVariable should be removed since it's not encountered
+        appJavaTextNotContains('UnusedVariable')
+    }
+    
+    def 'simple debug test for remove unnecessary suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''\
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("Hello world");
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnnecessarySuppressions')
+
+        then:
+        // Should compile successfully without any changes
+        appJavaTextNotContains('@SuppressWarnings')
+    }
 }
