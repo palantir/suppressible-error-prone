@@ -17,8 +17,10 @@
 package com.palantir.gradle.suppressibleerrorprone.modes.common;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import one.util.streamex.EntryStream;
 
 /**
@@ -55,10 +57,20 @@ public interface CommonOptions {
         return commonOptions.stream().reduce(CommonOptions.empty(), CommonOptions::naivelyCombinedWith);
     }
 
-    default CommonOptions withExtraErrorProneCheckFlag(String key, String value) {
-        Map<String, String> map = new HashMap<>(extraErrorProneCheckOptions());
-        map.put(key, value);
-        return new DefaultCommonOptions(patchChecks(), map);
+    default CommonOptions withExtraErrorProneCheckFlag(String key, Supplier<String> value) {
+        return new CommonOptions() {
+            @Override
+            public PatchChecksOption patchChecks() {
+                return CommonOptions.this.patchChecks();
+            }
+
+            @Override
+            public Map<String, String> extraErrorProneCheckOptions() {
+                Map<String, String> map = new HashMap<>(CommonOptions.this.extraErrorProneCheckOptions());
+                map.put(key, value.get());
+                return Collections.unmodifiableMap(map);
+            }
+        };
     }
 
     /**
@@ -71,8 +83,4 @@ public interface CommonOptions {
     enum Empty implements CommonOptions {
         INSTANCE
     }
-
-    @SuppressWarnings("checkstyle:DesignForExtension")
-    record DefaultCommonOptions(PatchChecksOption patchChecks, Map<String, String> extraErrorProneCheckOptions)
-            implements CommonOptions {}
 }
