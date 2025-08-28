@@ -52,3 +52,8 @@ tasks.withType(JavaCompile) {
 gradleTestUtils {
     gradleVersions = ['8.14.3']
 }
+
+moduleJvmArgs {
+    // Need so that debugging testkit gradle runs with configuration cache works
+    opens 'java.base/java.util', 'java.base/java.lang.invoke'
+}
