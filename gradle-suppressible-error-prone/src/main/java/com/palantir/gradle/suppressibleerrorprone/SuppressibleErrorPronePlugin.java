@@ -212,7 +212,10 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // We disable this to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check. If the remove rollout mode is enabled,
         // this check will be explicitly patched, which will enable it by default.
-        errorProneOptions.disable("RemoveRolloutSuppressions");
+
+        if (!commonOptions.patchChecks().contains("RemoveRolloutSuppressions")) {
+            errorProneOptions.disable("RemoveRolloutSuppressions");
+        }
     }
 
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {

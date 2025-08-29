@@ -32,6 +32,8 @@ import one.util.streamex.StreamEx;
  * checks and another mode patches specific checks, then the combined option will patch all checks.
  */
 public sealed interface PatchChecksOption permits NoChecks, AllChecks, PossiblySomeChecks {
+    boolean contains(String patchCheck);
+
     boolean isPatching();
 
     Optional<String> asCommaSeparated();
@@ -82,6 +84,11 @@ public sealed interface PatchChecksOption permits NoChecks, AllChecks, PossiblyS
         public Optional<String> asCommaSeparated() {
             return Optional.empty();
         }
+
+        @Override
+        public boolean contains(String patchCheck) {
+            return false;
+        }
     }
 
     enum AllChecks implements PatchChecksOption {
@@ -96,6 +103,11 @@ public sealed interface PatchChecksOption permits NoChecks, AllChecks, PossiblyS
         public Optional<String> asCommaSeparated() {
             // Empty string means "all checks" to Error Prone - ie the option `-XepPatchChecks:`
             return Optional.of("");
+        }
+
+        @Override
+        public boolean contains(String patchCheck) {
+            return true;
         }
     }
 
@@ -126,6 +138,11 @@ public sealed interface PatchChecksOption permits NoChecks, AllChecks, PossiblyS
             }
 
             return Optional.of(checks.stream().sorted().collect(Collectors.joining(",")));
+        }
+
+        @Override
+        public boolean contains(String patchCheck) {
+            return patchChecks().contains(patchCheck);
         }
     }
 }
