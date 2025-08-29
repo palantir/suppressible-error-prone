@@ -41,6 +41,18 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         // language=Gradle
         buildFile << '''
+            buildscript {
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    classpath 'com.palantir.gradle.consistentversions:gradle-consistent-versions:3.1.0'
+                }
+            }
+            // Consistent versions checks we don't resolve configurations at configuration time and
+            // also interacts in many ways with dependencies
+            apply plugin: 'com.palantir.consistent-versions'
+
             apply plugin: 'com.palantir.suppressible-error-prone'
             apply plugin: 'java'
             
@@ -102,6 +114,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             __TESTING=true
             __TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM=true
         '''.stripIndent(true)
+
+        file('versions.lock')
     }
 
     def 'reports a failing error prone'() {
@@ -508,6 +522,55 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         buildFile << '''
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            public final class App {
+                public static void main(String[] args) {
+                    new int[3].toString();
+                    new int[3].equals(new int[3]);
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import java.util.Arrays;
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayEquals")
+                public static void main(String[] args) {
+                    Arrays.toString(new int[3]);
+                    new int[3].equals(new int[3]);
+                }
+            }
+        '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'can run apply and suppress at the same time with IfModuleIsUsed without exploding'() {
+        // language=Gradle
+        buildFile << '''
+            import com.palantir.gradle.suppressibleerrorprone.ConditionalPatchCheck 
+            import com.palantir.gradle.suppressibleerrorprone.IfModuleIsUsed
+            
+            suppressibleErrorProne {
+                conditionalPatchChecks.add(new ConditionalPatchCheck(
+                        new IfModuleIsUsed('com.fasterxml.jackson.core', 'jackson-core'), 'ArrayToString'))
+            }
+            
+            dependencies {
+                implementation 'com.fasterxml.jackson.core:jackson-core:2.17.1'
+                otherImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.1'
             }
         '''.stripIndent(true)
 
