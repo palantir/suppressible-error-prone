@@ -37,6 +37,10 @@ public interface CommonOptions {
         return Map.of();
     }
 
+    default RemoveRolloutCheck removeRolloutCheck() {
+        return RemoveRolloutCheck.DISABLE;
+    }
+
     default CommonOptions naivelyCombinedWith(CommonOptions other) {
         return new CommonOptions() {
             @Override
@@ -49,6 +53,11 @@ public interface CommonOptions {
                 return EntryStream.of(CommonOptions.this.extraErrorProneCheckOptions())
                         .append(other.extraErrorProneCheckOptions())
                         .toMap();
+            }
+
+            @Override
+            public RemoveRolloutCheck removeRolloutCheck() {
+                return CommonOptions.super.removeRolloutCheck().or(other.removeRolloutCheck());
             }
         };
     }

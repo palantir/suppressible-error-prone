@@ -20,6 +20,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.RemoveRolloutCheck;
 import java.util.Map;
 
 public final class RemoveRolloutMode implements Mode {
@@ -49,6 +50,11 @@ public final class RemoveRolloutMode implements Mode {
                 return Map.of(
                         "SuppressibleErrorProne:RemoveRolloutSuppressions",
                         context.flagValue().orElse(ALL_CHECKS));
+            }
+
+            @Override
+            public RemoveRolloutCheck removeRolloutCheck() {
+                return RemoveRolloutCheck.ENABLED;
             }
         };
     }
