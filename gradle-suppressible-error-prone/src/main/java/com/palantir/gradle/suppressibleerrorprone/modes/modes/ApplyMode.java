@@ -22,7 +22,6 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.ltgt.gradle.errorprone.CheckSeverity;
 
 public final class ApplyMode implements Mode {
     @Override
@@ -47,10 +46,6 @@ public final class ApplyMode implements Mode {
                     .collect(Collectors.toSet());
         }
 
-        return context.extension().patchChecksForCompilation(context.javaCompile()).stream()
-                // Do not patch checks that have been explicitly disabled
-                .filter(check ->
-                        context.errorProneOptions().getChecks().getting(check).getOrNull() != CheckSeverity.OFF)
-                .collect(Collectors.toSet());
+        return context.extension().patchChecksForCompilation(context.javaCompile());
     }
 }
