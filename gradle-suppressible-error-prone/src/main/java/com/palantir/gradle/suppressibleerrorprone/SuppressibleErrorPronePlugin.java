@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import net.ltgt.gradle.errorprone.CheckSeverity;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
 import net.ltgt.gradle.errorprone.ErrorPronePlugin;
 import org.gradle.api.Action;
@@ -37,6 +38,7 @@ import org.gradle.api.attributes.Attribute;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Nested;
@@ -212,10 +214,11 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // We disable this to avoid having `Note: [RemoveRolloutSuppressions]` in
         // unrelated error messages as it's a suggestion level check. If the remove rollout mode is enabled,
         // this check will be explicitly patched, which will enable it by default.
-
-        if (!commonOptions.patchChecks().contains("RemoveRolloutSuppressions")) {
-            errorProneOptions.disable("RemoveRolloutSuppressions");
-        }
+        Provider<CheckSeverity> removeRolloutSeverity = getProviderFactory()
+                .provider(() -> commonOptions.patchChecks().contains("RemoveRolloutSuppressions")
+                        ? CheckSeverity.DEFAULT
+                        : CheckSeverity.OFF);
+        errorProneOptions.getChecks().put("RemoveRolloutSuppressions", removeRolloutSeverity);
     }
 
     private static ErrorProneOptions errorProneOptionsFor(JavaCompile javaCompile) {
