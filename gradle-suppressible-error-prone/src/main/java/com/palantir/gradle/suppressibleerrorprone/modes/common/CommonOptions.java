@@ -57,7 +57,7 @@ public interface CommonOptions {
 
             @Override
             public RemoveRolloutCheck removeRolloutCheck() {
-                return CommonOptions.super.removeRolloutCheck().or(other.removeRolloutCheck());
+                return CommonOptions.this.removeRolloutCheck().or(other.removeRolloutCheck());
             }
         };
     }
