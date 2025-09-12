@@ -28,6 +28,7 @@ final class SuppressWarningsUtils {
         AUTOMATICALLY_ADDED,
         HUMAN_AUTHORED;
 
+        @SuppressWarnings("for-rollout:EffectivelyPrivate")
         public static SuppressionsType fromName(String name) {
             return name.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX) ? AUTOMATICALLY_ADDED : HUMAN_AUTHORED;
         }
