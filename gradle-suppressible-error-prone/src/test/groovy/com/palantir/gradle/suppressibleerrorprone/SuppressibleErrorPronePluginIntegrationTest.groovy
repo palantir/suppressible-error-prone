@@ -1313,6 +1313,64 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         !output.contains('[RemoveRolloutSuppressions]')
     }
 
+    def 'can remove unused suppressions with -PerrorProneRemoveUnused'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+        package app;
+        @SuppressWarnings({"ArrayToString", "UnusedVariable"})
+        public final class App {
+            public static void main(String[] args) {
+                // Only ArrayToString is actually triggered
+                new int[3].toString();
+            }
+        }
+    '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+        package app;
+        @SuppressWarnings("ArrayToString")
+        public final class App {
+            public static void main(String[] args) {
+                // Only ArrayToString is actually triggered
+                new int[3].toString();
+            }
+        }
+    '''.stripIndent(true)
+    }
+
+    def 'removes entire SuppressWarnings annotation when all suppressions are unused'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+        package app;
+        @SuppressWarnings({"UnusedVariable", "SomeOtherCheck"})
+        public final class App {
+            public static void main(String[] args) {
+                System.out.println("No violations here");
+            }
+        }
+    '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+        package app;
+        public final class App {
+            public static void main(String[] args) {
+                System.out.println("No violations here");
+            }
+        }
+    '''.stripIndent(true)
+    }
+
+
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
         setup: 'when an error-prone dependency is forced to certain version'
         // language=Gradle
