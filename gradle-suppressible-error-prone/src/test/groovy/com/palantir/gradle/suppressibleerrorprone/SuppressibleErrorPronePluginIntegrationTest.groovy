@@ -1308,41 +1308,84 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         !output.contains('[RemoveRolloutSuppressions]')
     }
 
-    def 'can remove unused suppressions with -PerrorProneRemoveUnused'() {
+    def 'errorProneRemoveUnused removes unused suppressions, and only unused suppressions'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
-        package app;
-        @SuppressWarnings({"ArrayToString", "UnusedVariable"})
-        public final class App {
-            public static void main(String[] args) {
-                // Only ArrayToString is actually triggered
-                new int[3].toString();
+            package app;
+            @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "InlineTrivialConstant"})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+ 
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
             }
-        }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
 
         then:
         // language=Java
         appJavaTextEquals '''
-        package app;
-        @SuppressWarnings("ArrayToString")
-        public final class App {
-            public static void main(String[] args) {
-                // Only ArrayToString is actually triggered
-                new int[3].toString();
+            package app;
+            @SuppressWarnings({"ArrayToString", "InlineTrivialConstant"})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+ 
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
             }
-        }
     '''.stripIndent(true)
     }
 
-    def 'removes entire SuppressWarnings annotation when all suppressions are unused'() {
+    def 'errorProneRemoveUnused only removes suppressions not directly connected to a report'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("InlineTrivialConstant")
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("InlineTrivialConstant")
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    class InnerInner {
+                        private static final String EMPTY = "";
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    class InnerInner {
+                        private static final String EMPTY = "";
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused removes entire SuppressWarnings annotation when all suppressions are unused'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
         package app;
-        @SuppressWarnings({"UnusedVariable", "SomeOtherCheck"})
+        @SuppressWarnings({"UnusedVariable", "ArrayToString"})
         public final class App {
             public static void main(String[] args) {
                 System.out.println("No violations here");
@@ -1351,7 +1394,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
 
         then:
         // language=Java

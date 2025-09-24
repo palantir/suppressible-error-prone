@@ -33,6 +33,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.interferences.Suppressin
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.ApplyMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.DisableMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.RemoveRolloutMode;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.RemoveUnusedMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.SuppressMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.TimingsMode;
 import java.util.List;
@@ -60,6 +61,7 @@ public abstract class Modes {
             ModeName.APPLY, new ApplyMode(),
             ModeName.DISABLE, new DisableMode(),
             ModeName.REMOVE_ROLLOUT, new RemoveRolloutMode(),
+            ModeName.REMOVE_UNUSED, new RemoveUnusedMode(),
             ModeName.SUPPRESS, new SuppressMode(),
             ModeName.TIMINGS, new TimingsMode());
 
