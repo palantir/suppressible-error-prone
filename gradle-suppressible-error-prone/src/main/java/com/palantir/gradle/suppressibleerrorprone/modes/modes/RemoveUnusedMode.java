@@ -40,10 +40,7 @@ public final class RemoveUnusedMode implements Mode {
 
             @Override
             public Map<String, String> extraErrorProneCheckOptions() {
-                // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
-                // We can't explicitly list all possible checks, because some might not exist anymore
-                // The logic itself needs to consider an empty list as "remove all"
-
+                // Simplify the logic by only permitting blanket removal
                 return Map.of("SuppressibleErrorProne:RemoveUnusedSuppressions", ALL_CHECKS);
             }
 
