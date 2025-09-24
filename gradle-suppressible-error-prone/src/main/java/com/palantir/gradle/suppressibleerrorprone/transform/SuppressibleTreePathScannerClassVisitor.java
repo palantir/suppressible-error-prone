@@ -21,6 +21,17 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+/**
+ * Forces {@code SuppressibleTreePathScanner} to respect the ignore suppressions option.
+ *
+ * <p>{@code RemoveUnusedSuppressions} must see violations that are normally hidden by suppressions to
+ * determine which suppressions are actually needed. While ErrorProneOptions has an
+ * {@code ignoreSuppressionAnnotations} flag for this purpose, many BugCheckers use
+ * {@code SuppressibleTreePathScanner}, which doesn't respect this flag.
+ *
+ * <p>This class uses bytecode manipulation to patch {@code SuppressibleTreePathScanner::isSuppressed}
+ * to respect the ErrorProneOptions setting.
+ */
 final class SuppressibleTreePathScannerClassVisitor extends ClassVisitor {
     SuppressibleTreePathScannerClassVisitor(ClassVisitor classVisitor) {
         super(Opcodes.ASM9, classVisitor);
@@ -58,7 +69,7 @@ final class SuppressibleTreePathScannerClassVisitor extends ClassVisitor {
             mv.visitMethodInsn(
                     Opcodes.INVOKESTATIC,
                     "com/palantir/suppressibleerrorprone/SuppressibleTreePathScannerModifications",
-                    "shouldBypassSuppressions",
+                    "shouldIgnoreSuppressions",
                     "(Lcom/google/errorprone/VisitorState;)Z",
                     false);
 

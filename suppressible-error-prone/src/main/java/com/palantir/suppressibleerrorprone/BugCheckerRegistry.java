@@ -56,9 +56,7 @@ public final class BugCheckerRegistry {
         Map<String, BugChecker> enabledBugCheckers = defaultAndPluginBugCheckers.getAllChecks().values().stream()
                 .filter(info -> info.severity(severityMap) != SeverityLevel.SUGGESTION)
                 .collect(Collectors.toMap(
-                        BugCheckerInfo::canonicalName,
-                        info -> injector.getInstance(info.checkerClass())
-                ));
+                        BugCheckerInfo::canonicalName, info -> injector.getInstance(info.checkerClass())));
 
         return new BugCheckerRegistry(enabledBugCheckers);
     }

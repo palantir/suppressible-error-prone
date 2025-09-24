@@ -95,16 +95,12 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
 
         for (TreeWithUnusedSuppressions treeWithUnusedSuppressions : unusedSuppressionsTree.unused()) {
             Set<String> unusedSuppressions = treeWithUnusedSuppressions.unusedSuppressions();
-
-            // Get modifiers tree based on tree type
             List<? extends AnnotationTree> suppressions =
                     getModifiersTree(treeWithUnusedSuppressions).getAnnotations().stream()
                             .filter(AnnotationUtils::isSuppressWarningsAnnotation)
                             .toList();
-
-            // Find @SuppressWarnings annotation
             for (AnnotationTree suppression : suppressions) {
-                Fix fix = createSuppressionFix(suppression, unusedSuppressions, state);
+                Fix fix = createFix(suppression, unusedSuppressions, state);
                 state.reportMatch(buildDescription(tree)
                         .setMessage("Remove unused @SuppressWarnings: " + unusedSuppressions)
                         .addFix(fix)
@@ -116,23 +112,21 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
     }
 
     private static ModifiersTree getModifiersTree(TreeWithUnusedSuppressions treeWithUnusedSuppressions) {
-        ModifiersTree modifiers;
         Tree declarationTree = treeWithUnusedSuppressions.tree();
         if (declarationTree instanceof MethodTree methodTree) {
-            modifiers = methodTree.getModifiers();
+            return methodTree.getModifiers();
         } else if (declarationTree instanceof ClassTree classTree) {
-            modifiers = classTree.getModifiers();
+            return classTree.getModifiers();
         } else if (declarationTree instanceof VariableTree variableTree) {
-            modifiers = variableTree.getModifiers();
+            return variableTree.getModifiers();
         } else {
             throw new IllegalStateException("Unexpected tree type: " + declarationTree.getClass());
         }
-        return modifiers;
     }
 
     // Annoyingly, we have to construct a fresh ErrorProneOptions and copy the rest of the flags manually,
     // before turning on XepIgnoreSuppressionAnnotations. This is so fragile :|
-    @SuppressWarnings("CyclomaticComplexity") // mostly just copying options
+    @SuppressWarnings("CyclomaticComplexity")
     private static ErrorProneOptions ignoreSuppressions(ErrorProneOptions originalOptions) {
         List<String> args = new ArrayList<>();
         args.add("-XepIgnoreSuppressionAnnotations");
@@ -179,8 +173,7 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
         return ErrorProneOptions.processArgs(args);
     }
 
-    private static Fix createSuppressionFix(
-            AnnotationTree suppressWarnings, Set<String> unusedSuppressions, VisitorState state) {
+    private static Fix createFix(AnnotationTree suppressWarnings, Set<String> unusedSuppressions, VisitorState state) {
         List<String> currentSuppressions =
                 AnnotationUtils.annotationStringValues(suppressWarnings).toList();
         List<String> remainingSuppressions = currentSuppressions.stream()
