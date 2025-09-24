@@ -333,6 +333,92 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne')
     }
 
+    def 'can suppress a failing check (even if not in patchChecks set) 2'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.Set;
+            class Helper {
+                public Set<VersionLocale> versions;
+                static class VersionLocale {
+                   @Deprecated
+                   public void version() {}
+              }
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            class App {
+              public void fun() {
+                new Helper()
+                    .versions
+                    .stream()
+                    .forEach(v ->
+                        v.version());
+              }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        appJavaTextContains('@SuppressWarnings(\"for-rollout:deprecation\")')
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'can suppress a failing check (even if not in patchChecks set) 3'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.Set;
+            import java.util.Map;
+            import java.util.Optional;
+            class Helper {
+                public Map<VersionedLocale, Object> getLocaleToLocaleBundleIds() { return Map.of(); }
+                static class VersionedLocale {
+                    public String locale() { return ""; }
+                   @Deprecated
+                   public Optional<String> version() { return Optional.empty();}
+              }
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.stream.Collectors;
+            import java.util.function.Supplier;
+            import java.util.Map;
+            import app.Helper.VersionedLocale;
+            
+            class App {
+              private final Supplier<Helper> localeConfigs = () -> {return new Helper();};
+              public Map<Object, Object> fun() {
+                return localeConfigs.get().getLocaleToLocaleBundleIds().keySet().stream()
+                    .filter(versionedLocale -> versionedLocale.version().isEmpty())
+                    .collect(Collectors.toMap(VersionedLocale::locale, key -> null)/*localeToInfoCache
+                        .get(VersionedLocale.builder()
+                                .locale(key.locale())
+                                .version(Optional.empty())
+                                .build())
+                        .getMessageIdToMessage())*/);
+              }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        appJavaTextContains('@SuppressWarnings(\"for-rollout:deprecation\")')
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
     def 'demonstrate suppressions on different source elements'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
