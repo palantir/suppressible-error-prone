@@ -70,8 +70,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             
             dependencies {
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
-                // TODO: figure out a way to get the current version, rather than use the latest here
-                errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:+'
+                // Mimick the way SuppressibleErrorPronePlugin adds the dependency on suppressible-error-prone
+                // This should guarantee that we're using the same version, both of which should be in maven local
+                //   and be the current version
+                errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:' + project.findProperty("suppressibleErrorProneVersion")
             }
             
             tasks.withType(JavaCompile).configureEach {
