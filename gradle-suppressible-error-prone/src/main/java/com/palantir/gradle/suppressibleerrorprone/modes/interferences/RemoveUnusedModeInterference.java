@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * compilation. This will be introduced in a future PR. For the time being, disallow any other commands to be run with
  * RemoveUnused.
  */
-public class RemoveUnusedModeInterference implements ModeInterference {
+public final class RemoveUnusedModeInterference implements ModeInterference {
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
         if (modeNames.contains(ModeName.REMOVE_UNUSED) && modeNames.size() > 1) {

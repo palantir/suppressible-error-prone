@@ -23,54 +23,16 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.scanner.ErrorProneScanner;
 import com.google.errorprone.suppliers.Supplier;
 import com.palantir.suppressibleerrorprone.UnusedSuppressionsTree.TreeWithUnusedSuppressions;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.ArrayAccessTree;
-import com.sun.source.tree.ArrayTypeTree;
-import com.sun.source.tree.AssertTree;
-import com.sun.source.tree.AssignmentTree;
-import com.sun.source.tree.BinaryTree;
-import com.sun.source.tree.BlockTree;
-import com.sun.source.tree.BreakTree;
-import com.sun.source.tree.CaseTree;
-import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.CompoundAssignmentTree;
-import com.sun.source.tree.ConditionalExpressionTree;
-import com.sun.source.tree.ContinueTree;
-import com.sun.source.tree.DoWhileLoopTree;
-import com.sun.source.tree.EmptyStatementTree;
-import com.sun.source.tree.EnhancedForLoopTree;
-import com.sun.source.tree.ExpressionStatementTree;
-import com.sun.source.tree.ForLoopTree;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.source.tree.IfTree;
-import com.sun.source.tree.ImportTree;
-import com.sun.source.tree.InstanceOfTree;
-import com.sun.source.tree.LabeledStatementTree;
-import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
-import com.sun.source.tree.NewArrayTree;
-import com.sun.source.tree.NewClassTree;
-import com.sun.source.tree.ParenthesizedTree;
-import com.sun.source.tree.ReturnTree;
-import com.sun.source.tree.SwitchTree;
-import com.sun.source.tree.SynchronizedTree;
-import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.TryTree;
-import com.sun.source.tree.TypeCastTree;
-import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
-import com.sun.source.tree.WhileLoopTree;
-import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -107,7 +69,6 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
         for (String suppression : unusedSuppressionsTree.allSuppressionNames()) {
             Optional<BugChecker> bugCheckerMaybe = enabledBugCheckers.get(state).get(suppression);
             if (bugCheckerMaybe.isEmpty()) {
-                System.err.println(suppression + ": not found in registry, so we conservatively assume they are used");
                 unusedSuppressionsTree.markAllSuppressionsAsUsed(suppression);
                 continue;
             }
@@ -120,7 +81,7 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
             // 2. Turn on XepIgnoreSuppressionAnnotations in ErrorProneOptions.
             VisitorState customState = VisitorState.createConfiguredForCompilation(
                             state.context,
-                            (description) -> {
+                            description -> {
                                 if (description != Description.NO_MATCH) {
                                     unusedSuppressionsTree.flagFirstParentSuppressionAsUsed(
                                             description.position.getTree(), description.checkName);
@@ -129,16 +90,11 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
                             state.severityMap(),
                             ignoreSuppressions(state.errorProneOptions()))
                     .withPath(state.getPath());
-            System.err.println(suppression + ": scanning to find usages");
-            new SuppressionCheckingScanner(bugCheckerMaybe.get()).scan(tree, customState);
+            new ErrorProneScanner(bugCheckerMaybe.get()).scan(tree, customState);
         }
 
         for (TreeWithUnusedSuppressions treeWithUnusedSuppressions : unusedSuppressionsTree.unused()) {
             Set<String> unusedSuppressions = treeWithUnusedSuppressions.unusedSuppressions();
-            System.err.println("========================================");
-            System.err.println("Unused suppressions found in tree : " + unusedSuppressions);
-            System.err.println(treeWithUnusedSuppressions.tree());
-            System.err.println("========================================\n");
 
             // Get modifiers tree based on tree type
             List<? extends AnnotationTree> suppressions =
@@ -176,6 +132,7 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
 
     // Annoyingly, we have to construct a fresh ErrorProneOptions and copy the rest of the flags manually,
     // before turning on XepIgnoreSuppressionAnnotations. This is so fragile :|
+    @SuppressWarnings("CyclomaticComplexity") // mostly just copying options
     private static ErrorProneOptions ignoreSuppressions(ErrorProneOptions originalOptions) {
         List<String> args = new ArrayList<>();
         args.add("-XepIgnoreSuppressionAnnotations");
@@ -220,182 +177,6 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
         }
 
         return ErrorProneOptions.processArgs(args);
-    }
-
-    private class SuppressionCheckingScanner extends TreeScanner<Void, VisitorState> {
-        private final BugChecker checker;
-
-        public SuppressionCheckingScanner(BugChecker checker) {
-            super();
-            this.checker = checker;
-        }
-
-        @Override
-        public Void scan(Tree tree, VisitorState state) {
-            if (tree == null) {
-                return null;
-            }
-
-            VisitorState newState = state.withPath(state.getPath());
-            Description description = checkTreeAgainstChecker(tree, newState);
-            state.reportMatch(description);
-
-            return super.scan(tree, newState);
-        }
-
-        /**
-         * Checks a tree against all the matcher interfaces implemented by the BugChecker.
-         */
-        private Description checkTreeAgainstChecker(Tree tree, VisitorState state) {
-            // Check each matcher interface that the checker implements
-            if (checker instanceof BugChecker.AnnotationTreeMatcher && tree instanceof AnnotationTree) {
-                return ((BugChecker.AnnotationTreeMatcher) checker).matchAnnotation((AnnotationTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ArrayAccessTreeMatcher && tree instanceof ArrayAccessTree) {
-                return ((BugChecker.ArrayAccessTreeMatcher) checker).matchArrayAccess((ArrayAccessTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ArrayTypeTreeMatcher && tree instanceof ArrayTypeTree) {
-                return ((BugChecker.ArrayTypeTreeMatcher) checker).matchArrayType((ArrayTypeTree) tree, state);
-            }
-            if (checker instanceof BugChecker.AssertTreeMatcher && tree instanceof AssertTree) {
-                return ((BugChecker.AssertTreeMatcher) checker).matchAssert((AssertTree) tree, state);
-            }
-            if (checker instanceof BugChecker.AssignmentTreeMatcher && tree instanceof AssignmentTree) {
-                return ((BugChecker.AssignmentTreeMatcher) checker).matchAssignment((AssignmentTree) tree, state);
-            }
-            if (checker instanceof BugChecker.BinaryTreeMatcher && tree instanceof BinaryTree) {
-                return ((BugChecker.BinaryTreeMatcher) checker).matchBinary((BinaryTree) tree, state);
-            }
-            if (checker instanceof BugChecker.BlockTreeMatcher && tree instanceof BlockTree) {
-                return ((BugChecker.BlockTreeMatcher) checker).matchBlock((BlockTree) tree, state);
-            }
-            if (checker instanceof BugChecker.BreakTreeMatcher && tree instanceof BreakTree) {
-                return ((BugChecker.BreakTreeMatcher) checker).matchBreak((BreakTree) tree, state);
-            }
-            if (checker instanceof BugChecker.CaseTreeMatcher && tree instanceof CaseTree) {
-                return ((BugChecker.CaseTreeMatcher) checker).matchCase((CaseTree) tree, state);
-            }
-            if (checker instanceof BugChecker.CatchTreeMatcher && tree instanceof CatchTree) {
-                return ((BugChecker.CatchTreeMatcher) checker).matchCatch((CatchTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ClassTreeMatcher && tree instanceof ClassTree) {
-                return ((BugChecker.ClassTreeMatcher) checker).matchClass((ClassTree) tree, state);
-            }
-            if (checker instanceof BugChecker.CompilationUnitTreeMatcher && tree instanceof CompilationUnitTree) {
-                return ((BugChecker.CompilationUnitTreeMatcher) checker)
-                        .matchCompilationUnit((CompilationUnitTree) tree, state);
-            }
-            if (checker instanceof BugChecker.CompoundAssignmentTreeMatcher && tree instanceof CompoundAssignmentTree) {
-                return ((BugChecker.CompoundAssignmentTreeMatcher) checker)
-                        .matchCompoundAssignment((CompoundAssignmentTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ConditionalExpressionTreeMatcher
-                    && tree instanceof ConditionalExpressionTree) {
-                return ((BugChecker.ConditionalExpressionTreeMatcher) checker)
-                        .matchConditionalExpression((ConditionalExpressionTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ContinueTreeMatcher && tree instanceof ContinueTree) {
-                return ((BugChecker.ContinueTreeMatcher) checker).matchContinue((ContinueTree) tree, state);
-            }
-            if (checker instanceof BugChecker.DoWhileLoopTreeMatcher && tree instanceof DoWhileLoopTree) {
-                return ((BugChecker.DoWhileLoopTreeMatcher) checker).matchDoWhileLoop((DoWhileLoopTree) tree, state);
-            }
-            if (checker instanceof BugChecker.EmptyStatementTreeMatcher && tree instanceof EmptyStatementTree) {
-                return ((BugChecker.EmptyStatementTreeMatcher) checker)
-                        .matchEmptyStatement((EmptyStatementTree) tree, state);
-            }
-            if (checker instanceof BugChecker.EnhancedForLoopTreeMatcher && tree instanceof EnhancedForLoopTree) {
-                return ((BugChecker.EnhancedForLoopTreeMatcher) checker)
-                        .matchEnhancedForLoop((EnhancedForLoopTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ExpressionStatementTreeMatcher
-                    && tree instanceof ExpressionStatementTree) {
-                return ((BugChecker.ExpressionStatementTreeMatcher) checker)
-                        .matchExpressionStatement((ExpressionStatementTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ForLoopTreeMatcher && tree instanceof ForLoopTree) {
-                return ((BugChecker.ForLoopTreeMatcher) checker).matchForLoop((ForLoopTree) tree, state);
-            }
-            if (checker instanceof BugChecker.IdentifierTreeMatcher && tree instanceof IdentifierTree) {
-                return ((BugChecker.IdentifierTreeMatcher) checker).matchIdentifier((IdentifierTree) tree, state);
-            }
-            if (checker instanceof BugChecker.IfTreeMatcher && tree instanceof IfTree) {
-                return ((BugChecker.IfTreeMatcher) checker).matchIf((IfTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ImportTreeMatcher && tree instanceof ImportTree) {
-                return ((BugChecker.ImportTreeMatcher) checker).matchImport((ImportTree) tree, state);
-            }
-            if (checker instanceof BugChecker.InstanceOfTreeMatcher && tree instanceof InstanceOfTree) {
-                return ((BugChecker.InstanceOfTreeMatcher) checker).matchInstanceOf((InstanceOfTree) tree, state);
-            }
-            if (checker instanceof BugChecker.LabeledStatementTreeMatcher && tree instanceof LabeledStatementTree) {
-                return ((BugChecker.LabeledStatementTreeMatcher) checker)
-                        .matchLabeledStatement((LabeledStatementTree) tree, state);
-            }
-            if (checker instanceof BugChecker.LambdaExpressionTreeMatcher && tree instanceof LambdaExpressionTree) {
-                return ((BugChecker.LambdaExpressionTreeMatcher) checker)
-                        .matchLambdaExpression((LambdaExpressionTree) tree, state);
-            }
-            if (checker instanceof BugChecker.LiteralTreeMatcher && tree instanceof LiteralTree) {
-                return ((BugChecker.LiteralTreeMatcher) checker).matchLiteral((LiteralTree) tree, state);
-            }
-            if (checker instanceof BugChecker.MemberReferenceTreeMatcher && tree instanceof MemberReferenceTree) {
-                return ((BugChecker.MemberReferenceTreeMatcher) checker)
-                        .matchMemberReference((MemberReferenceTree) tree, state);
-            }
-            if (checker instanceof BugChecker.MemberSelectTreeMatcher && tree instanceof MemberSelectTree) {
-                return ((BugChecker.MemberSelectTreeMatcher) checker).matchMemberSelect((MemberSelectTree) tree, state);
-            }
-            if (checker instanceof BugChecker.MethodTreeMatcher && tree instanceof MethodTree) {
-                return ((BugChecker.MethodTreeMatcher) checker).matchMethod((MethodTree) tree, state);
-            }
-            if (checker instanceof BugChecker.MethodInvocationTreeMatcher && tree instanceof MethodInvocationTree) {
-                return ((BugChecker.MethodInvocationTreeMatcher) checker)
-                        .matchMethodInvocation((MethodInvocationTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ModifiersTreeMatcher && tree instanceof ModifiersTree) {
-                return ((BugChecker.ModifiersTreeMatcher) checker).matchModifiers((ModifiersTree) tree, state);
-            }
-            if (checker instanceof BugChecker.NewArrayTreeMatcher && tree instanceof NewArrayTree) {
-                return ((BugChecker.NewArrayTreeMatcher) checker).matchNewArray((NewArrayTree) tree, state);
-            }
-            if (checker instanceof BugChecker.NewClassTreeMatcher && tree instanceof NewClassTree) {
-                return ((BugChecker.NewClassTreeMatcher) checker).matchNewClass((NewClassTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ParenthesizedTreeMatcher && tree instanceof ParenthesizedTree) {
-                return ((BugChecker.ParenthesizedTreeMatcher) checker)
-                        .matchParenthesized((ParenthesizedTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ReturnTreeMatcher && tree instanceof ReturnTree) {
-                return ((BugChecker.ReturnTreeMatcher) checker).matchReturn((ReturnTree) tree, state);
-            }
-            if (checker instanceof BugChecker.SwitchTreeMatcher && tree instanceof SwitchTree) {
-                return ((BugChecker.SwitchTreeMatcher) checker).matchSwitch((SwitchTree) tree, state);
-            }
-            if (checker instanceof BugChecker.SynchronizedTreeMatcher && tree instanceof SynchronizedTree) {
-                return ((BugChecker.SynchronizedTreeMatcher) checker).matchSynchronized((SynchronizedTree) tree, state);
-            }
-            if (checker instanceof BugChecker.ThrowTreeMatcher && tree instanceof ThrowTree) {
-                return ((BugChecker.ThrowTreeMatcher) checker).matchThrow((ThrowTree) tree, state);
-            }
-            if (checker instanceof BugChecker.TryTreeMatcher && tree instanceof TryTree) {
-                return ((BugChecker.TryTreeMatcher) checker).matchTry((TryTree) tree, state);
-            }
-            if (checker instanceof BugChecker.TypeCastTreeMatcher && tree instanceof TypeCastTree) {
-                return ((BugChecker.TypeCastTreeMatcher) checker).matchTypeCast((TypeCastTree) tree, state);
-            }
-            if (checker instanceof BugChecker.UnaryTreeMatcher && tree instanceof UnaryTree) {
-                return ((BugChecker.UnaryTreeMatcher) checker).matchUnary((UnaryTree) tree, state);
-            }
-            if (checker instanceof BugChecker.VariableTreeMatcher && tree instanceof VariableTree) {
-                return ((BugChecker.VariableTreeMatcher) checker).matchVariable((VariableTree) tree, state);
-            }
-            if (checker instanceof BugChecker.WhileLoopTreeMatcher && tree instanceof WhileLoopTree) {
-                return ((BugChecker.WhileLoopTreeMatcher) checker).matchWhileLoop((WhileLoopTree) tree, state);
-            }
-
-            return Description.NO_MATCH;
-        }
     }
 
     private static Fix createSuppressionFix(

@@ -23,4 +23,6 @@ public class SuppressibleTreePathScannerModifications {
     public static boolean shouldBypassSuppressions(VisitorState state) {
         return state.errorProneOptions().isIgnoreSuppressionAnnotations();
     }
+
+    private SuppressibleTreePathScannerModifications() {}
 }
