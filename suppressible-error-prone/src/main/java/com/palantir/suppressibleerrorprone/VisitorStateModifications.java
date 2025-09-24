@@ -18,23 +18,18 @@ package com.palantir.suppressibleerrorprone;
 
 // CHECKSTYLE:OFF
 
-import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
-import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
-import com.sun.source.util.TreePath;
+import com.sun.tools.javac.util.Context.Key;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
-import javax.lang.model.element.Name;
 // CHECKSTYLE:ON
 
 public final class VisitorStateModifications {
@@ -46,11 +41,27 @@ public final class VisitorStateModifications {
     // garbage collected.
     private static final Map<Tree, SuppressingFix> FIXES = new WeakHashMap<>();
 
+    public static final class RemovingUnusedSuppressions {}
+
+    public static final Key<RemovingUnusedSuppressions> removingUnusedSuppressions = new Key<>();
+    public static final RemovingUnusedSuppressions removingUnusedSuppressionsObj = new RemovingUnusedSuppressions();
+
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
-        if (description == Description.NO_MATCH) {
-            return description;
+        //                if (visitorState.context.get(removingUnusedSuppressions) != null) {
+        //                    RemoveUnusedSuppressions.onMatchReported();
+        //                }
+
+        //        if (1 + 1 == 2) {
+        //            throw new IllegalArgumentException("");
+        //        }
+
+        if (description != Description.NO_MATCH) {
+            RemoveUnusedSuppressions.onMatchReported();
         }
+        return description;
+
+        /*
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
         // "patchChecks" in the extension we need to use their suggested fixes instead of suppressing, so we can do
@@ -133,6 +144,8 @@ public final class VisitorStateModifications {
                         description.getMessageWithoutCheckName())
                 .addFix(suppressingFix)
                 .build();
+
+         */
     }
 
     private static boolean suppressibleTree(Tree tree) {

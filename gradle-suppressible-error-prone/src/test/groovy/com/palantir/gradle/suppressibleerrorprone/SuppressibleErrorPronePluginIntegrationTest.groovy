@@ -1311,25 +1311,99 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     def 'can remove unused suppressions with -PerrorProneRemoveUnused'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "FieldCanBeFinal"})
+            public final class App {
+                private int x;
+     
+                App() {
+                    this.x = 42;
+                }
+                
+                public static void main(String[] args) {
+                    // Only ArrayToString is actually triggered
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.error('FieldCanBeFinal')
+            }
+            suppressibleErrorProne {
+                configureEachErrorProneOptions {
+                    enable('UnusedVariable')
+                    enable('FieldCanBeFinal')
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
         package app;
-        @SuppressWarnings({"ArrayToString", "UnusedVariable"})
+        @SuppressWarnings({"ArrayToString", "FieldCanBeFinal"})
         public final class App {
+            private int x;
+ 
+            App() {
+                this.x = 42;
+            }
+            
             public static void main(String[] args) {
                 // Only ArrayToString is actually triggered
                 new int[3].toString();
             }
         }
     '''.stripIndent(true)
+    }
+
+    def 'doesnt remove used FieldCanBeFinal -PerrorProneRemoveUnused'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("FieldCanBeFinal")
+            public final class App {
+                private int x;
+     
+                App(int x) {
+                    this.x = x;   
+                }
+                
+                public static void main(String[] args) {
+                    // Only ArrayToString is actually triggered
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        // language=Gradle
+        buildFile << '''
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.error('FieldCanBeFinal')
+            }
+        '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+            runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
 
         then:
         // language=Java
         appJavaTextEquals '''
         package app;
-        @SuppressWarnings("ArrayToString")
-        public final class App {
+        public final class App { 
+            private int x;
+ 
+            App(int x) {
+                this.x = x;   
+            }
+            
             public static void main(String[] args) {
                 // Only ArrayToString is actually triggered
                 new int[3].toString();
@@ -1342,7 +1416,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
         package app;
-        @SuppressWarnings({"UnusedVariable", "SomeOtherCheck"})
+        @SuppressWarnings({"UnusedVariable", "ArrayToString"})
         public final class App {
             public static void main(String[] args) {
                 System.out.println("No violations here");
@@ -1351,7 +1425,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-')
+        runTasksSuccessfully('compileAllErrorProne')
 
         then:
         // language=Java
