@@ -17,16 +17,14 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneOptions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.fixes.Fix;
-import com.google.errorprone.fixes.Replacement;
-import com.google.errorprone.fixes.Replacements.CoalescePolicy;
 import com.google.errorprone.matchers.Description;
-import com.palantir.suppressibleerrorprone.SuppressionUsageTree.TreeWithUnusedSuppressions;
+import com.google.errorprone.suppliers.Supplier;
+import com.palantir.suppressibleerrorprone.UnusedSuppressionsTree.TreeWithUnusedSuppressions;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.ArrayTypeTree;
@@ -73,8 +71,6 @@ import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreeScanner;
-import com.sun.tools.javac.tree.EndPosTable;
-import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,51 +93,47 @@ import java.util.stream.Collectors;
         summary = "Remove unused @SuppressWarnings annotations")
 @SuppressWarnings("TreeToString")
 public final class RemoveUnusedSuppressions extends BugChecker implements BugChecker.CompilationUnitTreeMatcher {
-    private static final ThreadLocal<SuppressionUsageTree> SUPPRESSION_TREE = new ThreadLocal<>();
-
-    // Cache the registry per compilation to avoid repeated instantiation
-    private volatile CheckerRegistry cachedRegistry;
+    private static final Supplier<BugCheckerRegistry> enabledBugCheckers =
+            VisitorState.memoize(BugCheckerRegistry::constructFromEnabledCheckers);
 
     @Override
     public Description matchCompilationUnit(CompilationUnitTree tree, VisitorState state) {
-        // build SuppressionUsageTree
-        SUPPRESSION_TREE.set(SuppressionUsageTree.constructSuppressions(tree, state));
-        SuppressionUsageTree suppressionUsageTree = SUPPRESSION_TREE.get();
-        System.err.println("All suppressions found in compilation unit: " + suppressionUsageTree.allSuppressionNames());
+        UnusedSuppressionsTree unusedSuppressionsTree = UnusedSuppressionsTree.initializeWithSuppressions(tree);
 
-        if (suppressionUsageTree.allSuppressionNames().isEmpty()) {
+        if (unusedSuppressionsTree.allSuppressionNames().isEmpty()) {
             return Description.NO_MATCH;
         }
 
-        // for each suppressed bugchecker, scan the whole compilation unit, bypassing any suppressions.
-        for (String suppression : suppressionUsageTree.allSuppressionNames()) {
-            Optional<BugChecker> bugCheckerMaybe = getBugCheckerForSuppression(suppression, state);
+        for (String suppression : unusedSuppressionsTree.allSuppressionNames()) {
+            Optional<BugChecker> bugCheckerMaybe = enabledBugCheckers.get(state).get(suppression);
             if (bugCheckerMaybe.isEmpty()) {
                 System.err.println(suppression + ": not found in registry, so we conservatively assume they are used");
-                suppressionUsageTree.markAllSuppressionsAsUsed(suppression);
+                unusedSuppressionsTree.markAllSuppressionsAsUsed(suppression);
                 continue;
             }
 
-            BugChecker bugChecker = bugCheckerMaybe.get();
+            // customState uses the same compilation context and severity map (which tells us which bugcheckers are
+            // enabled) as the main compilation, but with two tweaks:
+            // 1. The DescriptionListener usually takes your reported Descriptions and reports them to javac and makes
+            // changes to source. We use a custom listener which does none of that, and just reports any Descriptions to
+            // unusedSuppressionTree
+            // 2. Turn on XepIgnoreSuppressionAnnotations in ErrorProneOptions.
             VisitorState customState = VisitorState.createConfiguredForCompilation(
                             state.context,
                             (description) -> {
                                 if (description != Description.NO_MATCH) {
-                                    SUPPRESSION_TREE
-                                            .get()
-                                            .flagFirstParentSuppressionAsUsed(
-                                                    description.position.getTree(), description.checkName);
+                                    unusedSuppressionsTree.flagFirstParentSuppressionAsUsed(
+                                            description.position.getTree(), description.checkName);
                                 }
                             },
                             state.severityMap(),
                             ignoreSuppressions(state.errorProneOptions()))
                     .withPath(state.getPath());
             System.err.println(suppression + ": scanning to find usages");
-
-            new SuppressionCheckingScanner(bugChecker, suppressionUsageTree).scan(tree, customState);
+            new SuppressionCheckingScanner(bugCheckerMaybe.get()).scan(tree, customState);
         }
 
-        for (TreeWithUnusedSuppressions treeWithUnusedSuppressions : suppressionUsageTree.unusedSuppressions()) {
+        for (TreeWithUnusedSuppressions treeWithUnusedSuppressions : unusedSuppressionsTree.unused()) {
             Set<String> unusedSuppressions = treeWithUnusedSuppressions.unusedSuppressions();
             System.err.println("========================================");
             System.err.println("Unused suppressions found in tree : " + unusedSuppressions);
@@ -149,33 +141,41 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
             System.err.println("========================================\n");
 
             // Get modifiers tree based on tree type
-            ModifiersTree modifiers;
-            Tree declarationTree = treeWithUnusedSuppressions.tree();
-            if (declarationTree instanceof MethodTree methodTree) {
-                modifiers = methodTree.getModifiers();
-            } else if (declarationTree instanceof ClassTree classTree) {
-                modifiers = classTree.getModifiers();
-            } else if (declarationTree instanceof VariableTree variableTree) {
-                modifiers = variableTree.getModifiers();
-            } else {
-                throw new IllegalStateException("Unexpected tree type: " + declarationTree.getClass());
-            }
+            List<? extends AnnotationTree> suppressions =
+                    getModifiersTree(treeWithUnusedSuppressions).getAnnotations().stream()
+                            .filter(AnnotationUtils::isSuppressWarningsAnnotation)
+                            .toList();
 
             // Find @SuppressWarnings annotation
-            for (AnnotationTree annotation : modifiers.getAnnotations()) {
-                if (isSuppressWarningsAnnotation(annotation)) {
-                    Fix fix = createSuppressionFix(annotation, unusedSuppressions, state);
-                    state.reportMatch(buildDescription(tree)
-                            .setMessage("Remove unused @SuppressWarnings: " + unusedSuppressions)
-                            .addFix(fix)
-                            .build());
-                }
+            for (AnnotationTree suppression : suppressions) {
+                Fix fix = createSuppressionFix(suppression, unusedSuppressions, state);
+                state.reportMatch(buildDescription(tree)
+                        .setMessage("Remove unused @SuppressWarnings: " + unusedSuppressions)
+                        .addFix(fix)
+                        .build());
             }
         }
 
         return Description.NO_MATCH;
     }
 
+    private static ModifiersTree getModifiersTree(TreeWithUnusedSuppressions treeWithUnusedSuppressions) {
+        ModifiersTree modifiers;
+        Tree declarationTree = treeWithUnusedSuppressions.tree();
+        if (declarationTree instanceof MethodTree methodTree) {
+            modifiers = methodTree.getModifiers();
+        } else if (declarationTree instanceof ClassTree classTree) {
+            modifiers = classTree.getModifiers();
+        } else if (declarationTree instanceof VariableTree variableTree) {
+            modifiers = variableTree.getModifiers();
+        } else {
+            throw new IllegalStateException("Unexpected tree type: " + declarationTree.getClass());
+        }
+        return modifiers;
+    }
+
+    // Annoyingly, we have to construct a fresh ErrorProneOptions and copy the rest of the flags manually,
+    // before turning on XepIgnoreSuppressionAnnotations. This is so fragile :|
     private static ErrorProneOptions ignoreSuppressions(ErrorProneOptions originalOptions) {
         List<String> args = new ArrayList<>();
         args.add("-XepIgnoreSuppressionAnnotations");
@@ -222,29 +222,12 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
         return ErrorProneOptions.processArgs(args);
     }
 
-    /**
-     * Gets the BugChecker associated with a suppression name using the registry.
-     */
-    private Optional<BugChecker> getBugCheckerForSuppression(String suppression, VisitorState state) {
-        // Use cached registry or create new one
-        if (cachedRegistry == null) {
-            synchronized (this) {
-                if (cachedRegistry == null) {
-                    cachedRegistry = CheckerRegistry.createFromEnabledCheckers(state);
-                }
-            }
-        }
-        return cachedRegistry.getCheckerForName(suppression);
-    }
-
     private class SuppressionCheckingScanner extends TreeScanner<Void, VisitorState> {
-        private final SuppressionUsageTree suppressionUsageTree;
         private final BugChecker checker;
 
-        public SuppressionCheckingScanner(BugChecker checker, SuppressionUsageTree suppressionUsageTree) {
+        public SuppressionCheckingScanner(BugChecker checker) {
             super();
             this.checker = checker;
-            this.suppressionUsageTree = suppressionUsageTree;
         }
 
         @Override
@@ -254,7 +237,6 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
             }
 
             VisitorState newState = state.withPath(state.getPath());
-
             Description description = checkTreeAgainstChecker(tree, newState);
             state.reportMatch(description);
 
@@ -416,111 +398,15 @@ public final class RemoveUnusedSuppressions extends BugChecker implements BugChe
         }
     }
 
-    /**
-     * Hook to be called from VisitorState.reportMatch to track when matches are reported.
-     */
-    public static void onMatchReported(Description description) {
-        System.err.println("reportMatch called");
-
-        if (description != Description.NO_MATCH) {
-            SUPPRESSION_TREE
-                    .get()
-                    .flagFirstParentSuppressionAsUsed(description.position.getTree(), description.checkName);
-        }
-    }
-
-    private static boolean isSuppressWarningsAnnotation(AnnotationTree annotation) {
-        return AnnotationUtils.annotationName(annotation.getAnnotationType()).contentEquals("SuppressWarnings");
-    }
-
     private static Fix createSuppressionFix(
-            AnnotationTree annotation, Set<String> unusedSuppressions, VisitorState state) {
-        // Get current suppression values using existing utility
+            AnnotationTree suppressWarnings, Set<String> unusedSuppressions, VisitorState state) {
         List<String> currentSuppressions =
-                AnnotationUtils.annotationStringValues(annotation).toList();
-
-        // Remove unused suppressions
+                AnnotationUtils.annotationStringValues(suppressWarnings).toList();
         List<String> remainingSuppressions = currentSuppressions.stream()
                 .filter(s -> !unusedSuppressions.contains(s))
                 .collect(Collectors.toList());
-
-        if (remainingSuppressions.isEmpty()) {
-            // Remove entire annotation
-            return new LineRemovingReplacementFix(state.getSourceCode(), (DiagnosticPosition) annotation, "");
-        } else {
-            // Update annotation with remaining suppressions
-            String newAnnotation = buildSuppressWarningsAnnotation(remainingSuppressions);
-            return new LineRemovingReplacementFix(
-                    state.getSourceCode(), (DiagnosticPosition) annotation, newAnnotation);
-        }
-    }
-
-    private static String buildSuppressWarningsAnnotation(List<String> suppressions) {
-        if (suppressions.size() == 1) {
-            return "@SuppressWarnings(\"" + suppressions.get(0) + "\")";
-        } else {
-            String values = suppressions.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(", "));
-            return "@SuppressWarnings({" + values + "})";
-        }
-    }
-
-    /**
-     * This class handles replacement with optional line removal for empty suppressions.
-     */
-    private static final class LineRemovingReplacementFix implements Fix {
-        private final CharSequence sourceCode;
-        private final DiagnosticPosition position;
-        private final String replacementText;
-
-        private LineRemovingReplacementFix(
-                CharSequence sourceCode, DiagnosticPosition position, String replacementText) {
-            this.sourceCode = sourceCode;
-            this.position = position;
-            this.replacementText = replacementText;
-        }
-
-        @Override
-        public String toString(JCCompilationUnit compilationUnit) {
-            return "LineRemovingReplacementFix";
-        }
-
-        @Override
-        public String getShortDescription() {
-            return "Replace text at the position with the provided text, "
-                    + "or remove the text and all preceding whitespace";
-        }
-
-        @Override
-        public CoalescePolicy getCoalescePolicy() {
-            return CoalescePolicy.REJECT;
-        }
-
-        @Override
-        public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-            // If we are looking to delete the entire element, we should also remove whitespace before it,
-            //   up to and including the newline
-            if (replacementText.isEmpty() && sourceCode != null) {
-                int start = SourceCodeUtils.startPositionWithWhitespaceIncludingNewLine(
-                        sourceCode, position.getStartPosition());
-                return ImmutableSet.of(Replacement.create(start, position.getEndPosition(endPositions), ""));
-            }
-            return ImmutableSet.of(Replacement.create(
-                    position.getStartPosition(), position.getEndPosition(endPositions), replacementText));
-        }
-
-        @Override
-        public ImmutableSet<String> getImportsToAdd() {
-            return ImmutableSet.of();
-        }
-
-        @Override
-        public ImmutableSet<String> getImportsToRemove() {
-            return ImmutableSet.of();
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return false;
-        }
+        String newSuppressWarnings = SuppressWarningsUtils.suppressWarningsString(remainingSuppressions);
+        return new LineRemovingReplacementFix(
+                state.getSourceCode(), (DiagnosticPosition) suppressWarnings, newSuppressWarnings);
     }
 }

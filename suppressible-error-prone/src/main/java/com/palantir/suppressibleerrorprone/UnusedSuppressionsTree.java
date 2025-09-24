@@ -16,7 +16,6 @@
 
 package com.palantir.suppressibleerrorprone;
 
-import com.google.errorprone.VisitorState;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
@@ -35,19 +34,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("BadAssert")
-public class SuppressionUsageTree {
+public class UnusedSuppressionsTree {
     private final Map<Tree, Set<String>> treeToSuppressions;
     private final Map<Tree, Set<String>> usedSuppressions;
     private final Map<Tree, TreePath> treeToPath;
 
-    private SuppressionUsageTree(Map<Tree, Set<String>> treeToSuppressions, Map<Tree, TreePath> treeToPath) {
+    private UnusedSuppressionsTree(Map<Tree, Set<String>> treeToSuppressions, Map<Tree, TreePath> treeToPath) {
         this.treeToSuppressions = Map.copyOf(treeToSuppressions);
         this.treeToPath = Map.copyOf(treeToPath);
-        this.usedSuppressions = new ConcurrentHashMap<>();
+        this.usedSuppressions = new HashMap<>();
         treeToSuppressions.keySet().forEach(tree -> usedSuppressions.put(tree, ConcurrentHashMap.newKeySet()));
     }
 
-    public static SuppressionUsageTree constructSuppressions(CompilationUnitTree tree, VisitorState state) {
+    public static UnusedSuppressionsTree initializeWithSuppressions(CompilationUnitTree tree) {
         Map<Tree, Set<String>> treeToSuppressions = new HashMap<>();
         Map<Tree, TreePath> treeToPath = new HashMap<>();
 
@@ -96,15 +95,22 @@ public class SuppressionUsageTree {
             }
         }.scan(new TreePath(tree), null);
 
-        return new SuppressionUsageTree(treeToSuppressions, treeToPath);
+        return new UnusedSuppressionsTree(treeToSuppressions, treeToPath);
     }
 
     public Set<String> allSuppressionNames() {
         return treeToSuppressions.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
     }
 
+    /**
+     * Starting from {@code tree}, look for the first tree along the path which has a suppression on
+     * {@code suppressionName}, and mark that suppression as used.
+     *
+     * This method is forced to take in a {@code Tree} rather than a {@code TreePath}, because it is called from
+     * {@code description.position.getTree()}. To avoid doing a tree walk, we cache the tree->path mapping during
+     * construction.
+     */
     public void flagFirstParentSuppressionAsUsed(Tree tree, String suppressionName) {
-        System.err.println("========================================");
         System.err.println("Flagging suppressions as used: " + suppressionName);
         System.err.println("tree: " + tree);
         TreePath treePath = treeToPath.get(tree);
@@ -114,7 +120,6 @@ public class SuppressionUsageTree {
             return; // Tree not found in our map
         }
         System.err.println("leaf of path: " + treePath.getLeaf());
-        assert treePath.getLeaf().equals(tree);
 
         for (TreePath path = treePath; path != null; path = path.getParentPath()) {
             Tree curr = path.getLeaf();
@@ -138,7 +143,7 @@ public class SuppressionUsageTree {
                 .forEach(entry -> usedSuppressions.get(entry.getKey()).add(suppressionName));
     }
 
-    public Set<TreeWithUnusedSuppressions> unusedSuppressions() {
+    public Set<TreeWithUnusedSuppressions> unused() {
         return treeToSuppressions.entrySet().stream()
                 .map(entry -> {
                     Tree tree = entry.getKey();
