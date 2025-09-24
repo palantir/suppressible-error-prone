@@ -52,29 +52,29 @@ public class UnusedSuppressionsTree {
 
         new TreePathScanner<Void, Void>() {
             @Override
-            public Void scan(Tree tree, Void p) {
+            public Void scan(Tree tree, Void unused) {
                 if (tree != null) {
                     treeToPath.put(tree, new TreePath(getCurrentPath(), tree));
                 }
-                return super.scan(tree, p);
+                return super.scan(tree, unused);
             }
 
             @Override
-            public Void visitMethod(MethodTree node, Void p) {
+            public Void visitMethod(MethodTree node, Void unused) {
                 collectSuppressions(node, node.getModifiers());
-                return super.visitMethod(node, p);
+                return super.visitMethod(node, unused);
             }
 
             @Override
-            public Void visitClass(ClassTree node, Void p) {
+            public Void visitClass(ClassTree node, Void unused) {
                 collectSuppressions(node, node.getModifiers());
-                return super.visitClass(node, p);
+                return super.visitClass(node, unused);
             }
 
             @Override
-            public Void visitVariable(VariableTree node, Void p) {
+            public Void visitVariable(VariableTree node, Void unused) {
                 collectSuppressions(node, node.getModifiers());
-                return super.visitVariable(node, p);
+                return super.visitVariable(node, unused);
             }
 
             private void collectSuppressions(Tree tree, ModifiersTree modifiers) {
@@ -111,30 +111,19 @@ public class UnusedSuppressionsTree {
      * construction.
      */
     public void flagFirstParentSuppressionAsUsed(Tree tree, String suppressionName) {
-        System.err.println("Flagging suppressions as used: " + suppressionName);
-        System.err.println("tree: " + tree);
         TreePath treePath = treeToPath.get(tree);
         if (treePath == null) {
-            System.err.println("No TreePath found for tree - tree not in our suppression map");
-            System.err.println("========================================\n");
             return; // Tree not found in our map
         }
-        System.err.println("leaf of path: " + treePath.getLeaf());
 
         for (TreePath path = treePath; path != null; path = path.getParentPath()) {
             Tree curr = path.getLeaf();
             Set<String> suppressions = treeToSuppressions.get(curr);
             if (suppressions != null && suppressions.contains(suppressionName)) {
                 usedSuppressions.get(curr).add(suppressionName);
-                System.err.println("Flagged suppression '" + suppressionName + "' as used: " + curr);
-                System.err.println("========================================\n");
-
                 return;
             }
         }
-
-        System.err.println("No parent suppression found for '" + suppressionName + "' - walked entire parent chain");
-        System.err.println("========================================\n");
     }
 
     public void markAllSuppressionsAsUsed(String suppressionName) {

@@ -23,7 +23,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption
 import com.palantir.gradle.suppressibleerrorprone.modes.common.RemoveUnusedCheck;
 import java.util.Map;
 
-public class RemoveUnusedMode implements Mode {
+public final class RemoveUnusedMode implements Mode {
     private static final String ALL_CHECKS = "";
 
     public ModifyCheckApiOption modifyCheckApi() {
@@ -44,9 +44,7 @@ public class RemoveUnusedMode implements Mode {
                 // We can't explicitly list all possible checks, because some might not exist anymore
                 // The logic itself needs to consider an empty list as "remove all"
 
-                return Map.of(
-                        "SuppressibleErrorProne:RemoveUnusedSuppressions",
-                        context.flagValue().orElse(ALL_CHECKS));
+                return Map.of("SuppressibleErrorProne:RemoveUnusedSuppressions", ALL_CHECKS);
             }
 
             @Override
