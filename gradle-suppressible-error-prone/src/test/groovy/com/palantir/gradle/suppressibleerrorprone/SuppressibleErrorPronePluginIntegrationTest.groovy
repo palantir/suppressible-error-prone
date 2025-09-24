@@ -381,6 +381,33 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne')
     }
 
+    def 'does not apply SuppressWarnings to anonymous classes'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                void test() {
+                    new Object() {
+                        {
+                            Stream.of(new Object()).forEach(o -> o.toString());
+                        }
+                    };
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        appJavaTextContains('@SuppressWarnings(\"for-rollout:TestCheckNoSingleLetterVariable\")')
+
+        // Verify the code still compiles after the suppression has been applied, as previous versions
+        //   were adding the annotation to the anonymous class which is not valid java
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
     def 'demonstrate suppressions on different source elements'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''

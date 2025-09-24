@@ -139,8 +139,12 @@ public final class VisitorStateModifications {
     }
 
     private static boolean suppressibleTreePath(TreePath treePath) {
-        boolean canHaveModifiers = modifiersTree(treePath.getLeaf()).isPresent();
-        if (!canHaveModifiers) {
+        if (!modifiersTree(treePath.getLeaf()).isPresent()) {
+            return false;
+        }
+
+        if (isAnonymousClass(treePath)) {
+            // We cannot add annotations to anonymous classes
             return false;
         }
 
@@ -150,6 +154,14 @@ public final class VisitorStateModifications {
         }
 
         return true;
+    }
+
+    private static boolean isAnonymousClass(TreePath tree) {
+        if (!(tree.getLeaf() instanceof ClassTree classTree)) {
+            return false;
+        }
+
+        return classTree.getSimpleName().isEmpty();
     }
 
     private static boolean isLambdaImplicitParameter(TreePath tree) {
