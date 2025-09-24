@@ -33,17 +33,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-@SuppressWarnings("BadAssert")
 public class UnusedSuppressionsTree {
-    private final Map<Tree, Set<String>> treeToSuppressions;
-    private final Map<Tree, Set<String>> usedSuppressions;
-    private final Map<Tree, TreePath> treeToPath;
+    private final Map<Tree, TreePath> pathCache; // exists for performance reasons
 
-    private UnusedSuppressionsTree(Map<Tree, Set<String>> treeToSuppressions, Map<Tree, TreePath> treeToPath) {
+    private final Map<Tree, Set<String>> treeToSuppressions;
+    private final Map<Tree, Set<String>> treeToUsedSuppressions;
+
+    private UnusedSuppressionsTree(Map<Tree, Set<String>> treeToSuppressions, Map<Tree, TreePath> pathCache) {
+        this.pathCache = Map.copyOf(pathCache);
         this.treeToSuppressions = Map.copyOf(treeToSuppressions);
-        this.treeToPath = Map.copyOf(treeToPath);
-        this.usedSuppressions = new HashMap<>();
-        treeToSuppressions.keySet().forEach(tree -> usedSuppressions.put(tree, ConcurrentHashMap.newKeySet()));
+        this.treeToUsedSuppressions = new HashMap<>();
+        treeToSuppressions.keySet().forEach(tree -> treeToUsedSuppressions.put(tree, ConcurrentHashMap.newKeySet()));
     }
 
     public static UnusedSuppressionsTree initializeWithSuppressions(CompilationUnitTree tree) {
@@ -106,12 +106,12 @@ public class UnusedSuppressionsTree {
      * Starting from {@code tree}, look for the first tree along the path which has a suppression on
      * {@code suppressionName}, and mark that suppression as used.
      *
-     * This method is forced to take in a {@code Tree} rather than a {@code TreePath}, because it is called from
+     * <p> This method is forced to take in a {@code Tree} rather than a {@code TreePath}, because it is called from
      * {@code description.position.getTree()}. To avoid doing a tree walk, we cache the tree->path mapping during
      * construction.
      */
     public void flagFirstParentSuppressionAsUsed(Tree tree, String suppressionName) {
-        TreePath treePath = treeToPath.get(tree);
+        TreePath treePath = pathCache.get(tree);
         if (treePath == null) {
             return; // Tree not found in our map
         }
@@ -120,7 +120,7 @@ public class UnusedSuppressionsTree {
             Tree curr = path.getLeaf();
             Set<String> suppressions = treeToSuppressions.get(curr);
             if (suppressions != null && suppressions.contains(suppressionName)) {
-                usedSuppressions.get(curr).add(suppressionName);
+                treeToUsedSuppressions.get(curr).add(suppressionName);
                 return;
             }
         }
@@ -129,7 +129,7 @@ public class UnusedSuppressionsTree {
     public void markAllSuppressionsAsUsed(String suppressionName) {
         treeToSuppressions.entrySet().stream()
                 .filter(entry -> entry.getValue().contains(suppressionName))
-                .forEach(entry -> usedSuppressions.get(entry.getKey()).add(suppressionName));
+                .forEach(entry -> treeToUsedSuppressions.get(entry.getKey()).add(suppressionName));
     }
 
     public Set<TreeWithUnusedSuppressions> unused() {
@@ -137,7 +137,7 @@ public class UnusedSuppressionsTree {
                 .map(entry -> {
                     Tree tree = entry.getKey();
                     Set<String> allSuppressions = entry.getValue();
-                    Set<String> used = usedSuppressions.get(tree);
+                    Set<String> used = treeToUsedSuppressions.get(tree);
                     Set<String> unused = allSuppressions.stream()
                             .filter(s -> !used.contains(s))
                             .collect(Collectors.toSet());

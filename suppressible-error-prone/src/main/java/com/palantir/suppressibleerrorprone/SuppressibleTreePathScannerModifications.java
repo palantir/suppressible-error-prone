@@ -20,7 +20,7 @@ import com.google.errorprone.VisitorState;
 
 public class SuppressibleTreePathScannerModifications {
 
-    public static boolean shouldBypassSuppressions(VisitorState state) {
+    public static boolean shouldIgnoreSuppressions(VisitorState state) {
         return state.errorProneOptions().isIgnoreSuppressionAnnotations();
     }
 
