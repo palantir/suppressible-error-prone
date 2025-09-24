@@ -13,3 +13,4 @@ rootProject.name = "suppressible-error-prone-root"
 
 include 'gradle-suppressible-error-prone'
 include 'suppressible-error-prone'
+include 'test-error-prone-checks'
