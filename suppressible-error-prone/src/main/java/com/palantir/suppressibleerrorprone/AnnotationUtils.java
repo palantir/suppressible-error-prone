@@ -67,5 +67,9 @@ final class AnnotationUtils {
                 "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
     }
 
+    static boolean isSuppressWarningsAnnotation(AnnotationTree annotation) {
+        return AnnotationUtils.annotationName(annotation.getAnnotationType()).contentEquals("SuppressWarnings");
+    }
+
     private AnnotationUtils() {}
 }
