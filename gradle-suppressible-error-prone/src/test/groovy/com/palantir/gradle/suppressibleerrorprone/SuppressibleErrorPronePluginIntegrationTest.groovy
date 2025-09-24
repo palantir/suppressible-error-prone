@@ -1345,7 +1345,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
     }
 
-    def 'errorProneRemoveUnused only removes suppressions not directly connected to a report'() {
+    def 'errorProneRemoveUnused only removes the first suppression in the path of a violation'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
