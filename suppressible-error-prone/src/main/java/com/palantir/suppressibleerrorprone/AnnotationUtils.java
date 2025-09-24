@@ -24,6 +24,7 @@ import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
 
@@ -65,6 +66,10 @@ final class AnnotationUtils {
 
         throw new UnsupportedOperationException(
                 "Unsupported annotation type: " + annotationType.getClass().getCanonicalName());
+    }
+
+    static Tree getAnnotatedTree(TreePath pathToAnnotationTree) {
+        return pathToAnnotationTree.getParentPath().getParentPath().getLeaf();
     }
 
     private AnnotationUtils() {}
