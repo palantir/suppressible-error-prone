@@ -19,25 +19,26 @@ import com.google.auto.service.AutoService;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
-import com.google.errorprone.bugpatterns.BugChecker.MemberSelectTreeMatcher;
+import com.google.errorprone.bugpatterns.BugChecker.VariableTreeMatcher;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 
 @AutoService(BugChecker.class)
 @BugPattern(
         severity = BugPattern.SeverityLevel.ERROR,
-        summary = "Deprecated APIs should not be relied upon as they may be removed in a future release.")
-public class TestOnlyDeprecatedApiUsage extends BugChecker implements MemberSelectTreeMatcher {
+        summary = "This check is meant only for testing suppressible-error-prone functionality")
+public class TestCheckNoSingleLetterVariable extends BugChecker implements VariableTreeMatcher {
 
     @Override
-    public final Description matchMemberSelect(MemberSelectTree tree, VisitorState _state) {
+    public final Description matchVariable(VariableTree tree, VisitorState _state) {
         Symbol symbol = ASTHelpers.getSymbol(tree);
-        if (symbol != null && symbol.isDeprecated()) {
-            return buildDescription(tree).setMessage("Deprecated").build();
+        if (symbol != null && symbol.getSimpleName().length() == 1) {
+            return buildDescription(tree)
+                    .setMessage("Don't use single-letter variables")
+                    .build();
         }
-
         return Description.NO_MATCH;
     }
 }

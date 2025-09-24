@@ -335,23 +335,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne')
     }
 
-    def 'can suppress a failing check (even if not in patchChecks set) 3'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
-            package app;
-            @Deprecated
-            public class DeprecatedClass {
-                void deprecated() {}
-            }
-        '''.stripIndent(true)
-
+    def 'does not apply SuppressWarnings to implicit lambda parameters'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
             import java.util.stream.Stream;
             public class App {
                 void test() {
-                    Stream.of(new DeprecatedClass()).forEach(c -> c.deprecated());
+                    Stream.of(new Object()).forEach(o -> o.toString());
                 }
             }
         '''.stripIndent(true)
@@ -360,8 +351,33 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        appJavaTextContains('@SuppressWarnings(\"for-rollout:TestOnlyDeprecatedApiUsage\")')
+        appJavaTextContains('@SuppressWarnings(\"for-rollout:TestCheckNoSingleLetterVariable\")')
 
+        // Verify the code still compiles after the suppression has been applied, as previous versions
+        //   were adding the annotation to the lambda implicit parameter which is not valid java
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'can apply SuppressWarnings to explicit lambda parameters'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                void test() {
+                    Stream.of(new Object()).forEach((Object o) -> o.toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        appJavaTextContains('@SuppressWarnings(\"for-rollout:TestCheckNoSingleLetterVariable\")\nObject o')
+
+        // Verify the code still compiles after the suppression has been applied, as previous versions
+        //   were adding the annotation to the lambda implicit parameter which is not valid java
         runTasksSuccessfully('compileAllErrorProne')
     }
 
