@@ -1340,7 +1340,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
     }
 
-    def 'errorProneRemoveUnused only removes the first suppression in the path of a violation'() {
+    def 'errorProneRemoveUnused only keeps the first suppression in the path of a violation'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -1353,7 +1353,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 class Inner { 
                     @SuppressWarnings("InlineTrivialConstant")
                     class InnerInner {
-                        private static final String EMPTY = "";
+                        @SuppressWarnings("InlineTrivialConstant")
+                        class InnerInnerInner {
+                            private static final String EMPTY = "";
+                        }
                     }
                 }
             }
@@ -1372,9 +1375,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 private static final String EMPTY_STRING = "";
                 
                 class Inner { 
-                    @SuppressWarnings("InlineTrivialConstant")
                     class InnerInner {
-                        private static final String EMPTY = "";
+                        @SuppressWarnings("InlineTrivialConstant")
+                        class InnerInnerInner {
+                            private static final String EMPTY = "";
+                        }
                     }
                 }
             }
