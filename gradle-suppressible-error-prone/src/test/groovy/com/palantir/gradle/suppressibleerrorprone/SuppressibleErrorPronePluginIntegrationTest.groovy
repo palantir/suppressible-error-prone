@@ -1308,7 +1308,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         !output.contains('[RemoveRolloutSuppressions]')
     }
 
-    def 'errorProneRemoveUnused removes unused suppressions, and only unused suppressions'() {
+    def 'errorProneRemoveUnused removes only unused suppressions'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
