@@ -340,8 +340,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             import java.util.Set;
             class Helper {
                 public Set<VersionLocale> versions;
+                @Deprecated
                 static class VersionLocale {
-                   @Deprecated
                    public void version() {}
               }
             }
@@ -374,39 +374,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
-            import java.util.Set;
-            import java.util.Map;
-            import java.util.Optional;
-            class Helper {
-                public Map<VersionedLocale, Object> getLocaleToLocaleBundleIds() { return Map.of(); }
-                static class VersionedLocale {
-                    public String locale() { return ""; }
-                   @Deprecated
-                   public Optional<String> version() { return Optional.empty();}
-              }
+            @Deprecated
+            public class DeprecatedClass {
+                void deprecated() {}
             }
         '''.stripIndent(true)
 
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
-            import java.util.stream.Collectors;
-            import java.util.function.Supplier;
-            import java.util.Map;
-            import app.Helper.VersionedLocale;
-            
-            class App {
-              private final Supplier<Helper> localeConfigs = () -> {return new Helper();};
-              public Map<Object, Object> fun() {
-                return localeConfigs.get().getLocaleToLocaleBundleIds().keySet().stream()
-                    .filter(versionedLocale -> versionedLocale.version().isEmpty())
-                    .collect(Collectors.toMap(VersionedLocale::locale, key -> null)/*localeToInfoCache
-                        .get(VersionedLocale.builder()
-                                .locale(key.locale())
-                                .version(Optional.empty())
-                                .build())
-                        .getMessageIdToMessage())*/);
-              }
+            import java.util.stream.Stream;
+            public class App {
+                void test() {
+                    Stream.of(new DeprecatedClass()).forEach(c -> c.deprecated());
+                }
             }
         '''.stripIndent(true)
 
