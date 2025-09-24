@@ -20,6 +20,7 @@ import com.google.auto.service.AutoService;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.bugpatterns.BugChecker.IdentifierTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MemberReferenceTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MemberSelectTreeMatcher;
 import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
@@ -28,6 +29,7 @@ import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
@@ -47,7 +49,10 @@ import javax.lang.model.element.Name;
         name = "deprecation",
         altNames = "DeprecatedApiUsage")
 public class DeprecatedApiUsage extends BugChecker
-        implements MethodInvocationTreeMatcher, MemberReferenceTreeMatcher, MemberSelectTreeMatcher {
+        implements MethodInvocationTreeMatcher,
+                MemberReferenceTreeMatcher,
+                MemberSelectTreeMatcher,
+                IdentifierTreeMatcher {
 
     private static final String MESSAGE_DETAILS =
             " - this may be removed in a future release and prevent library upgrades. Note: This error comes from "
@@ -79,16 +84,21 @@ public class DeprecatedApiUsage extends BugChecker
     }
 
     @Override
+    public final Description matchIdentifier(IdentifierTree tree, VisitorState state) {
+        return checkTree(tree, state);
+    }
+
+    @Override
     public final Description matchMemberSelect(MemberSelectTree tree, VisitorState state) {
+        return checkTree(tree, state);
+    }
+
+    private Description checkTree(Tree tree, VisitorState state) {
         if (isImportStatement(state)) {
             // We don't want to flag import statements, as those cannot be suppressed.
             return Description.NO_MATCH;
         }
 
-        return checkTree(tree, state);
-    }
-
-    private Description checkTree(Tree tree, VisitorState state) {
         if (!isDeprecationWarning(tree, state)) {
             return Description.NO_MATCH;
         }

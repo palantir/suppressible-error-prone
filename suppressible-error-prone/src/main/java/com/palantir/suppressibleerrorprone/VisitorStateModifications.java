@@ -23,11 +23,14 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.tree.JCTree.JCLambda;
+import com.sun.tools.javac.tree.JCTree.JCLambda.ParameterKind;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -82,7 +85,7 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
+                .dropWhile(path -> !suppressibleTreePath(path))
                 .findFirst();
 
         // If we can't find a suppressible parent, we can't add a suppression, so just give up.
@@ -135,8 +138,38 @@ public final class VisitorStateModifications {
                 .build();
     }
 
-    private static boolean suppressibleTree(Tree tree) {
-        return modifiersTree(tree).isPresent();
+    private static boolean suppressibleTreePath(TreePath treePath) {
+        boolean canHaveModifiers = modifiersTree(treePath.getLeaf()).isPresent();
+        if (!canHaveModifiers) {
+            return false;
+        }
+
+        if (isLambdaImplicitParameter(treePath)) {
+            // We cannot add annotations to implicit lambda parameters
+            return false;
+        }
+
+        return true;
+    }
+
+    private static boolean isLambdaImplicitParameter(TreePath tree) {
+        if (!(tree.getLeaf() instanceof VariableTree variableTree)) {
+            return false;
+        }
+
+        if (!(tree.getParentPath().getLeaf() instanceof LambdaExpressionTree lambdaExpressionTree)) {
+            return false;
+        }
+
+        if (!(lambdaExpressionTree instanceof JCLambda jcLambda)) {
+            return false;
+        }
+
+        if (jcLambda.paramKind != ParameterKind.IMPLICIT) {
+            return false;
+        }
+
+        return lambdaExpressionTree.getParameters().contains(variableTree);
     }
 
     private static Optional<ModifiersTree> modifiersTree(Tree tree) {

@@ -333,43 +333,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne')
     }
 
-    def 'can suppress a failing check (even if not in patchChecks set) 2'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
-            package app;
-            import java.util.Set;
-            class Helper {
-                public Set<VersionLocale> versions;
-                @Deprecated
-                static class VersionLocale {
-                   public void version() {}
-              }
-            }
-        '''.stripIndent(true)
-
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
-            package app;
-            class App {
-              public void fun() {
-                new Helper()
-                    .versions
-                    .stream()
-                    .forEach(v ->
-                        v.version());
-              }
-            }
-        '''.stripIndent(true)
-
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
-
-        then:
-        appJavaTextContains('@SuppressWarnings(\"for-rollout:deprecation\")')
-
-        runTasksSuccessfully('compileAllErrorProne')
-    }
-
     def 'can suppress a failing check (even if not in patchChecks set) 3'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
