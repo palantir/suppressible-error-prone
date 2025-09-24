@@ -23,7 +23,6 @@ import org.gradle.testkit.runner.BuildResult
 import spock.lang.Unroll
 
 class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec {
-    static String version = SuppressibleErrorPronePlugin.class.getPackage().getImplementationVersion()
     // We need to put the source sets in a different directory that does not contain the any words that would hit
     // the errorprone excludedPathRegex, ie build in build/nebulatest
     static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
@@ -41,7 +40,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         otherSourceSet = directory('src/other/java', sourceSetRoot)
 
         // language=Gradle
-        buildFile << """
+        buildFile << '''
             buildscript {
                 repositories {
                     mavenCentral()
@@ -71,6 +70,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             
             dependencies {
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                // TODO: figure out a way to get the current version, rather than use the latest here
                 errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:+'
             }
             
@@ -105,7 +105,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     ignoreUnknownCheckNames = true
                 }
             }
-        """.stripIndent(true)
+        '''.stripIndent(true)
 
         buildFile << """
             sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
