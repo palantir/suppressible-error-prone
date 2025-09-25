@@ -1340,7 +1340,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
     }
 
-    def 'errorProneRemoveUnused only keeps the first suppression in the path of a violation'() {
+    def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
@@ -1380,6 +1380,63 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                         class InnerInnerInner {
                             private static final String EMPTY = "";
                         }
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused handles multiple suppressions on different tree types gracefully'() {
+        // Here we test the three types of trees you can suppress — ClassTree, MethodTree, VariableTree
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("ArrayEquals")
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    class InnerInner {
+                        @SuppressWarnings("ArrayEquals")
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
                     }
                 }
             }
