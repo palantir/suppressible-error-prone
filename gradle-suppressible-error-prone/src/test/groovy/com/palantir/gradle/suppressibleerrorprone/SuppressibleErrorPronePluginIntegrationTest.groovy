@@ -1333,7 +1333,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
             public final class App {
                 public static void main(String[] args) {
-                    FutureCallback<String> callback = new FutureCallback<String>() {
+                    FutureCallback<String> callback = new FutureCallback<>() {
                         @Override
                         public void onSuccess(String result) {
                             // NullAway should flag this as an error since result could be null
@@ -1344,15 +1344,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                         public void onFailure(Throwable t) {}
                     };
                 }
-//                public static void dummy(String args) {
-//                    new int[3].toString();
-//                }
-//                static void log(Object x) {
-//                    System.out.println(x.toString());
-//                }
-//                static void foo() {
-//                    log(null);
-//                }
             }
         '''.stripIndent(true)
 
