@@ -1355,7 +1355,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-//        appJavaTextContains( '@SuppressWarnings("for-rollout:ArrayToString")')
         appJavaTextContains( '@SuppressWarnings("for-rollout:NullAway")')
 
         runTasksSuccessfully('compileAllErrorProne')
