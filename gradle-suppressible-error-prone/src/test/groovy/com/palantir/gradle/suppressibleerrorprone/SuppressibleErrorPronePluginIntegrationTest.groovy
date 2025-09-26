@@ -1323,6 +1323,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 implementation 'com.google.guava:guava:33.5.0-jre'
                 otherImplementation 'com.google.guava:guava:33.5.0-jre'
             }
+
+            tasks.withType(JavaCompile) {
+                options.errorprone.error('NullAway')
+            }
         '''.stripIndent(true)
 
         // language=Java
