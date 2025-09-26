@@ -16,6 +16,12 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +78,22 @@ final class SuppressWarningsUtils {
             suppressWarningsString = "{" + suppressWarningsString + "}";
         }
         return "@" + CommonConstants.SUPPRESS_WARNINGS_ANNOTATION + "(" + suppressWarningsString + ")";
+    }
+
+    public static List<String> sortHumanFirstThenAlphabetical(Collection<String> suppressions) {
+        return suppressions.stream()
+                .sorted(Comparator.comparing((String suppression) ->
+                                SuppressionsType.fromName(suppression) == SuppressionsType.AUTOMATICALLY_ADDED)
+                        .thenComparing(String::compareTo))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Only these trees are suppressible, as per
+     * <a href="https://github.com/google/error-prone/blob/249c359d98349107b045f5de6f06c3098caf2c76/check_api/src/main/java/com/google/errorprone/bugpatterns/BugChecker.java#L644">error-prone</a></a>
+     */
+    public static boolean isSuppressible(Tree tree) {
+        return tree instanceof ClassTree || tree instanceof MethodTree || tree instanceof VariableTree;
     }
 
     private SuppressWarningsUtils() {}
