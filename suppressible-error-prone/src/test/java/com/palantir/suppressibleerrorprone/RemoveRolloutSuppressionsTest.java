@@ -178,6 +178,28 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
+    void dont_reorder_suppressions_if_no_change_was_made() {
+        fix().addInputLines(
+                        "App.java",
+                        // language=Java
+                        """
+                        // All in the wrong order
+                        @SuppressWarnings({"for-rollout:3", "for-rollout:2", "b", "a"})
+                        public final class App {}
+                        """)
+                .addOutputLines(
+                        "App.java",
+                        // language=Java
+                        """
+                        // All in the wrong order
+                        @SuppressWarnings({"for-rollout:3", "for-rollout:2", "b", "a"})
+                        public final class App {}
+                        """)
+                .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=1")
+                .doTest();
+    }
+
+    @Test
     void sorts_by_human_authored_first_then_by_alnum() {
         fix().addInputLines(
                         "App.java",
