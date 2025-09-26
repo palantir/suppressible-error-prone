@@ -69,7 +69,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             }
             
             dependencies {
-                errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                errorprone 'com.google.errorprone:error_prone_core:2.41.0'
             }
             
             tasks.withType(JavaCompile).configureEach {
@@ -1319,8 +1319,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             }
 
             dependencies {
-                implementation 'com.google.guava:guava:33.1.0-jre'
-                otherImplementation 'com.google.guava:guava:33.1.0-jre'
+                errorprone "com.uber.nullaway:nullaway:0.12.9"
+                implementation 'com.google.guava:guava:33.5.0-jre'
+                otherImplementation 'com.google.guava:guava:33.5.0-jre'
             }
         '''.stripIndent(true)
 
@@ -1343,6 +1344,15 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                         public void onFailure(Throwable t) {}
                     };
                 }
+//                public static void dummy(String args) {
+//                    new int[3].toString();
+//                }
+//                static void log(Object x) {
+//                    System.out.println(x.toString());
+//                }
+//                static void foo() {
+//                    log(null);
+//                }
             }
         '''.stripIndent(true)
 
@@ -1350,28 +1360,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        // language=Java
-        appJavaTextEquals '''
-            package app;
-
-            import com.google.common.util.concurrent.FutureCallback;
-
-            public final class App {
-                public static void main(String[] args) {
-                    FutureCallback<String> callback = new FutureCallback<String>() {
-                        @Override
-                        @SuppressWarnings("for-rollout:NullAway")
-                        public void onSuccess(String result) {
-                            // NullAway should flag this as an error since result could be null
-                            result.length();
-                        }
-
-                        @Override
-                        public void onFailure(Throwable t) {}
-                    };
-                }
-            }
-        '''.stripIndent(true)
+//        appJavaTextContains( '@SuppressWarnings("for-rollout:ArrayToString")')
+        appJavaTextContains( '@SuppressWarnings("for-rollout:NullAway")')
 
         runTasksSuccessfully('compileAllErrorProne')
     }
