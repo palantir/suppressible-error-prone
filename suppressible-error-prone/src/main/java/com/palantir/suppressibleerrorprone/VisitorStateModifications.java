@@ -29,8 +29,6 @@ import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.tree.JCTree.JCLambda;
-import com.sun.tools.javac.tree.JCTree.JCLambda.ParameterKind;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -139,7 +137,9 @@ public final class VisitorStateModifications {
     }
 
     private static boolean suppressibleTreePath(TreePath treePath) {
-        if (!modifiersTree(treePath.getLeaf()).isPresent()) {
+        Tree leaf = treePath.getLeaf();
+        if (!(leaf instanceof ClassTree || leaf instanceof MethodTree || leaf instanceof VariableTree)) {
+            // We can only add suppressions to classes, methods, or variables
             return false;
         }
 
@@ -148,7 +148,7 @@ public final class VisitorStateModifications {
             return false;
         }
 
-        if (isLambdaImplicitParameter(treePath)) {
+        if (isLambdaParameter(treePath)) {
             // We cannot add annotations to implicit lambda parameters
             return false;
         }
@@ -164,20 +164,12 @@ public final class VisitorStateModifications {
         return classTree.getSimpleName().isEmpty();
     }
 
-    private static boolean isLambdaImplicitParameter(TreePath tree) {
+    private static boolean isLambdaParameter(TreePath tree) {
         if (!(tree.getLeaf() instanceof VariableTree variableTree)) {
             return false;
         }
 
         if (!(tree.getParentPath().getLeaf() instanceof LambdaExpressionTree lambdaExpressionTree)) {
-            return false;
-        }
-
-        if (!(lambdaExpressionTree instanceof JCLambda jcLambda)) {
-            return false;
-        }
-
-        if (jcLambda.paramKind != ParameterKind.IMPLICIT) {
             return false;
         }
 
