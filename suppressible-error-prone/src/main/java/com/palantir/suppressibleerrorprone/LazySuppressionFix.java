@@ -30,11 +30,10 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * A Fix done on a suppressible tree (ClassTree, MethodTree, VariableTree), which can bring the suppressible from its
+ * A Fix done on a suppressible tree (ClassTree, MethodTree, VariableTree), which brings the suppressible from its
  * initial state (no suppression, or some suppressions) to a desired end state (no suppressions, or some suppression).
- * Supports lazily adding suppressions. The actual code change is rendered in
- * {@link com.palantir.suppressibleerrorprone.LazySuppressionReplacement}.
- * Does proper line handling when creating a new @SuppressWarnings, or when deleting the annotation
+ * The actual code change is rendered in {@link com.palantir.suppressibleerrorprone.LazySuppressionReplacement} lazily.
+ * Does proper line handling when creating a new @SuppressWarnings, or when deleting the annotation.
  * Sorts suppressions by human-authored first, then alphabetically.
  */
 final class LazySuppressionFix implements Fix {
