@@ -73,6 +73,10 @@ final class LazySuppressionFix implements Fix {
         desiredSuppressions.add(suppression);
     }
 
+    public boolean removeSuppression(String suppression) {
+        return desiredSuppressions.remove(suppression);
+    }
+
     @Override
     public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
         return replacement.apply(endPositions);
