@@ -1320,6 +1320,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
             dependencies {
                 implementation 'com.google.guava:guava:33.1.0-jre'
+                otherImplementation 'com.google.guava:guava:33.1.0-jre'
             }
         '''.stripIndent(true)
 
