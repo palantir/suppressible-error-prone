@@ -1308,6 +1308,73 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         !output.contains('[RemoveRolloutSuppressions]')
     }
 
+    def 'can properly suppress NullAway in anonymous FutureCallback implementation'() {
+        // language=Gradle
+        buildFile << '''
+            suppressibleErrorProne {
+                configureEachErrorProneOptions {
+                    enable('NullAway')
+                    option('NullAway:AnnotatedPackages', 'app')
+                }
+            }
+
+            dependencies {
+                implementation 'com.google.guava:guava:33.1.0-jre'
+            }
+        '''.stripIndent(true)
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            import com.google.common.util.concurrent.FutureCallback;
+
+            public final class App {
+                public static void main(String[] args) {
+                    FutureCallback<String> callback = new FutureCallback<String>() {
+                        @Override
+                        public void onSuccess(String result) {
+                            // NullAway should flag this as an error since result could be null
+                            result.length();
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t) {}
+                    };
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import com.google.common.util.concurrent.FutureCallback;
+
+            public final class App {
+                public static void main(String[] args) {
+                    FutureCallback<String> callback = new FutureCallback<String>() {
+                        @Override
+                        @SuppressWarnings("for-rollout:NullAway")
+                        public void onSuccess(String result) {
+                            // NullAway should flag this as an error since result could be null
+                            result.length();
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t) {}
+                    };
+                }
+            }
+        '''.stripIndent(true)
+
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
         setup: 'when an error-prone dependency is forced to certain version'
         // language=Gradle
