@@ -43,7 +43,7 @@ final class LazySuppressionFix implements Fix {
 
     private LazySuppressionFix(
             Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree suppressible) {
-        if (SuppressWarningsUtils.isSuppressible(suppressible)) {
+        if (!SuppressWarningsUtils.isSuppressible(suppressible)) {
             throw new IllegalArgumentException(
                     String.format("Tree of kind %s is not suppressible", suppressible.getKind()));
         }
@@ -61,7 +61,6 @@ final class LazySuppressionFix implements Fix {
             Set<String> desiredSuppressions) {
         this(sourceCode, suppressWarnings, tree);
         this.desiredSuppressions.addAll(desiredSuppressions);
-        System.err.println("Adding fix with suppressions: " + desiredSuppressions);
     }
 
     public static LazySuppressionFix empty(

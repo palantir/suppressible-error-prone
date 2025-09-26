@@ -90,7 +90,7 @@ final class SuppressWarningsUtils {
 
     /**
      * Only these trees are suppressible, as per
-     * <a href="https://github.com/google/error-prone/blob/249c359d98349107b045f5de6f06c3098caf2c76/check_api/src/main/java/com/google/errorprone/bugpatterns/BugChecker.java#L644">error-prone</a></a>
+     * <a href="https://github.com/google/error-prone/blob/249c359d98349107b045f5de6f06c3098caf2c76/check_api/src/main/java/com/google/errorprone/bugpatterns/BugChecker.java#L644">error-prone</a>.
      */
     public static boolean isSuppressible(Tree tree) {
         return tree instanceof ClassTree || tree instanceof MethodTree || tree instanceof VariableTree;

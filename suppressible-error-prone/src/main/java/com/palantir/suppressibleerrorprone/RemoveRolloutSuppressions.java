@@ -84,9 +84,11 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
         }
 
         Tree declaration = state.getPath().getParentPath().getParentPath().getLeaf();
-        return buildDescription(tree)
-                .addFix(new LazySuppressionFix(
-                        Optional.ofNullable(state.getSourceCode()), Optional.of(tree), declaration, new HashSet<>(updatedSuppressions)))
-                .build();
+        LazySuppressionFix fix = new LazySuppressionFix(
+                Optional.ofNullable(state.getSourceCode()),
+                Optional.of(tree),
+                declaration,
+                new HashSet<>(updatedSuppressions));
+        return buildDescription(tree).addFix(fix).build();
     }
 }

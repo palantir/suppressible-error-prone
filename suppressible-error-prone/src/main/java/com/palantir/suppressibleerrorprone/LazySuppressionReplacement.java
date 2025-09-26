@@ -16,8 +16,6 @@
 
 package com.palantir.suppressibleerrorprone;
 
-import static com.palantir.suppressibleerrorprone.SuppressWarningsUtils.sortHumanFirstThenAlphabetical;
-
 import com.google.common.collect.Range;
 import com.google.errorprone.fixes.Replacement;
 import com.sun.source.tree.AnnotationTree;
@@ -30,7 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * See docs in {@link com.palantir.suppressibleerrorprone.LazySuppressionFix}
+ * See docs in {@link com.palantir.suppressibleerrorprone.LazySuppressionFix}.
  */
 final class LazySuppressionReplacement extends Replacement {
     private final Range<Integer> range;
@@ -89,7 +87,8 @@ final class LazySuppressionReplacement extends Replacement {
         }
 
         // Generate the @SuppressWarnings annotation with remaining suppressions
-        return SuppressWarningsUtils.suppressWarningsString(sortHumanFirstThenAlphabetical(desiredSuppressions))
+        return SuppressWarningsUtils.suppressWarningsString(
+                        SuppressWarningsUtils.sortHumanFirstThenAlphabetical(desiredSuppressions))
                 + suffix;
     }
 
