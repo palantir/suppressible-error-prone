@@ -19,15 +19,17 @@ package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.RemoveUnusedCheck;
 import java.util.Map;
 
 public final class RemoveUnusedMode implements Mode {
     private static final String ALL_CHECKS = "";
 
+    @Override
     public ModifyCheckApiOption modifyCheckApi() {
-        return ModifyCheckApiOption.mustModify();
+        return ModifyCheckApiOption.mustModify(
+                ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER, ModifiedFile.VISITOR_STATE);
     }
 
     @Override
@@ -35,18 +37,17 @@ public final class RemoveUnusedMode implements Mode {
         return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return PatchChecksOption.someChecks("RemoveUnusedSuppressions");
+                return PatchChecksOption.allChecks();
             }
 
             @Override
             public Map<String, String> extraErrorProneCheckOptions() {
-                // Simplify the logic by only permitting blanket removal
-                return Map.of("SuppressibleErrorProne:RemoveUnusedSuppressions", ALL_CHECKS);
+                return Map.of("SuppressibleErrorProne:Mode", "RemoveUnused");
             }
 
             @Override
-            public RemoveUnusedCheck removeUnusedCheck() {
-                return RemoveUnusedCheck.ENABLED;
+            public boolean ignoreSuppressionAnnotations() {
+                return true;
             }
         };
     }

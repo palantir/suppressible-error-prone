@@ -28,8 +28,9 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.CombinedValue;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.DisableModeInterference;
-import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveUnusedModeInterference;
-import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemovingAndSuppressingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveRolloutAndSuppressingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveUnusedAndApplyingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveUnusedAndSuppressInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.SuppressingAndApplyingInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.ApplyMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.DisableMode;
@@ -68,9 +69,10 @@ public abstract class Modes {
 
     private final Set<ModeInterference> interferences = Set.of(
             new DisableModeInterference(),
-            new RemoveUnusedModeInterference(),
-            new RemovingAndSuppressingInterference(),
-            new SuppressingAndApplyingInterference());
+            new RemoveRolloutAndSuppressingInterference(),
+            new SuppressingAndApplyingInterference(),
+            new RemoveUnusedAndApplyingInterference(),
+            new RemoveUnusedAndSuppressInterference());
 
     public final CombinedValue modifyCheckApi() {
         return ModifyCheckApiOption.combine(
@@ -131,7 +133,8 @@ public abstract class Modes {
                 .append(nonInterferingCommonOptions)
                 .toSet();
 
-        return CommonOptions.naivelyCombine(allCommonOptions);
+        CommonOptions commonOptions = CommonOptions.naivelyCombine(allCommonOptions);
+        return commonOptions;
     }
 
     private Map<ModeName, Optional<String>> modesEnabledAndFlagValues() {

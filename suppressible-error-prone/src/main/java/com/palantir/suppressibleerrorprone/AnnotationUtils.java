@@ -18,12 +18,16 @@ package com.palantir.suppressibleerrorprone;
 
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
 
@@ -69,6 +73,18 @@ final class AnnotationUtils {
 
     static boolean isSuppressWarningsAnnotation(AnnotationTree annotation) {
         return AnnotationUtils.annotationName(annotation.getAnnotationType()).contentEquals("SuppressWarnings");
+    }
+
+    static ModifiersTree getModifiers(Tree suppressible) {
+        if (suppressible instanceof ClassTree classTree) {
+            return classTree.getModifiers();
+        } else if (suppressible instanceof MethodTree methodTree) {
+            return methodTree.getModifiers();
+        } else if (suppressible instanceof VariableTree variableTree) {
+            return variableTree.getModifiers();
+        } else {
+            throw new IllegalArgumentException("Unsupported tree type: " + suppressible.getClass());
+        }
     }
 
     private AnnotationUtils() {}

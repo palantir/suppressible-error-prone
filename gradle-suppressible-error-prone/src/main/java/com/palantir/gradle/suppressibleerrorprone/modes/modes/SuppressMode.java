@@ -19,12 +19,14 @@ package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
+import java.util.Map;
 
 public final class SuppressMode implements Mode {
     @Override
     public ModifyCheckApiOption modifyCheckApi() {
-        return ModifyCheckApiOption.mustModifyIncludingVisitorState();
+        return ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE);
     }
 
     @Override
@@ -33,6 +35,11 @@ public final class SuppressMode implements Mode {
             @Override
             public PatchChecksOption patchChecks() {
                 return PatchChecksOption.allChecks();
+            }
+
+            @Override
+            public Map<String, String> extraErrorProneCheckOptions() {
+                return Map.of("SuppressibleErrorProne:Mode", "Suppress");
             }
         };
     }

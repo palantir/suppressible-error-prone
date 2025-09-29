@@ -18,6 +18,7 @@ package com.palantir.gradle.suppressibleerrorprone
 
 
 import com.palantir.gradle.plugintesting.ConfigurationCacheSpec
+import com.palantir.javaformat.java.Formatter;
 import org.apache.commons.io.FileUtils
 import org.gradle.testkit.runner.BuildResult
 import spock.lang.Unroll
@@ -83,7 +84,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             dependencies {
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
             }
-            
             
             suppressibleErrorProne {
                 configureEachErrorProneOptions {
@@ -370,7 +370,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
@@ -433,7 +433,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 public void variables() {
@@ -464,7 +464,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
@@ -504,7 +504,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("UnusedVariable")
@@ -546,7 +546,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
@@ -595,7 +595,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
@@ -830,7 +830,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then: 'it is suppressed'
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
@@ -877,7 +877,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         stderr2.contains('[NonCanonicalStaticImport]')
 
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             import static app.B.Inner;
             public final class App {}
@@ -939,7 +939,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', *mode)
 
         then: 'changes are actually made, it was not up-to-date'
-        appJavaTextNotEquals originalSource
+        resultIsSyntacticallyNotEqualTo originalSource
 
         where:
         mode << [
@@ -977,7 +977,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {}
         '''.stripIndent(true)
@@ -997,7 +997,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {}
         '''.stripIndent(true)
@@ -1017,7 +1017,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
@@ -1037,7 +1037,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
@@ -1057,7 +1057,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {}
         '''.stripIndent(true)
@@ -1080,7 +1080,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
@@ -1109,7 +1109,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("ArrayToString")
@@ -1136,7 +1136,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
@@ -1164,7 +1164,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -1191,7 +1191,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -1219,7 +1219,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 public static void main(String[] args) {
@@ -1246,7 +1246,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
@@ -1282,7 +1282,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
@@ -1328,11 +1328,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused=ArrayToString')
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             @SuppressWarnings({"ArrayToString", "InlineTrivialConstant"})
             public final class App {
@@ -1373,7 +1373,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         then:
 
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
@@ -1402,14 +1402,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
                 
-                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
-                class Inner { 
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})  // Doesn't move existing ArrayEquals closer to the violation
+                static class Inner { 
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
                     boolean truism = new int[3].equals(new int[3]);
                     
                     @SuppressWarnings("InlineTrivialConstant")
-                    class InnerInner {
+                    static class InnerInner {
                         @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                         void method() {
                             new int[3].equals(new int[3]);
@@ -1425,19 +1425,19 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         then:
 
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
             package app;
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
                 
-                @SuppressWarnings("ArrayEquals")
-                class Inner { 
+                @SuppressWarnings("ArrayEquals")  // Doesn't move existing ArrayEquals closer to the violation
+                static class Inner { 
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
                     boolean truism = new int[3].equals(new int[3]);
                     
-                    class InnerInner {
+                    static class InnerInner {
                         @SuppressWarnings("ArrayEquals")
                         void method() {
                             new int[3].equals(new int[3]);
@@ -1465,7 +1465,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        resultIsSyntacticallyEqualTo '''
         package app;
         public final class App {
             public static void main(String[] args) {
@@ -1475,6 +1475,177 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
     }
 
+    def 'errorProneRemoveUnused and errorProneSuppress uses existing suppressions if possible'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("InlineTrivialConstant")
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("InlineTrivialConstant")
+                static class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneSuppress')
+
+        then:
+
+        // language=Java
+        resultIsSyntacticallyEqualTo '''
+            package app;
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                static class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    @SuppressWarnings("for-rollout:ArrayEquals")
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    static class InnerInner {
+                        @SuppressWarnings("ArrayEquals")
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused and errorProneApply applies fixes on previously suppressed elements'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                static class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ArrayEquals')
+
+        then:
+
+        // language=Java
+        resultIsSyntacticallyEqualTo '''
+            package app;
+            import java.util.Arrays;
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                static class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = Arrays.equals(new int[3], new int[3]);
+                    
+                    static class InnerInner {
+                        void method() {
+                            Arrays.equals(new int[3], new int[3]);
+                        } 
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused + errorProneApply + errorProneSuppress applies fixes and suppressions on previously suppressed elements'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("ArrayEquals")
+            public final class App {
+                private static final String EMPTY_STRING = "";
+                
+                // Although InlineTrivialConstant can be placed lower in the AST hierarchy, 
+                // we preserve existing suppressions whenever possible rather than move suppressions around.
+                // Also, note that we don't add for-rollout here.
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                static class Inner { 
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneSuppress', '-PerrorProneApply=ArrayEquals')
+
+        then:
+
+        // language=Java
+        resultIsSyntacticallyEqualTo '''
+            package app;
+            import java.util.Arrays;
+
+            public final class App {
+                @SuppressWarnings("for-rollout:InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+
+                // Although InlineTrivialConstant can be placed lower in the AST hierarchy,
+                // we preserve existing suppressions whenever possible rather than move suppressions around.
+                // Also, note that we don't add for-rollout here.
+                @SuppressWarnings("InlineTrivialConstant")
+                static class Inner { 
+                    private static final String EMPTY = "";
+                    boolean truism = Arrays.equals(new int[3], new int[3]);
+                    
+                    static class InnerInner {
+                        void method() {
+                            Arrays.equals(new int[3], new int[3]);
+                        } 
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused + errorProneApply + errorProneSuppress works with specified checkers'() {
+
+    }
 
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
         setup: 'when an error-prone dependency is forced to certain version'
@@ -1533,9 +1704,18 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         super.writeJavaSourceFile(source, 'src/other/java', sourceSetRoot)
     }
 
+    // Normalize expected and actual source fixtures before comparing, because the formatting of error-prone's output
+    // shouldn't matter. It is a syntactic analyzer, and it should do one thing well.
+    private static String normalizeSource(String content) {
+        String stripped = content.readLines()
+                .collect { it.trim() }           // Remove leading/trailing whitespace
+                .findAll { !it.isEmpty() }       // Remove empty lines
+                .join('\n')
+        return Formatter.create().formatSource(stripped)
+    }
+
     void appJavaTextContains(String substring) {
         assert file('app/App.java', mainSourceSet).text.contains(substring)
-        assert file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
     void appJavaTextNotContains(String substring) {
@@ -1543,13 +1723,23 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         assert !file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
-    void appJavaTextEquals(String source) {
-        assert file('app/App.java', mainSourceSet).text == source
-        assert file('app/App.java', otherSourceSet).text == source
+    void resultIsSyntacticallyEqualTo(String source) {
+        var output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        var expected = normalizeSource(source)
+        assert output == expected
+
+        var outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        var expectedOther = normalizeSource(source)
+        assert outputOther == expectedOther
     }
 
-    void appJavaTextNotEquals(String source) {
-        assert file('app/App.java', mainSourceSet).text != source
-        assert file('app/App.java', otherSourceSet).text != source
+    void resultIsSyntacticallyNotEqualTo(String source) {
+        var output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        var expected = normalizeSource(source)
+        assert output != expected
+
+        var outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        var expectedOther = normalizeSource(source)
+        assert outputOther != expectedOther
     }
 }

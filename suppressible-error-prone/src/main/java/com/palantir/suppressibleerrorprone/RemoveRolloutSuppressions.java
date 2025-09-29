@@ -22,8 +22,10 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.sun.source.tree.Tree;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Name;
@@ -81,10 +83,13 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
             return Description.NO_MATCH;
         }
 
-        String updatedText = SuppressWarningsUtils.suppressWarningsString(updatedSuppressions);
-
+        Tree declaration = state.getPath().getParentPath().getParentPath().getLeaf();
         return buildDescription(tree)
-                .addFix(new LineRemovingReplacementFix(state.getSourceCode(), (DiagnosticPosition) tree, updatedText))
+                .addFix(new LazySuppressionFix(
+                        Optional.ofNullable(state.getSourceCode()),
+                        Optional.of(tree),
+                        declaration,
+                        new HashSet<>(updatedSuppressions)))
                 .build();
     }
 }

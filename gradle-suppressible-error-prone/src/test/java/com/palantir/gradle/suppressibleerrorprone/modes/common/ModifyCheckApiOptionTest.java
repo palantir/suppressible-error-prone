@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DoNotModify;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.MustModify;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,36 +28,42 @@ import org.junit.jupiter.api.Test;
 class ModifyCheckApiOptionTest {
     @Test
     void combining_must_modify_instances_with_different_visitor_states_results_in_true() {
-        MustModify withoutVisitorState = new MustModify(false);
-        MustModify withVisitorState = new MustModify(true);
+        MustModify withoutVisitorState = ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO);
+        MustModify withVisitorState =
+                ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE);
 
-        assertThat(withoutVisitorState.combine(withVisitorState).modifyVisitorState())
+        assertThat(withoutVisitorState.combine(withVisitorState).modifiedFiles().contains(ModifiedFile.VISITOR_STATE))
                 .isTrue();
-        assertThat(withVisitorState.combine(withoutVisitorState).modifyVisitorState())
+        assertThat(withVisitorState.combine(withoutVisitorState).modifiedFiles().contains(ModifiedFile.VISITOR_STATE))
                 .isTrue();
     }
 
     @Test
     void combining_must_modify_instances_with_same_visitor_states_preserves_state() {
-        MustModify bothFalse1 = new MustModify(false);
-        MustModify bothFalse2 = new MustModify(false);
-        assertThat(bothFalse1.combine(bothFalse2).modifyVisitorState()).isFalse();
+        MustModify bothFalse1 = ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO);
+        MustModify bothFalse2 = ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO);
+        assertThat(bothFalse1.combine(bothFalse2).modifiedFiles().contains(ModifiedFile.VISITOR_STATE))
+                .isFalse();
 
-        MustModify bothTrue1 = new MustModify(true);
-        MustModify bothTrue2 = new MustModify(true);
-        assertThat(bothTrue1.combine(bothTrue2).modifyVisitorState()).isTrue();
+        MustModify bothTrue1 =
+                ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE);
+        MustModify bothTrue2 =
+                ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE);
+        assertThat(bothTrue1.combine(bothTrue2).modifiedFiles().contains(ModifiedFile.VISITOR_STATE))
+                .isTrue();
     }
 
     @Test
     void combining_empty_collection_returns_must_modify() {
-        assertThat(ModifyCheckApiOption.combine(List.of())).isEqualTo(new MustModify(false));
+        assertThat(ModifyCheckApiOption.combine(List.of()))
+                .isEqualTo(ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO));
     }
 
     @Test
     void combining_only_no_effect_returns_must_modify() {
         assertThat(ModifyCheckApiOption.combine(
                         List.of(ModifyCheckApiOption.noEffect(), ModifyCheckApiOption.noEffect())))
-                .isEqualTo(new MustModify(false));
+                .isEqualTo(ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO));
     }
 
     @Test
@@ -71,23 +78,24 @@ class ModifyCheckApiOptionTest {
     void combining_must_modify_with_no_effect_causes_no_change() {
         assertThat(ModifyCheckApiOption.combine(
                         List.of(ModifyCheckApiOption.mustModify(), ModifyCheckApiOption.noEffect())))
-                .isEqualTo(new MustModify(false));
+                .isEqualTo(ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO));
     }
 
     @Test
     void combining_must_modify_including_visitor_state_with_no_effect_causes_no_change() {
         assertThat(ModifyCheckApiOption.combine(List.of(
-                        ModifyCheckApiOption.mustModifyIncludingVisitorState(), ModifyCheckApiOption.noEffect())))
-                .isEqualTo(new MustModify(true));
+                        ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE),
+                        ModifyCheckApiOption.noEffect())))
+                .isEqualTo(ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE));
     }
 
     @Test
     void combining_multiple_must_modify_options_combines_visitor_states() {
         assertThat(ModifyCheckApiOption.combine(List.of(
-                        ModifyCheckApiOption.mustModify(),
-                        ModifyCheckApiOption.mustModifyIncludingVisitorState(),
+                        ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO),
+                        ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE),
                         ModifyCheckApiOption.noEffect())))
-                .isEqualTo(new MustModify(true));
+                .isEqualTo(ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.VISITOR_STATE));
     }
 
     @Test

@@ -18,6 +18,7 @@ dependencies {
     testImplementation 'commons-io:commons-io'
     testImplementation 'one.util:streamex'
     testImplementation 'com.palantir.gradle.plugintesting:configuration-cache-spec'
+    testImplementation 'com.palantir.javaformat:palantir-java-format'
 }
 
 gradlePlugin {

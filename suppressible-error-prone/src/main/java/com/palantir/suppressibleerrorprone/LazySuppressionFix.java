@@ -29,26 +29,40 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-final class SuppressingFix implements Fix {
-    private final Set<String> newSuppressions = new HashSet<>();
+/**
+ * A Fix that can lazily add/modify/remove @SuppressWarnings annotations with proper line handling.
+ * When removing suppressions entirely, it will also remove preceding whitespace up to and including
+ * the newline to avoid leaving empty lines.
+ * Sorts suppressions by human-authored first, then alphabetically.
+ */
+final class LazySuppressionFix implements Fix {
+    private final Set<String> desiredSuppressions = new HashSet<>();
     private final Function<EndPosTable, ImmutableSet<Replacement>> replacement;
 
-    SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
-        // See note in SuppressingReplacement about when we have to calculate stuff
-        // We *cannot* simply make this a memoized supplier. The first thing error-prone does with the Fix is to
-        // evaluate it to produce a nice error message, and we don't want to fix the number of suppression we make
-        // until we're ready to produce the Replacement after *all* the error-prone checks have been run.
-        // In order for SuppressingReplacement to calculate source code positions elements when it's constructed, it
-        // needs an EndPosTable. However, we don't get the EndPosTable until getReplacements is called. So we have
-        // to use this FirstTimeMemoizingFunction thing, that will allow use to defer creating the Replacement until
-        // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
-        // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
-        this.replacement = new FirstTimeMemoizingFunction<>((EndPosTable endPositions) -> ImmutableSet.of(
-                new SuppressingReplacement(endPositions, newSuppressions, sourceCode, suppressWarnings, tree)));
+    private LazySuppressionFix(
+            Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree declaration) {
+        // Defer replacement creation until we have EndPosTable and all suppressions have been added
+        this.replacement = new FirstTimeMemoizingFunction<>(
+                (EndPosTable endPositions) -> ImmutableSet.of(new LazySuppressionReplacement(
+                        endPositions, desiredSuppressions, sourceCode, suppression, declaration)));
+    }
+
+    LazySuppressionFix(
+            Optional<CharSequence> sourceCode,
+            Optional<? extends AnnotationTree> suppressWarnings,
+            Tree tree,
+            Set<String> desiredSuppressions) {
+        this(sourceCode, suppressWarnings, tree);
+        this.desiredSuppressions.addAll(desiredSuppressions);
+    }
+
+    public static LazySuppressionFix empty(
+            Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree tree) {
+        return new LazySuppressionFix(sourceCode, suppression, tree);
     }
 
     public void addSuppression(String suppression) {
-        newSuppressions.add(suppression);
+        desiredSuppressions.add(suppression);
     }
 
     @Override
@@ -58,12 +72,12 @@ final class SuppressingFix implements Fix {
 
     @Override
     public String toString(JCCompilationUnit compilationUnit) {
-        return "SuppressingFix";
+        return "LazySuppressionFix";
     }
 
     @Override
     public String getShortDescription() {
-        return "Adding automatic suppressions";
+        return "Adding/modifying/removing @SuppressWarnings with proper line handling";
     }
 
     @Override

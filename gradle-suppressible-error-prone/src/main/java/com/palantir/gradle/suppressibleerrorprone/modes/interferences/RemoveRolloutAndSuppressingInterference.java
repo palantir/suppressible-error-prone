@@ -20,25 +20,19 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
- * The end goal is to run this with Apply, so we can bring in a new fix added to an existing errorprone in one
- * compilation. This will be introduced in a future PR. For the time being, disallow any other commands to be run with
- * RemoveUnused.
+ * Removing and suppressing cannot run at the same time, as removing just runs an errorprone to remove the for-rollout:
+ * suppressions - if suppressing happened at the same time, this errorprone would just get suppressed.
  */
-public final class RemoveUnusedModeInterference implements ModeInterference {
+public final class RemoveRolloutAndSuppressingInterference implements ModeInterference {
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
-        if (modeNames.contains(ModeName.REMOVE_UNUSED) && modeNames.size() > 1) {
-            return ModeInterferenceResult.notCompatible("%s cannot be used at the same time as any of %s"
+        if (modeNames.containsAll(Set.of(ModeName.REMOVE_ROLLOUT, ModeName.SUPPRESS))) {
+            return ModeInterferenceResult.notCompatible("%s cannot be used at the same time as %s"
                     .formatted(
-                            ModeName.REMOVE_UNUSED.asGradlePropertyArgument(),
-                            modeNames.stream()
-                                    .filter(Predicate.not(Predicate.isEqual(ModeName.REMOVE_UNUSED)))
-                                    .map(ModeName::asGradlePropertyArgument)
-                                    .collect(Collectors.joining(", "))));
+                            ModeName.REMOVE_ROLLOUT.asGradlePropertyArgument(),
+                            ModeName.SUPPRESS.asGradlePropertyArgument()));
         }
 
         return ModeInterferenceResult.noInterference();

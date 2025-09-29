@@ -24,7 +24,7 @@ com.google.googlejavaformat:google-java-format:1.27.0 (2 constraints: b6258eff)
 
 com.google.guava:failureaccess:1.0.3 (1 constraints: 160ae3b4)
 
-com.google.guava:guava:33.5.0-jre (10 constraints: 73a7e8ff)
+com.google.guava:guava:33.5.0-jre (13 constraints: a0e99652)
 
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava (1 constraints: bd17c918)
 
@@ -58,7 +58,21 @@ org.pcollections:pcollections:4.0.1 (1 constraints: f21028b8)
 
 cglib:cglib-nodep:3.2.2 (1 constraints: 490ded24)
 
+com.fasterxml.jackson.core:jackson-annotations:2.19.2 (3 constraints: bd3ddca3)
+
+com.fasterxml.jackson.core:jackson-core:2.19.2 (5 constraints: 2f6b3a28)
+
+com.fasterxml.jackson.core:jackson-databind:2.19.2 (4 constraints: a2584b0d)
+
+com.fasterxml.jackson.datatype:jackson-datatype-guava:2.19.2 (1 constraints: 8a142d90)
+
+com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.19.2 (1 constraints: 11132d39)
+
+com.fasterxml.jackson.module:jackson-module-parameter-names:2.19.2 (1 constraints: 11132d39)
+
 com.google.auto.value:auto-value:1.10 (1 constraints: e711f8e8)
+
+com.google.code.findbugs:jsr305:3.0.2 (1 constraints: d8120c26)
 
 com.google.errorprone:error_prone_test_helpers:2.41.0 (1 constraints: 3e054c3b)
 
@@ -74,6 +88,10 @@ com.palantir.gradle.plugintesting:configuration-cache-spec:0.11.0 (1 constraints
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.11.0 (1 constraints: 3405263b)
 
+com.palantir.javaformat:palantir-java-format:2.74.0 (1 constraints: 3f05533b)
+
+com.palantir.javaformat:palantir-java-format-spi:2.74.0 (1 constraints: 10133439)
+
 commons-io:commons-io:2.20.0 (1 constraints: 3605333b)
 
 junit:junit:4.13.2 (4 constraints: 873fce86)
@@ -85,6 +103,8 @@ org.apiguardian:apiguardian-api:1.1.2 (6 constraints: 5366ce6e)
 org.assertj:assertj-core:3.27.6 (1 constraints: 4405543b)
 
 org.codehaus.groovy:groovy:3.0.25 (3 constraints: 14347add)
+
+org.functionaljava:functionaljava:4.8 (1 constraints: 81129900)
 
 org.hamcrest:hamcrest:2.2 (2 constraints: 43187376)
 
