@@ -23,7 +23,6 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
@@ -83,7 +82,7 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleTreePath(path))
+                .dropWhile(path -> !SuppressWarningsUtils.suppressibleTreePath(path))
                 .findFirst();
 
         // If we can't find a suppressible parent, we can't add a suppression, so just give up.
@@ -134,46 +133,6 @@ public final class VisitorStateModifications {
                         description.getMessageWithoutCheckName())
                 .addFix(suppressingFix)
                 .build();
-    }
-
-    private static boolean suppressibleTreePath(TreePath treePath) {
-        Tree leaf = treePath.getLeaf();
-        if (!(leaf instanceof ClassTree || leaf instanceof MethodTree || leaf instanceof VariableTree)) {
-            // We can only add suppressions to classes, methods, or variables
-            return false;
-        }
-
-        if (isAnonymousClass(treePath)) {
-            // We cannot add annotations to anonymous classes
-            return false;
-        }
-
-        if (isLambdaParameter(treePath)) {
-            // We cannot add annotations to implicit lambda parameters
-            return false;
-        }
-
-        return true;
-    }
-
-    private static boolean isAnonymousClass(TreePath tree) {
-        if (!(tree.getLeaf() instanceof ClassTree classTree)) {
-            return false;
-        }
-
-        return classTree.getSimpleName().isEmpty();
-    }
-
-    private static boolean isLambdaParameter(TreePath tree) {
-        if (!(tree.getLeaf() instanceof VariableTree variableTree)) {
-            return false;
-        }
-
-        if (!(tree.getParentPath().getLeaf() instanceof LambdaExpressionTree lambdaExpressionTree)) {
-            return false;
-        }
-
-        return lambdaExpressionTree.getParameters().contains(variableTree);
     }
 
     private static Optional<ModifiersTree> modifiersTree(Tree tree) {
