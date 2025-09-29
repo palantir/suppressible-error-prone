@@ -1341,7 +1341,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         output.contains('ERROR-PRONE: error_prone_core-2.3.4.jar')
     }
 
-    // Running with debuggingErrorPrones (see setup method above) causes this issue:
+    // Running CC with debuggingErrorPrones (see setup method above) causes this issue:
     // ERROR: transport error 202: connect failed: Connection refused
     // ERROR: JDWP Transport dt_socket failed to initialize, TRANSPORT_INIT(510)
     // JDWP exit error AGENT_ERROR_TRANSPORT_INIT(197): No transports initialized [src/jdk.jdwp.agent/share/native/libjdwp/debugInit.c:700]
