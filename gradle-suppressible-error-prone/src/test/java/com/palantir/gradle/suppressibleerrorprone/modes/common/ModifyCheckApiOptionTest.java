@@ -76,8 +76,9 @@ class ModifyCheckApiOptionTest {
 
     @Test
     void combining_must_modify_with_no_effect_causes_no_change() {
-        assertThat(ModifyCheckApiOption.combine(
-                        List.of(ModifyCheckApiOption.mustModify(), ModifyCheckApiOption.noEffect())))
+        assertThat(ModifyCheckApiOption.combine(List.of(
+                        ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO),
+                        ModifyCheckApiOption.noEffect())))
                 .isEqualTo(ModifyCheckApiOption.mustModify(ModifiedFile.BUG_CHECKER_INFO));
     }
 

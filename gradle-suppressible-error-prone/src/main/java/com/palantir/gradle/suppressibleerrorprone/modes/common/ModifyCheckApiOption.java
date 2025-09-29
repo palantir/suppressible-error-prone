@@ -50,7 +50,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
     }
 
     /**
-     * Modify these files in the error-prone API
+     * Modify these files in the error-prone API.
      */
     static MustModify mustModify(ModifiedFile... modifiedFile) {
         return new MustModify(Arrays.stream(modifiedFile).collect(Collectors.toSet()));

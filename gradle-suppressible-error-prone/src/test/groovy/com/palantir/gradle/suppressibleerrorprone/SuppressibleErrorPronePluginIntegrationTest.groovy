@@ -1402,7 +1402,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
                 
-                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})  // Doesn't move existing ArrayEquals closer to the violation
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})  // Doesn't move an already existing suppression, even if it could be closer to the violation
                 static class Inner { 
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
@@ -1431,7 +1431,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
                 
-                @SuppressWarnings("ArrayEquals")  // Doesn't move existing ArrayEquals closer to the violation
+                @SuppressWarnings("ArrayEquals")  // Doesn't move an already existing suppression, even if it could be closer to the violation
                 static class Inner { 
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
