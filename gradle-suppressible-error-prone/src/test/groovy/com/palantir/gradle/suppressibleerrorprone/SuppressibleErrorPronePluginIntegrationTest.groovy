@@ -1643,10 +1643,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     '''.stripIndent(true)
     }
 
-    def 'errorProneRemoveUnused + errorProneApply + errorProneSuppress works with specified checkers'() {
-
-    }
-
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
         setup: 'when an error-prone dependency is forced to certain version'
         // language=Gradle
