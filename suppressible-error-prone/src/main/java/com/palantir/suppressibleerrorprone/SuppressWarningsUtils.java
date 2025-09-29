@@ -16,6 +16,12 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +78,46 @@ final class SuppressWarningsUtils {
             suppressWarningsString = "{" + suppressWarningsString + "}";
         }
         return "@" + CommonConstants.SUPPRESS_WARNINGS_ANNOTATION + "(" + suppressWarningsString + ")";
+    }
+
+    static boolean suppressibleTreePath(TreePath treePath) {
+        Tree leaf = treePath.getLeaf();
+        if (!(leaf instanceof ClassTree || leaf instanceof MethodTree || leaf instanceof VariableTree)) {
+            // We can only add suppressions to classes, methods, or variables
+            return false;
+        }
+
+        if (isAnonymousClass(treePath)) {
+            // We cannot add annotations to anonymous classes
+            return false;
+        }
+
+        if (isLambdaParameter(treePath)) {
+            // We cannot add annotations to implicit lambda parameters
+            return false;
+        }
+
+        return true;
+    }
+
+    private static boolean isAnonymousClass(TreePath tree) {
+        if (!(tree.getLeaf() instanceof ClassTree classTree)) {
+            return false;
+        }
+
+        return classTree.getSimpleName().isEmpty();
+    }
+
+    private static boolean isLambdaParameter(TreePath tree) {
+        if (!(tree.getLeaf() instanceof VariableTree variableTree)) {
+            return false;
+        }
+
+        if (!(tree.getParentPath().getLeaf() instanceof LambdaExpressionTree lambdaExpressionTree)) {
+            return false;
+        }
+
+        return lambdaExpressionTree.getParameters().contains(variableTree);
     }
 
     private SuppressWarningsUtils() {}

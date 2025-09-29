@@ -82,7 +82,7 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
+                .dropWhile(path -> !SuppressWarningsUtils.suppressibleTreePath(path))
                 .findFirst();
 
         // If we can't find a suppressible parent, we can't add a suppression, so just give up.
@@ -133,10 +133,6 @@ public final class VisitorStateModifications {
                         description.getMessageWithoutCheckName())
                 .addFix(suppressingFix)
                 .build();
-    }
-
-    private static boolean suppressibleTree(Tree tree) {
-        return modifiersTree(tree).isPresent();
     }
 
     private static Optional<ModifiersTree> modifiersTree(Tree tree) {

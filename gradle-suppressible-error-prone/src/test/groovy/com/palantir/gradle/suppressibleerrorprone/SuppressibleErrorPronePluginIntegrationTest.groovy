@@ -82,6 +82,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             
             dependencies {
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                // Mimick the way SuppressibleErrorPronePlugin adds the dependency on suppressible-error-prone
+                // This should guarantee that we're using the same version, both of which should be in maven local
+                //   and be the current version
+                errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:' + project.findProperty("suppressibleErrorProneVersion")
             }
             
             
@@ -335,6 +339,116 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
 
 
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'does not apply SuppressWarnings to implicit lambda parameters'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                void test() {
+                    Stream.of(new Object()).forEach(o -> o.toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // Suppression should be on the method, not the lambda parameter
+        // language=Java
+        appJavaTextEquals("""
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
+                void test() {
+                    Stream.of(new Object()).forEach(o -> o.toString());
+                }
+            }
+        """.stripIndent(true))
+
+        // Verify the code still compiles after the suppression has been applied, as previous versions
+        //   were adding the annotation to the lambda implicit parameter which is not valid java
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'does not apply SuppressWarnings to explicit lambda parameters'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                void test() {
+                    Stream.of(new Object()).forEach((Object o) -> o.toString());
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // Suppression should be on the method, not the lambda parameter
+        // language=Java
+        appJavaTextEquals("""
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
+                void test() {
+                    Stream.of(new Object()).forEach((Object o) -> o.toString());
+                }
+            }
+        """.stripIndent(true))
+
+        // Verify the code still compiles after the suppression has been applied, as previous versions
+        //   were adding the annotation to the lambda implicit parameter which is not valid java
+        runTasksSuccessfully('compileAllErrorProne')
+    }
+
+    def 'does not apply SuppressWarnings to anonymous classes'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                void test() {
+                    new Object() {
+                        {
+                            Stream.of(new Object()).forEach(o -> o.toString());
+                        }
+                    };
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+
+        then:
+        // Suppression should be on the method, not the anonymous class
+        // language=Java
+        appJavaTextEquals("""
+            package app;
+            import java.util.stream.Stream;
+            public class App {
+                @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
+                void test() {
+                    new Object() {
+                        {
+                            Stream.of(new Object()).forEach(o -> o.toString());
+                        }
+                    };
+                }
+            }
+        """.stripIndent(true))
+
+        // Verify the code still compiles after the suppression has been applied, as previous versions
+        //   were adding the annotation to the anonymous class which is not valid java
         runTasksSuccessfully('compileAllErrorProne')
     }
 
