@@ -30,6 +30,18 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     File mainSourceSet
     File otherSourceSet
 
+    // This makes debugging the errorprone check code running inside the compiler (including the bytecode
+    // edited modifications we have made) "just work" from inside these tests.
+    // Change the variable below to true to enable it, after setting up the standalone debugger:
+    //   1. Make a new run configuration in IntelliJ of type JVM Debug
+    //   2. Change it to "Listen" rather than "Attach"
+    //   3. Select Auto-restart.
+    //   4. Run the debugger
+    //   5. Run the tests as well
+    // If the variable below is true the tests will fail as the compilation process will try to
+    // attach to a non-existent debugger. Set it to false before you push any code.
+    boolean debuggingErrorPrones = false
+
     def setupSpec() {
         FileUtils.deleteDirectory(nebulatestSourceSets)
     }
@@ -72,27 +84,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
             }
             
-            tasks.withType(JavaCompile).configureEach {
-                // This makes debugging the errorprone check code running inside the compiler (including the bytecode
-                // edited modifications we have made) "just work" from inside these tests.
-                // Change the variable below to true to enable it, after setting up the standalone debugger:
-                //   1. Make a new run configuration in IntelliJ of type JVM Debug
-                //   2. Change it to "Listen" rather than "Attach"
-                //   3. Select Auto-restart.
-                //   4. Run the debugger
-                //   5. Run the tests as well
-                // If the variable below is true the tests will fail as the compilation process will try to
-                // attach to a non-existent debugger. Set it to false before you push any code.
-                boolean debuggingErrorPrones = false
-                if (debuggingErrorPrones) {
-                    it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
-                        @Override
-                        public Iterable<String> asArguments() {
-                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5005")
-                        }
-                    })
-                }
-            }
             
             suppressibleErrorProne {
                 configureEachErrorProneOptions {
@@ -109,6 +100,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
             sourceSets.other.java.srcDirs('${projectDir.relativePath(otherSourceSet)}')
         """.stripIndent(true)
+
+        if (debuggingErrorPrones) {
+            // language=Gradle
+            buildFile << '''
+                tasks.withType(JavaCompile).configureEach {
+                    it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
+                        @Override
+                        public Iterable<String> asArguments() {
+                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5005")
+                        }
+                    })
+                }
+            '''.stripIndent(true)
+        }
 
         file('gradle.properties') << '''
             __TESTING=true
@@ -1336,16 +1341,28 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         output.contains('ERROR-PRONE: error_prone_core-2.3.4.jar')
     }
 
+    // Running CC with debuggingErrorPrones (see setup method above) causes this issue:
+    // ERROR: transport error 202: connect failed: Connection refused
+    // ERROR: JDWP Transport dt_socket failed to initialize, TRANSPORT_INIT(510)
+    // JDWP exit error AGENT_ERROR_TRANSPORT_INIT(197): No transports initialized [src/jdk.jdwp.agent/share/native/libjdwp/debugInit.c:700]
     BuildResult runTasksSuccessfully(String... tasks) {
         def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
         String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        return super.runTasksWithConfigurationCache(strings)
+        if (debuggingErrorPrones) {
+            return super.runTasks(strings)
+        } else {
+            return super.runTasksWithConfigurationCache(strings)
+        }
     }
 
     BuildResult runTasksWithFailure(String... tasks) {
         def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
         String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        return super.runTasksAndFailWithConfigurationCache(strings)
+        if (debuggingErrorPrones) {
+            return super.runTasksAndFail(strings)
+        } else {
+            return super.runTasksAndFailWithConfigurationCache(strings)
+        }
     }
 
     void writeJavaSourceFileToSourceSets(String source) {
