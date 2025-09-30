@@ -6,8 +6,8 @@ com.palantir.gradle.plugintesting:* = 0.11.0
 commons-io:commons-io = 2.20.0
 net.ltgt.gradle:gradle-errorprone-plugin = 4.3.0
 org.assertj:assertj-core = 3.27.6
-org.junit.jupiter:* = 5.13.4
-org.junit.platform:* = 1.13.4
+org.junit.jupiter:* = 5.14.0
+org.junit.platform:* = 1.14.0
 org.ow2.asm:asm = 9.8
 one.util:streamex = 0.8.4
 
