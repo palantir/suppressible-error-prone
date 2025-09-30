@@ -1427,6 +1427,169 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         !output.contains('[RemoveRolloutSuppressions]')
     }
 
+    def 'errorProneRemoveUnused removes only unused suppressions'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "InlineTrivialConstant"})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+ 
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            @SuppressWarnings({"ArrayToString", "InlineTrivialConstant"})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+ 
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings("InlineTrivialConstant")
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("InlineTrivialConstant")
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    class InnerInner {
+                        @SuppressWarnings("InlineTrivialConstant")
+                        class InnerInnerInner {
+                            private static final String EMPTY = "";
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                class Inner { 
+                    class InnerInner {
+                        @SuppressWarnings("InlineTrivialConstant")
+                        class InnerInnerInner {
+                            private static final String EMPTY = "";
+                        }
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused handles multiple suppressions on different tree types gracefully'() {
+        // Here we test the three types of trees you can suppress — ClassTree, MethodTree, VariableTree
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("ArrayEquals")
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    class InnerInner {
+                        @SuppressWarnings("ArrayEquals")
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+    '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused removes entire SuppressWarnings annotation when all suppressions are unused'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+        package app;
+        @SuppressWarnings({"UnusedVariable", "ArrayToString"})
+        public final class App {
+            public static void main(String[] args) {
+                System.out.println("No violations here");
+            }
+        }
+    '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+        package app;
+        public final class App {
+            public static void main(String[] args) {
+                System.out.println("No violations here");
+            }
+        }
+    '''.stripIndent(true)
+    }
+
+
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
         setup: 'when an error-prone dependency is forced to certain version'
         // language=Gradle

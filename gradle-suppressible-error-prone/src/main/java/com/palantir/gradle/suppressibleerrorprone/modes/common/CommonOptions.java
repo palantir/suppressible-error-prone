@@ -41,6 +41,10 @@ public interface CommonOptions {
         return RemoveRolloutCheck.DISABLE;
     }
 
+    default RemoveUnusedCheck removeUnusedCheck() {
+        return RemoveUnusedCheck.DISABLE;
+    }
+
     default CommonOptions naivelyCombinedWith(CommonOptions other) {
         return new CommonOptions() {
             @Override
@@ -58,6 +62,11 @@ public interface CommonOptions {
             @Override
             public RemoveRolloutCheck removeRolloutCheck() {
                 return CommonOptions.this.removeRolloutCheck().or(other.removeRolloutCheck());
+            }
+
+            @Override
+            public RemoveUnusedCheck removeUnusedCheck() {
+                return CommonOptions.this.removeUnusedCheck().or(other.removeUnusedCheck());
             }
         };
     }

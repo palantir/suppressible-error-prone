@@ -67,7 +67,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         visitJar(output, (classJarPath, inputStream) -> classVisitorFor(classJarPath)
                 .map(classVisitorFactory -> {
                     ClassReader classReader = newClassReader(inputStream);
-                    ClassWriter classWriter = new ClassWriter(classReader, 0);
+                    ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES);
                     ClassVisitor classVisitor = classVisitorFactory.apply(classWriter);
 
                     classReader.accept(classVisitor, 0);
@@ -89,6 +89,10 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         if (classJarPath.equals("com/google/errorprone/VisitorState.class")
                 && getParameters().getModifyVisitorState().get()) {
             return Optional.of(VisitorStateClassVisitor::new);
+        }
+
+        if (classJarPath.equals("com/google/errorprone/bugpatterns/BugChecker$SuppressibleTreePathScanner.class")) {
+            return Optional.of(SuppressibleTreePathScannerClassVisitor::new);
         }
 
         return Optional.empty();
