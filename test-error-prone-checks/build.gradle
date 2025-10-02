@@ -19,6 +19,6 @@ publishing {
     }
 }
 
-tasks.withType(PublishToMavenRepository) {
+tasks.withType(PublishToMavenRepository).configureEach {
     onlyIf { repo -> repo.repository.name == 'MavenLocal' }
 }
