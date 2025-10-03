@@ -163,6 +163,13 @@ suppressibleErrorProne {
 }
 ```
 
+### Debugging
+
+If you're a library which ships BugCheckers, you have written `IntegrationTestKitSpec`s to test them, you can debug the error-prones as follows:
+
+1. Run the `Debug errorprones` debug configuration which ships with this repository. This configuration listens for debug events on port 5006. You may copy `Debug_errorprones.xml` from this repository and `git add --force` to your own repository.
+2. Run the build-under-test with the `RemoteDebugJavaCompilePlugin` applied, which ships with `gradle-suppressible-error-prone` and configures your build-under-test to emit debugging events on port 5006. See [this example](https://github.com/palantir/suppressible-error-prone/blob/02b8f54215397f7226f6ea052fe6023b65244212/gradle-suppressible-error-prone/src/test/groovy/com/palantir/gradle/suppressibleerrorprone/SuppressibleErrorPronePluginIntegrationTest.groovy#L100).
+
 ### How do we intercept all the errorprone errors?
 
 We actually modify the core errorprone library to achieve this using a Gradle [Artifact Transform](https://docs.gradle.org/8.10.2/userguide/artifact_transforms.html). This allows us to minimally rewrite the bytecode in the jar that has [`VisitorState#reportMatch`](https://github.com/google/error-prone/blob/f0c3c1eb1b576ee9bc44f1f21c9379e7a02dd745/check_api/src/main/java/com/google/errorprone/VisitorState.java#L281) method and add a call to our own static method to modify the `description` as a first step and add our own fix for `@RepeatableSuppressWarnings`.
