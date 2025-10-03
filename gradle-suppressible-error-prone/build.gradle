@@ -33,11 +33,11 @@ gradlePlugin {
             implementationClass = 'com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorPronePlugin'
         }
         jdwpRemoteDebugPlugin {
-            id = 'com.palantir.jdwp-remote-debug'
+            id = 'com.palantir.remote-debug-java-compile'
             displayName = 'JDWP Remote Debug Plugin'
             description = 'Configures Java compilation tasks to connect to a remote JDWP debugger for debugging ErrorProne and other compiler processes.'
             tags = ['jdwp', 'remote-debug', 'java', 'debugging', 'compiler']
-            implementationClass = 'com.palantir.gradle.suppressibleerrorprone.JdwpRemoteDebugPlugin'
+            implementationClass = 'com.palantir.gradle.suppressibleerrorprone.RemoteDebugJavaCompilePlugin'
         }
     }
 }

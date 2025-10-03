@@ -100,7 +100,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         if (debug) {
             // language=Gradle
             buildFile << '''
-                apply plugin: 'com.palantir.jdwp-remote-debug'
+                apply plugin: 'com.palantir.remote-debug-java-compile'
             '''.stripIndent(true)
         }
 

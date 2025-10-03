@@ -30,7 +30,7 @@ import org.gradle.process.CommandLineArgumentProvider;
  *    on port 5006
  * 2. Run the build-under-test with this plugin applied
  */
-public abstract class JdwpRemoteDebugPlugin implements Plugin<Project> {
+public abstract class RemoteDebugJavaCompilePlugin implements Plugin<Project> {
     @Inject
     protected abstract BuildFeatures getBuildFeatures();
 
@@ -40,7 +40,7 @@ public abstract class JdwpRemoteDebugPlugin implements Plugin<Project> {
             throw new IllegalArgumentException(
                     "The JDWP will throw a cryptic error when run with the configuration cache. Turn off configuration"
                             + " cache for the build-under-debug. Hint: you can conditionally apply "
-                            + "`com.palantir.jdwp-remote-debug` only if `IntegrationTestKitBase#isJdwpLoaded()`");
+                            + "`com.palantir.remote-debug-java-compile` only if `IntegrationTestKitBase#isJdwpLoaded()`");
         }
 
         project.getPluginManager().withPlugin("java", unused -> {
