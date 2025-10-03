@@ -39,6 +39,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // To debug the tests in this file
         // 1. Run the "Debug errorprones" debug configuration, which ships with this repository
         // 2. Go to the test you're looking for and run debug on it as well, but without any special configurations
+
+        // An implementation detail: this is already set in IntegrationTestKitSpec, but only at runner creation time,
+        // which is too late! We set it early here
         debug = isJwdpLoaded()
         sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
         mainSourceSet = directory('src/main/java', sourceSetRoot)
