@@ -40,7 +40,8 @@ public abstract class RemoteDebugJavaCompilePlugin implements Plugin<Project> {
             throw new IllegalArgumentException(
                     "The JDWP will throw a cryptic error when run with the configuration cache. Turn off configuration"
                             + " cache for the build-under-debug. Hint: you can conditionally apply "
-                            + "`com.palantir.remote-debug-java-compile` only if `IntegrationTestKitBase#isJdwpLoaded()`");
+                            + "`com.palantir.remote-debug-java-compile` only if "
+                            + "`IntegrationTestKitBase#isJdwpLoaded()`");
         }
 
         project.getPluginManager().withPlugin("java", unused -> {
