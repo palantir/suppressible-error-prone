@@ -25,8 +25,8 @@ import org.gradle.process.CommandLineArgumentProvider;
 /**
  * To debug suppressible-error-prone in a build (works with breakpoints in VisitorStateModifications):
  * 1. Run the "Debug errorprones" debug config which ships with this repository. Notably, it sets up a jdwp listener
- *    at port 5006
- * 2. Run the build with this plugin applied
+ *    on port 5006
+ * 2. Run the build-under-test with this plugin applied
  */
 public abstract class JdwpRemoteDebugPlugin implements Plugin<Project> {
     @Inject
