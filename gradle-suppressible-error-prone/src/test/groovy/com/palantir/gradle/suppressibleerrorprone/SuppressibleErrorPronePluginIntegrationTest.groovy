@@ -40,7 +40,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     //   5. Run the tests as well
     // If the variable below is true the tests will fail as the compilation process will try to
     // attach to a non-existent debugger. Set it to false before you push any code.
-    boolean debuggingErrorPrones = false
+    boolean debuggingErrorPrones = isJwdpLoaded()
 
     def setupSpec() {
         FileUtils.deleteDirectory(nebulatestSourceSets)
@@ -112,7 +112,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
                         public Iterable<String> asArguments() {
-                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5005")
+                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5006")
                         }
                     })
                 }
@@ -1205,6 +1205,55 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             }
         '''.stripIndent(true)
     }
+
+    def 'can patch checks while using -PerrorProneRemoveRollout, which also add annotations as fixes'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("for-rollout:ShouldBeNullable")
+                private Object fixme() {
+                    return null;
+                }
+
+                @SuppressWarnings("for-rollout:ShouldBeNullable")       
+                private Object fixme(Object andMySuppressionHasWhiteSpaceAfterIt) {
+                    return null;
+                }
+                
+                @SuppressWarnings({"for-rollout:ShouldBePrivate", "for-rollout:ShouldBeNullable"})
+                Integer fixme(Integer i) {
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ShouldBeNullable,ShouldBePrivate', '-PerrorProneApply=ShouldBeNullable,ShouldBePrivate')
+
+        then:
+        // language=Java
+        appJavaTextEquals '''
+            package app;
+
+            import javax.annotation.Nullable;
+
+            public final class App {
+                @Nullable private Object fixme() {
+                    return null;
+                }
+
+                @Nullable private Object fixme(Object andMySuppressionHasWhiteSpaceAfterIt) {
+                    return null;
+                }
+                
+                @Nullable private Integer fixme(Integer i) {
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+    }
+
 
     def 'does not patch checks while using -PerrorProneRemoveRollout, if suppressed normally'() {
         // language=Java

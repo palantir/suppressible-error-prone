@@ -63,5 +63,35 @@ final class SourceCodeUtils {
         return pos + 1;
     }
 
+    static int startOfNextElement(CharSequence sourceCode, int endOfThisElement) {
+        int pos = endOfThisElement + 1;
+
+        for (; pos < sourceCode.length(); pos++) {
+            char character = sourceCode.charAt(pos);
+            if (character == '\n' || !Character.isWhitespace(character)) {
+                break;
+            }
+        }
+
+        if (pos < sourceCode.length() && sourceCode.charAt(pos) == '\n') {
+            // If the next element is in a newline, remove whitespace before the next element as well
+            return firstNonWhitespace(sourceCode, pos + 1);
+        } else {
+            // Otherwise, the next element is on the same line.
+            return pos;
+        }
+    }
+
+    private static int firstNonWhitespace(CharSequence sourceCode, int start) {
+        int pos = start;
+        for (; pos < sourceCode.length(); pos++) {
+            char character = sourceCode.charAt(pos);
+            if (character == '\n' || !Character.isWhitespace(character)) {
+                break;
+            }
+        }
+        return pos;
+    }
+
     private SourceCodeUtils() {}
 }
