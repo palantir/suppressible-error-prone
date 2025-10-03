@@ -29,12 +29,12 @@ import org.gradle.process.CommandLineArgumentProvider;
  * 2. Run the build with this plugin applied
  */
 public abstract class JdwpRemoteDebugPlugin implements Plugin<Project> {
-    // No other way to programmatically check whether the configuration-cache is on
-    @SuppressWarnings("DeprecatedApiUsage")
+    @Inject
+    protected abstract BuildFeatures getBuildFeatures();
+
     @Override
     public final void apply(Project project) {
-
-        if (project.getGradle().getStartParameter().isConfigurationCacheRequested()) {
+        if (getBuildFeatures().getConfigurationCache().getActive().get()) {
             throw new IllegalArgumentException(
                     "The JDWP will throw a cryptic error when run with the configuration cache. Turn off configuration"
                             + " cache for the build-under-debug. Hint: you can conditionally apply "
