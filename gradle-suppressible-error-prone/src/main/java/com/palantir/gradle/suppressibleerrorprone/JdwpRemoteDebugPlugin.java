@@ -24,10 +24,9 @@ import org.gradle.process.CommandLineArgumentProvider;
 
 /**
  * To debug suppressible-error-prone in a build (works with breakpoints in VisitorStateModifications):
- * 1. Apply this plugin to the build
- * 2. Run the "Debug errorprones" debug config which ships with this repository. Notably, it sets up a jdwp listener
+ * 1. Run the "Debug errorprones" debug config which ships with this repository. Notably, it sets up a jdwp listener
  *    at port 5006
- * 3. Run the build
+ * 2. Run the build with this plugin applied
  */
 public abstract class JdwpRemoteDebugPlugin implements Plugin<Project> {
     // No other way to programmatically check whether the configuration-cache is on
