@@ -85,19 +85,19 @@ class WhitespaceIndentBeforeTest {
     }
 
     @Nested
-    class RemoveUntil {
+    class FirstNonWhitespaceOrNextLineStart {
         @Test
         void next_element_on_same_line() {
-            assertThat(removeUntil("class| Foo")).isEqualTo(6);
+            assertThat(firstNonWhitespaceOrNextLineStart("class| Foo")).isEqualTo(6);
         }
 
         @Test
         void next_element_in_newline() {
-            assertThat(removeUntil("class| \n   Foo")).isEqualTo(7);
+            assertThat(firstNonWhitespaceOrNextLineStart("class| \n   Foo")).isEqualTo(7);
         }
 
-        private static int removeUntil(String testCase) {
-            return SourceCodeUtils.removeUntil(testCase.replace("|", ""), testCase.indexOf('|'));
+        private static int firstNonWhitespaceOrNextLineStart(String testCase) {
+            return SourceCodeUtils.firstNonWhitespaceOrNextLineStart(testCase.replace("|", ""), testCase.indexOf('|'));
         }
     }
 }

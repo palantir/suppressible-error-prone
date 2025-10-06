@@ -63,25 +63,19 @@ final class SourceCodeUtils {
         return pos + 1;
     }
 
-    static int removeUntil(CharSequence sourceCode, int endOfSuppression) {
-        int pos = endOfSuppression;
+    static int firstNonWhitespaceOrNextLineStart(CharSequence sourceCode, int startPosition) {
+        int pos = startPosition;
 
         for (; pos < sourceCode.length(); pos++) {
             char character = sourceCode.charAt(pos);
-            if (character == '\n' || !Character.isWhitespace(character)) {
-                break;
+            if (character == '\n') {
+                return Math.min(pos + 1, sourceCode.length());
+            } else if (!Character.isWhitespace(character)) {
+                return pos;
             }
         }
 
-        if (pos < sourceCode.length() && sourceCode.charAt(pos) == '\n') {
-            // If the next element is in a newline, remove the newline as well.
-            // Ideally, we also remove whitespace before the next element, but that would overlap with any done on the
-            // next element. We leave those spaces to the formatter.
-            return pos + 1;
-        } else {
-            // Otherwise, the next element is on the same line.
-            return pos;
-        }
+        return pos;
     }
 
     private SourceCodeUtils() {}

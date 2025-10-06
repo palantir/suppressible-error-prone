@@ -1668,28 +1668,28 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     }
 
     void javaSourceIsSyntacticallyEqualTo(String source) {
-        var output = normalizeSource(file('app/App.java', mainSourceSet).text)
-        var expected = normalizeSource(source)
+        def output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        def expected = normalizeSource(source)
 
         // Ensure test fixtures are properly formatted
         assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
         assert output == expected
 
-        var outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
-        var expectedOther = normalizeSource(source)
+        def outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        def expectedOther = normalizeSource(source)
         assert outputOther == expectedOther
     }
 
     void javaSourceIsSyntacticallyNotEqualTo(String source) {
-        var output = normalizeSource(file('app/App.java', mainSourceSet).text)
-        var expected = normalizeSource(source)
+        def output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        def expected = normalizeSource(source)
 
         // Ensure test fixtures are properly formatted
         assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
         assert output != expected
 
-        var outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
-        var expectedOther = normalizeSource(source)
+        def outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        def expectedOther = normalizeSource(source)
         assert outputOther != expectedOther
     }
 }
