@@ -85,19 +85,19 @@ class WhitespaceIndentBeforeTest {
     }
 
     @Nested
-    class StartOfNextElement {
+    class RemoveUntil {
         @Test
         void next_element_on_same_line() {
-            assertThat(startOfNextElement("class| Foo")).isEqualTo(6);
+            assertThat(removeUntil("class| Foo")).isEqualTo(6);
         }
 
         @Test
         void next_element_in_newline() {
-            assertThat(startOfNextElement("class|  \n   Foo")).isEqualTo(11);
+            assertThat(removeUntil("class| \n   Foo")).isEqualTo(7);
         }
 
-        private static int startOfNextElement(String testCase) {
-            return SourceCodeUtils.startOfNextElement(testCase.replace("|", ""), testCase.indexOf('|'));
+        private static int removeUntil(String testCase) {
+            return SourceCodeUtils.removeUntil(testCase.replace("|", ""), testCase.indexOf('|'));
         }
     }
 }
