@@ -18,14 +18,18 @@ package com.palantir.gradle.suppressibleerrorprone
 
 
 import com.palantir.gradle.plugintesting.ConfigurationCacheSpec
+import com.palantir.javaformat.java.JavaFormatterOptions
 import org.apache.commons.io.FileUtils
 import org.gradle.testkit.runner.BuildResult
 import spock.lang.Unroll
+import com.palantir.javaformat.java.Formatter
+
 
 class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec {
     // We need to put the source sets in a different directory that does not contain the any words that would hit
     // the errorprone excludedPathRegex, ie build in build/nebulatest
     static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
+    static Formatter formatter = Formatter.createFormatter(JavaFormatterOptions.builder().style(JavaFormatterOptions.Style.PALANTIR).build())
     File sourceSetRoot
     File mainSourceSet
     File otherSourceSet
@@ -94,7 +98,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     // These interfere with some tests, so disable them
                     // TODO(callumr): Rewrite the tests to use custom testing error-prones rather than built in checks
                     //                to make upgrading error-prone easier.
-                    disable('Varifier', 'ReturnValueIgnored', 'UnusedVariable', 'IdentifierName')
+                    disable('Varifier', 'ReturnValueIgnored', 'UnusedVariable', 'IdentifierName', 'UnusedMethod')
                     ignoreUnknownCheckNames = true
                 }
             }
@@ -131,6 +135,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -153,6 +158,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
@@ -169,6 +175,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         def erroringCode = '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -203,6 +210,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -216,7 +224,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         then:
         runTasksSuccessfully('compileAllErrorProne')
 
-        appJavaTextContains('Arrays.toString(new int[3])')
+        javaSourceContains('Arrays.toString(new int[3])')
     }
 
     def 'does not apply patches for a check if not added to the patchChecks list'() {
@@ -231,6 +239,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -242,7 +251,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJavaTextContains('new int[3].toString()')
+        javaSourceContains('new int[3].toString()')
     }
 
     def 'does not apply patches if there is nothing in patchChecks set'() {
@@ -256,6 +265,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -269,7 +279,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         stderr.contains('[ArrayToString]')
-        appJavaTextContains('new int[3].toString()')
+        javaSourceContains('new int[3].toString()')
     }
 
     def 'does not apply patches for check that was explicitly disabled'() {
@@ -287,6 +297,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -298,13 +309,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJavaTextContains('new int[3].toString()')
+        javaSourceContains('new int[3].toString()')
     }
 
     def 'can patch specific checks using -PerrorProneApply'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -317,14 +329,15 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply=ArrayToString,ArrayEquals')
 
         then:
-        appJavaTextContains('Arrays.toString(new int[3])')
-        appJavaTextContains('Arrays.equals(new int[2], new int[1])')
+        javaSourceContains('Arrays.toString(new int[3])')
+        javaSourceContains('Arrays.equals(new int[2], new int[1])')
     }
 
     def 'can suppress a failing check (even if not in patchChecks set)'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -336,7 +349,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then:
-        appJavaTextContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+        javaSourceContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
 
 
         runTasksSuccessfully('compileAllErrorProne')
@@ -346,7 +359,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             import java.util.stream.Stream;
+            
             public class App {
                 void test() {
                     Stream.of(new Object()).forEach(o -> o.toString());
@@ -360,16 +375,18 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         then:
         // Suppression should be on the method, not the lambda parameter
         // language=Java
-        appJavaTextEquals("""
+        javaSourceIsSyntacticallyEqualTo """
             package app;
+            
             import java.util.stream.Stream;
+            
             public class App {
                 @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
                 void test() {
                     Stream.of(new Object()).forEach(o -> o.toString());
                 }
             }
-        """.stripIndent(true))
+        """.stripIndent(true)
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the lambda implicit parameter which is not valid java
@@ -380,7 +397,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             import java.util.stream.Stream;
+            
             public class App {
                 void test() {
                     Stream.of(new Object()).forEach((Object o) -> o.toString());
@@ -394,9 +413,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         then:
         // Suppression should be on the method, not the lambda parameter
         // language=Java
-        appJavaTextEquals("""
+        javaSourceIsSyntacticallyEqualTo("""
             package app;
+            
             import java.util.stream.Stream;
+            
             public class App {
                 @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
                 void test() {
@@ -414,7 +435,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             import java.util.stream.Stream;
+            
             public class App {
                 void test() {
                     new Object() {
@@ -432,9 +455,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         then:
         // Suppression should be on the method, not the anonymous class
         // language=Java
-        appJavaTextEquals("""
+        javaSourceIsSyntacticallyEqualTo("""
             package app;
+            
             import java.util.stream.Stream;
+            
             public class App {
                 @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
                 void test() {
@@ -456,6 +481,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public final String field = new int[3].toString();
 
@@ -484,8 +510,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public final String field = new int[3].toString();
@@ -535,6 +562,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public void variables() {
                     String variable;
@@ -547,8 +575,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 public void variables() {
                     @SuppressWarnings("for-rollout:UnusedVariable")
@@ -564,6 +593,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 static class exports {}
                 interface opens {}
@@ -578,17 +608,24 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 static class exports {}
+                
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 interface opens {}
+                
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 record provides(int cat) {}
+                
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
-                enum to {;}
+                enum to {
+                    ;
+                }
+                
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 @interface module {}
             }
@@ -602,11 +639,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     App.Builder builder = new App.Builder(new int[3].toString());
                 }
+                
                 static class Builder {
                     Builder(Object object) {}
                 }
@@ -618,14 +657,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     @SuppressWarnings("for-rollout:ArrayToString")
                     App.Builder builder = new App.Builder(new int[3].toString());
                 }
+                
                 static class Builder {
                     Builder(Object object) {}
                 }
@@ -647,6 +688,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -660,10 +702,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
@@ -696,6 +739,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -709,10 +753,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
@@ -730,6 +775,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -770,6 +816,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     Character.isJavaLetter('c'); // deprecated method
@@ -782,7 +829,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJavaTextContains('Arrays.toString(new int[3])')
+        javaSourceContains('Arrays.toString(new int[3])')
     }
 
     def 'can conditionally add patch checks'() {
@@ -800,6 +847,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -812,8 +860,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
 
         then:
-        appJavaTextContains('Arrays.toString(new int[3])')
-        appJavaTextContains('new int[2].equals(new int[1])')
+        javaSourceContains('Arrays.toString(new int[3])')
+        javaSourceContains('new int[2].equals(new int[1])')
     }
 
     def 'IfModuleIsUsed works properly'() {
@@ -837,6 +885,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -848,8 +897,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
 
         then:
-        appJavaTextContains('Arrays.toString(new int[3])')
-        appJavaTextContains('new int[2].equals(new int[1])')
+        javaSourceContains('Arrays.toString(new int[3])')
+        javaSourceContains('new int[2].equals(new int[1])')
     }
 
     def 'compileAllErrorProne only depends on compile tasks with errorprone enabled'() {
@@ -876,6 +925,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 private int field;
                 public App() {
@@ -913,7 +963,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
 
         then: 'it is not suppressed'
-        appJavaTextNotContains("SuppressWarnings")
+        javaSourceDoesNotContain("SuppressWarnings")
     }
 
     def 'WARNING level checks are suppressed'() {
@@ -929,6 +979,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String... args) {
                     new int[3].toString();
@@ -944,8 +995,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then: 'it is suppressed'
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String... args) {
@@ -991,9 +1043,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         stderr2.contains('[NonCanonicalStaticImport]')
 
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             import static app.B.Inner;
+            
             public final class App {}
         '''.stripIndent(true)
     }
@@ -1002,6 +1056,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String... args) {}
             }
@@ -1034,6 +1089,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         def originalSource = '''
             package app;
+            
             public final class App {
                 public static void main(String... args) {
                     new int[3].toString();
@@ -1053,7 +1109,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         runTasksSuccessfully('compileAllErrorProne', *mode)
 
         then: 'changes are actually made, it was not up-to-date'
-        appJavaTextNotEquals originalSource
+        javaSourceIsSyntacticallyNotEqualTo originalSource
 
         where:
         mode << [
@@ -1082,6 +1138,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
         '''.stripIndent(true)
@@ -1091,8 +1148,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {}
         '''.stripIndent(true)
     }
@@ -1102,6 +1160,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
         '''.stripIndent(true)
@@ -1111,8 +1170,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {}
         '''.stripIndent(true)
     }
@@ -1122,6 +1182,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
         '''.stripIndent(true)
@@ -1131,8 +1192,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
         '''.stripIndent(true)
@@ -1142,6 +1204,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
         '''.stripIndent(true)
@@ -1151,8 +1214,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
         '''.stripIndent(true)
@@ -1162,6 +1226,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             @SuppressWarnings("for-rollout:RemoveRolloutSuppressions")
             public final class App {}
         '''.stripIndent(true)
@@ -1171,8 +1236,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {}
         '''.stripIndent(true)
     }
@@ -1181,6 +1247,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
@@ -1194,10 +1261,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
+            
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
@@ -1206,10 +1274,91 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
     }
 
+    def 'can patch checks while using -PerrorProneRemoveRollout, which also add annotations as fixes'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("for-rollout:ShouldBeNullable")
+                private Object fixme() {
+                    return null;
+                }
+
+                @SuppressWarnings("for-rollout:ShouldBeNullable")       
+                private Object fixme(Object andMySuppressionHasWhiteSpaceAfterIt) {
+                    return null;
+                }
+                
+                @SuppressWarnings({"for-rollout:ShouldBePrivate", "for-rollout:ShouldBeNullable"})
+                Integer fixme(Integer i) {
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ShouldBeNullable,ShouldBePrivate', '-PerrorProneApply=ShouldBeNullable,ShouldBePrivate')
+
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            import javax.annotation.Nullable;
+
+            public final class App {
+                @Nullable
+                private Object fixme() {
+                    return null;
+                }
+
+                @Nullable
+                private Object fixme(Object andMySuppressionHasWhiteSpaceAfterIt) {
+                    return null;
+                }
+                
+                @Nullable
+                private Integer fixme(Integer i) {
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def '-PerrorProneSuppress then -PerrorProneRemoveRollout does not add newlines'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            public final class App {
+                private Object fixme() {
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress=ShouldBeNullable')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ShouldBeNullable')
+
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                private Object fixme() {
+                    return null;
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+
     def 'does not patch checks while using -PerrorProneRemoveRollout, if suppressed normally'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("ArrayToString")
                 public static void main(String[] args) {
@@ -1223,8 +1372,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("ArrayToString")
                 public static void main(String[] args) {
@@ -1238,6 +1388,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -1250,10 +1401,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
+            
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
@@ -1266,6 +1418,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -1278,8 +1431,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -1292,6 +1446,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
@@ -1305,8 +1460,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -1333,8 +1489,9 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
+            
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
@@ -1347,6 +1504,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
@@ -1360,10 +1518,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
+            
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
@@ -1383,6 +1542,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
@@ -1396,10 +1556,11 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         // language=Java
-        appJavaTextEquals '''
+        javaSourceIsSyntacticallyEqualTo '''
             package app;
 
             import java.util.Arrays;
+            
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
@@ -1412,6 +1573,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         // language=Java
         writeJavaSourceFileToSourceSets '''
             package app;
+            
             public final class App {
                 @SuppressWarnings("for-rollout:NullAway")
                 public static void method() {
@@ -1484,23 +1646,50 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         super.writeJavaSourceFile(source, 'src/other/java', sourceSetRoot)
     }
 
-    void appJavaTextContains(String substring) {
+    void javaSourceContains(String substring) {
         assert file('app/App.java', mainSourceSet).text.contains(substring)
         assert file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
-    void appJavaTextNotContains(String substring) {
+    void javaSourceDoesNotContain(String substring) {
         assert !file('app/App.java', mainSourceSet).text.contains(substring)
         assert !file('app/App.java', otherSourceSet).text.contains(substring)
     }
 
-    void appJavaTextEquals(String source) {
-        assert file('app/App.java', mainSourceSet).text == source
-        assert file('app/App.java', otherSourceSet).text == source
+    // Normalizes Java source by trimming whitespace and applying consistent formatting.
+    // Preserves newlines since the formatter allows them within methods, and we need
+    // to test that error-prone doesn't introduce unwanted line breaks.
+    private static String normalizeSource(String content) {
+        String stripped = content.readLines()
+                .collect { it.trim() }           // Remove leading/trailing whitespace
+                .join('\n')
+
+        return formatter.formatSource(stripped)
     }
 
-    void appJavaTextNotEquals(String source) {
-        assert file('app/App.java', mainSourceSet).text != source
-        assert file('app/App.java', otherSourceSet).text != source
+    void javaSourceIsSyntacticallyEqualTo(String source) {
+        def output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        def expected = normalizeSource(source)
+
+        // Ensure test fixtures are properly formatted
+        assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
+        assert output == expected
+
+        def outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        def expectedOther = normalizeSource(source)
+        assert outputOther == expectedOther
+    }
+
+    void javaSourceIsSyntacticallyNotEqualTo(String source) {
+        def output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        def expected = normalizeSource(source)
+
+        // Ensure test fixtures are properly formatted
+        assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
+        assert output != expected
+
+        def outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        def expectedOther = normalizeSource(source)
+        assert outputOther != expectedOther
     }
 }

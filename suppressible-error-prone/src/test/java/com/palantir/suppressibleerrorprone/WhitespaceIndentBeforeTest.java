@@ -83,4 +83,21 @@ class WhitespaceIndentBeforeTest {
                     testCase.replace("|", ""), testCase.indexOf('|'));
         }
     }
+
+    @Nested
+    class FirstNonWhitespaceOrNextLineStart {
+        @Test
+        void next_element_on_same_line() {
+            assertThat(firstNonWhitespaceOrNextLineStart("class| Foo")).isEqualTo(6);
+        }
+
+        @Test
+        void next_element_in_newline() {
+            assertThat(firstNonWhitespaceOrNextLineStart("class| \n   Foo")).isEqualTo(7);
+        }
+
+        private static int firstNonWhitespaceOrNextLineStart(String testCase) {
+            return SourceCodeUtils.firstNonWhitespaceOrNextLineStart(testCase.replace("|", ""), testCase.indexOf('|'));
+        }
+    }
 }
