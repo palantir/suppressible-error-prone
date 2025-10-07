@@ -82,9 +82,9 @@ com.palantir.gradle.plugintesting:configuration-cache-spec:0.12.0 (1 constraints
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.12.0 (1 constraints: 3505293b)
 
-com.palantir.javaformat:palantir-java-format:2.76.0 (1 constraints: 4105593b)
+com.palantir.javaformat:palantir-java-format:2.77.0 (1 constraints: 42055c3b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.76.0 (1 constraints: 12133a39)
+com.palantir.javaformat:palantir-java-format-spi:2.77.0 (1 constraints: 13133d39)
 
 commons-io:commons-io:2.20.0 (1 constraints: 3605333b)
 
