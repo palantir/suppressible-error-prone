@@ -44,7 +44,7 @@ public final class VisitorStateModifications {
     // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
     // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
     // garbage collected.
-    private static final Map<Tree, SuppressingFix> FIXES = new WeakHashMap<>();
+    private static final Map<Tree, LazySuppressionFix> FIXES = new WeakHashMap<>();
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -114,9 +114,9 @@ public final class VisitorStateModifications {
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
         boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
 
-        SuppressingFix suppressingFix = FIXES.computeIfAbsent(
+        LazySuppressionFix suppressingFix = FIXES.computeIfAbsent(
                 firstSuppressibleParent,
-                _ignored -> new SuppressingFix(
+                _ignored -> LazySuppressionFix.empty(
                         Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
 
         suppressingFix.addSuppression(description.checkName);
