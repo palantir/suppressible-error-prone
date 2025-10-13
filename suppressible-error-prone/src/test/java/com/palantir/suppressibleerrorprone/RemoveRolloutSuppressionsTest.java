@@ -178,19 +178,19 @@ class RemoveRolloutSuppressionsTest {
     }
 
     @Test
-    void do_not_reorder_existing_annotations() {
+    void sorts_by_human_authored_first_then_by_alnum() {
         fix().addInputLines(
                         "App.java",
                         // language=Java
                         """
-                        @SuppressWarnings({"for-rollout:3", "for-rollout:2", "1"})
+                        @SuppressWarnings({"for-rollout:3", "for-rollout:2", "for-rollout:1", "b", "a"})
                         public final class App {}
                         """)
                 .addOutputLines(
                         "App.java",
                         // language=Java
                         """
-                        @SuppressWarnings({"for-rollout:3", "1"})
+                        @SuppressWarnings({"a", "b", "for-rollout:1", "for-rollout:3"})
                         public final class App {}
                         """)
                 .setArgs("-XepOpt:" + RemoveRolloutSuppressions.ARGUMENT + "=2")

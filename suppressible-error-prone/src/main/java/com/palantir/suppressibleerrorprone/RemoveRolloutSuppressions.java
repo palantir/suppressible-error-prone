@@ -17,19 +17,15 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.auto.service.AutoService;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
-import com.google.errorprone.fixes.Fix;
-import com.google.errorprone.fixes.Replacement;
-import com.google.errorprone.fixes.Replacements.CoalescePolicy;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.tools.javac.tree.EndPosTable;
-import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.sun.source.tree.Tree;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Name;
@@ -87,81 +83,12 @@ public final class RemoveRolloutSuppressions extends BugChecker implements BugCh
             return Description.NO_MATCH;
         }
 
-        String updatedText = SuppressWarningsUtils.suppressWarningsString(updatedSuppressions);
-
-        return buildDescription(tree)
-                .addFix(new LineRemovingReplacementFix(state.getSourceCode(), (DiagnosticPosition) tree, updatedText))
-                .build();
-    }
-
-    /**
-     * This class has been introduced because the normal {@link com.google.errorprone.fixes.SuggestedFix} does not
-     *   allow us to introduce a Replacement which has a different start position than the tree's normal start position.
-     * Here we want to:
-     *   - replace the element defined by the provided position
-     *   - also replace the whitespace before the element, up to and including the newline
-     * This way, if e.g. @SuppressWarnings("foo") must be removed entirely, we can remove the entire line, rather than
-     *   just the annotation, leaving us with an empty line.
-     *
-     * Note that this will only delete the whitespace before the element if the entire element is removed
-     *   (i.e. if the replacement text is null or empty).
-     */
-    private static final class LineRemovingReplacementFix implements Fix {
-        private final CharSequence sourceCode;
-        private final DiagnosticPosition position;
-        private final String replacementText;
-
-        private LineRemovingReplacementFix(
-                CharSequence sourceCode, DiagnosticPosition position, String replacementText) {
-            this.sourceCode = sourceCode;
-            this.position = position;
-            this.replacementText = replacementText;
-        }
-
-        @Override
-        public String toString(JCCompilationUnit compilationUnit) {
-            return "LineRemovingReplacementFix";
-        }
-
-        @Override
-        public String getShortDescription() {
-            return "Replace text at the position with the provided text, "
-                    + "or remove the text and all preceding whitespace";
-        }
-
-        @Override
-        public CoalescePolicy getCoalescePolicy() {
-            return CoalescePolicy.REJECT;
-        }
-
-        @Override
-        public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-            if (replacementText.isEmpty() && sourceCode != null) {
-                // If the next element is in a newline, remove the newline as well.
-                // Ideally, we also remove whitespace before the next element, but that would overlap with any done on
-                // the next element. We leave those spaces to the formatter.
-                // Otherwise, the next element is a non-whitespace. Remove up until the first non-whitespace.
-                int end = SourceCodeUtils.firstNonWhitespaceOrNextLineStart(
-                        sourceCode, position.getEndPosition(endPositions));
-                return ImmutableSet.of(Replacement.create(position.getStartPosition(), end, ""));
-            }
-            return ImmutableSet.of(Replacement.create(
-                    position.getStartPosition(), position.getEndPosition(endPositions), replacementText));
-        }
-
-        @Override
-        public ImmutableSet<String> getImportsToAdd() {
-            return ImmutableSet.of();
-        }
-
-        @Override
-        public ImmutableSet<String> getImportsToRemove() {
-            return ImmutableSet.of();
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return false;
-        }
+        Tree declaration = state.getPath().getParentPath().getParentPath().getLeaf();
+        LazySuppressionFix fix = new LazySuppressionFix(
+                Optional.ofNullable(state.getSourceCode()),
+                Optional.of(tree),
+                declaration,
+                new HashSet<>(updatedSuppressions));
+        return buildDescription(tree).addFix(fix).build();
     }
 }

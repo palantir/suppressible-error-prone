@@ -22,6 +22,8 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +39,14 @@ final class SuppressWarningsUtils {
         public static SuppressionsType fromName(String name) {
             return name.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX) ? AUTOMATICALLY_ADDED : HUMAN_AUTHORED;
         }
+    }
+
+    public static List<String> sortHumanFirstThenAlphabetical(Collection<String> suppressions) {
+        return suppressions.stream()
+                .sorted(Comparator.comparing((String suppression) ->
+                                SuppressionsType.fromName(suppression) == SuppressionsType.AUTOMATICALLY_ADDED)
+                        .thenComparing(String::compareTo))
+                .collect(Collectors.toList());
     }
 
     public static List<String> modifySuppressions(

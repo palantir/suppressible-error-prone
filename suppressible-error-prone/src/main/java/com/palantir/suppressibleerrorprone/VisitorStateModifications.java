@@ -35,6 +35,7 @@ import java.util.WeakHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
+
 // CHECKSTYLE:ON
 
 public final class VisitorStateModifications {
@@ -119,7 +120,7 @@ public final class VisitorStateModifications {
                 _ignored -> LazySuppressionFix.empty(
                         Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
 
-        suppressingFix.addSuppression(description.checkName);
+        suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
 
         // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
         if (alreadyReportedFix) {
