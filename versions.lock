@@ -50,17 +50,17 @@ org.ow2.asm:asm:9.9 (2 constraints: be0e7759)
 
 cglib:cglib-nodep:3.2.2 (1 constraints: 490ded24)
 
-com.fasterxml.jackson.core:jackson-annotations:2.19.2 (3 constraints: bd3ddca3)
+com.fasterxml.jackson.core:jackson-annotations:2.20 (4 constraints: c441b04c)
 
-com.fasterxml.jackson.core:jackson-core:2.19.2 (5 constraints: 2f6b3a28)
+com.fasterxml.jackson.core:jackson-core:2.20.0 (5 constraints: 076b0210)
 
-com.fasterxml.jackson.core:jackson-databind:2.19.2 (4 constraints: a2584b0d)
+com.fasterxml.jackson.core:jackson-databind:2.20.0 (4 constraints: 8458cdfe)
 
-com.fasterxml.jackson.datatype:jackson-datatype-guava:2.19.2 (1 constraints: 8a142d90)
+com.fasterxml.jackson.datatype:jackson-datatype-guava:2.20.0 (1 constraints: 8a142d90)
 
-com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.19.2 (1 constraints: 11132d39)
+com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.0 (1 constraints: 11132d39)
 
-com.fasterxml.jackson.module:jackson-module-parameter-names:2.19.2 (1 constraints: 11132d39)
+com.fasterxml.jackson.module:jackson-module-parameter-names:2.20.0 (1 constraints: 11132d39)
 
 com.google.auto.value:auto-value:1.10 (1 constraints: e711f8e8)
 
