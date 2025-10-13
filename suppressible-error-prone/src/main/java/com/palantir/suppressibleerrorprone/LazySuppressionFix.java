@@ -27,17 +27,16 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
- * A Fix that can lazily add/modify/remove @SuppressWarnings annotations with proper line handling.
- * When removing suppressions entirely, it will also remove preceding whitespace up to and including
- * the newline to avoid leaving empty lines.
- * Sorts suppressions by human-authored first, then alphabetically.
+ * A Fix which contains the desired end state of the {@code @SuppressWarnings} annotation on a suppressible. Supports
+ * lazily adding/removing suppressions. If no suppressions are present at render time, it will remove the
+ * {@code @SuppressWarnings} annotation, along with the newline. Suppressions in the rendered fix are sorted by
+ * human-authored first, then alphabetically.
  */
 final class LazySuppressionFix implements Fix {
     private final Set<String> desiredSuppressions = new HashSet<>();
-    private final Function<EndPosTable, ImmutableSet<Replacement>> replacement;
+    private final FirstTimeMemoizingFunction<EndPosTable, ImmutableSet<Replacement>> replacement;
 
     private LazySuppressionFix(
             Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree declaration) {
