@@ -66,6 +66,14 @@ final class LazySuppressionReplacement extends Replacement {
 
     @Override
     public Range<Integer> range() {
+        if (desiredSuppressions.isEmpty() && sourceCode.isPresent()) {
+            // If the next element is in a newline, remove the newline as well.
+            // Ideally, we also remove whitespace before the next element, but that would overlap with any done on
+            // the next element. We leave those spaces to the formatter.
+            // Otherwise, the next element is a non-whitespace. Remove up until the first non-whitespace.
+            int end = SourceCodeUtils.firstNonWhitespaceOrNextLineStart(sourceCode.get(), range.upperEndpoint());
+            return Range.closedOpen(range.lowerEndpoint(), end);
+        }
         return range;
     }
 

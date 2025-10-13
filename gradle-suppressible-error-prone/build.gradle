@@ -43,6 +43,7 @@ test {
 
 // Added as a jar the errorprone configuration inside the plugin, so in nebula-tests needs to exist in maven local
 tasks.test.dependsOn tasks.findByPath(':suppressible-error-prone:publishToMavenLocal')
+tasks.test.dependsOn tasks.findByPath(':test-error-prone-checks:publishToMavenLocal')
 
 tasks.withType(JavaCompile) {
     options.errorprone {

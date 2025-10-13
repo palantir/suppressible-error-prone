@@ -1,0 +1,24 @@
+apply plugin: 'java-library'
+
+// Applying maven-publish here so we can publish to mavenLocal, but we don't want to publish externally
+apply plugin: 'maven-publish'
+
+dependencies {
+    implementation 'com.google.errorprone:error_prone_annotation'
+    implementation 'com.google.errorprone:error_prone_check_api'
+
+    annotationProcessor 'com.google.auto.service:auto-service'
+    compileOnly 'com.google.auto.service:auto-service'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+tasks.withType(PublishToMavenRepository).configureEach {
+    onlyIf { repo -> repo.repository.name == 'MavenLocal' }
+}

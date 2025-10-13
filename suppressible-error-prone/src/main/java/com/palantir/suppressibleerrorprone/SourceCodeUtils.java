@@ -63,5 +63,20 @@ final class SourceCodeUtils {
         return pos + 1;
     }
 
+    static int firstNonWhitespaceOrNextLineStart(CharSequence sourceCode, int startPosition) {
+        int pos = startPosition;
+
+        for (; pos < sourceCode.length(); pos++) {
+            char character = sourceCode.charAt(pos);
+            if (character == '\n') {
+                return Math.min(pos + 1, sourceCode.length());
+            } else if (!Character.isWhitespace(character)) {
+                return pos;
+            }
+        }
+
+        return pos;
+    }
+
     private SourceCodeUtils() {}
 }

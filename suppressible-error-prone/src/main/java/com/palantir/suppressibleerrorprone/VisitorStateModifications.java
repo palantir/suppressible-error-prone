@@ -49,15 +49,16 @@ public final class VisitorStateModifications {
     private static final class ReportedFixCache {
         private final Map<Tree, LazySuppressionFix> cache = new WeakHashMap<>();
 
-        LazySuppressionFix getOrCreate(Tree declaration, VisitorState visitorState) {
-            return cache.computeIfAbsent(declaration, _ignored -> createFix(declaration, visitorState));
+        // declaration is a TreePath because we need information about it's parent to check if it is suppressible
+        LazySuppressionFix getOrCreate(TreePath declaration, VisitorState visitorState) {
+            return cache.computeIfAbsent(declaration.getLeaf(), _ignored -> createFix(declaration, visitorState));
         }
 
-        private LazySuppressionFix createFix(Tree declaration, VisitorState visitorState) {
-            if (!SuppressWarningsUtils.isSuppressible(declaration)) {
+        private LazySuppressionFix createFix(TreePath declaration, VisitorState visitorState) {
+            if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
                 throw new IllegalArgumentException("Not suppressible: " + declaration);
             }
-            ModifiersTree modifiersTree = modifiersTree(declaration).get();
+            ModifiersTree modifiersTree = modifiersTree(declaration.getLeaf()).get();
             Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
                     .filter(annotation -> {
                         Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
@@ -66,9 +67,9 @@ public final class VisitorStateModifications {
                     .findFirst();
 
             LazySuppressionFix fix = LazySuppressionFix.empty(
-                    Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, declaration);
+                    Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, declaration.getLeaf());
             Description description = Description.builder(
-                            (DiagnosticPosition) declaration, "SuppressibleErrorProne", "", "")
+                            (DiagnosticPosition) declaration.getLeaf(), "SuppressibleErrorProne", "", "")
                     .addFix(fix)
                     .build();
             visitorState.reportMatch(description);
@@ -138,14 +139,11 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressibleWhichSuppressesDescription = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppresses(path.getLeaf(), description))
+                .dropWhile(path -> !suppresses(path, description))
                 .findFirst();
 
         if (firstSuppressibleWhichSuppressesDescription.isPresent() && modes.contains("RemoveUnused")) {
-            suppressCheck(
-                    visitorState,
-                    description.checkName,
-                    firstSuppressibleWhichSuppressesDescription.get().getLeaf());
+            suppressCheck(visitorState, description.checkName, firstSuppressibleWhichSuppressesDescription.get());
             return Description.NO_MATCH;
         }
 
@@ -161,7 +159,7 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppressibleTree(path.getLeaf()))
+                .dropWhile(path -> !SuppressWarningsUtils.suppressibleTreePath(path))
                 .findFirst();
 
         // If we can't find a suppressible parent, we can't add a suppression, so just give up.
@@ -175,7 +173,7 @@ public final class VisitorStateModifications {
             return Description.NO_MATCH;
         }
 
-        Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
+        TreePath firstSuppressibleParent = firstSuppressible.get();
 
         // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
         // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
@@ -207,17 +205,18 @@ public final class VisitorStateModifications {
         }.scan(compilationUnit, null);
     }
 
-    private static void suppressCheck(VisitorState visitorState, String suppression, Tree suppressibleParent) {
+    private static void suppressCheck(VisitorState visitorState, String suppression, TreePath suppressibleParent) {
         LazySuppressionFix lazyFix = FIXES.getOrCreate(suppressibleParent, visitorState);
         lazyFix.addSuppression(suppression);
     }
 
-    private static boolean suppresses(Tree leaf, Description description) {
-        if (!SuppressWarningsUtils.isSuppressible(leaf)) {
+    private static boolean suppresses(TreePath declaration, Description description) {
+        if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
             return false;
         }
 
-        Optional<? extends AnnotationTree> suppressWarningsMaybe = SuppressWarningsUtils.getSuppressWarnings(leaf);
+        Optional<? extends AnnotationTree> suppressWarningsMaybe =
+                SuppressWarningsUtils.getSuppressWarnings(declaration);
         if (suppressWarningsMaybe.isEmpty()) {
             return false;
         }
@@ -234,8 +233,7 @@ public final class VisitorStateModifications {
             @Override
             public Void visitAnnotation(AnnotationTree node, Void unused) {
                 if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
-                    Tree declaration =
-                            getCurrentPath().getParentPath().getParentPath().getLeaf();
+                    TreePath declaration = getCurrentPath().getParentPath().getParentPath();
                     Optional<CharSequence> source = Optional.ofNullable(visitorState.getSourceCode());
 
                     // Start by making all suppressions empty
@@ -246,10 +244,6 @@ public final class VisitorStateModifications {
                 return super.visitAnnotation(node, unused);
             }
         }.scan(compilationUnit, null);
-    }
-
-    private static boolean suppressibleTree(Tree tree) {
-        return modifiersTree(tree).isPresent();
     }
 
     private static Optional<ModifiersTree> modifiersTree(Tree tree) {
