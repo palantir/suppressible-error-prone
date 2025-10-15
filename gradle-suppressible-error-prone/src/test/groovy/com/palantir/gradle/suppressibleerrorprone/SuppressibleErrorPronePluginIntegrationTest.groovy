@@ -694,6 +694,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     new int[3].toString();
                     new int[3].equals(new int[3]);
                 }
+                
+                // Does not remove existing suppressions
+                @SuppressWarnings("checkstyle:LineLength")
+                public static void helper() {
+                    new int[3].equals(new int[3]);
+                }
             }
         '''.stripIndent(true)
 
@@ -711,6 +717,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
+                    new int[3].equals(new int[3]);
+                }
+                                
+                // Does not remove existing suppressions
+                @SuppressWarnings({"checkstyle:LineLength", "for-rollout:ArrayEquals"})
+                public static void helper() {
                     new int[3].equals(new int[3]);
                 }
             }

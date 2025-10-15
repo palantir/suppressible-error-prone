@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
 
@@ -115,10 +116,20 @@ public final class VisitorStateModifications {
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
         boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
 
-        LazySuppressionFix suppressingFix = FIXES.computeIfAbsent(
-                firstSuppressibleParent,
-                _ignored -> LazySuppressionFix.empty(
-                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+        LazySuppressionFix suppressingFix = FIXES.computeIfAbsent(firstSuppressibleParent, _ignored -> {
+            // Initialize every fix with all remove-rollout: suppressions removed
+            Stream<String> existingSuppressions = suppressWarnings
+                    .map(AnnotationUtils::annotationStringValues)
+                    .orElseGet(Stream::of);
+            Set<String> existingNonRolloutSuppressions = existingSuppressions
+                    .filter(sup -> !sup.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX))
+                    .collect(Collectors.toSet());
+            return new LazySuppressionFix(
+                    Optional.ofNullable(visitorState.getSourceCode()),
+                    suppressWarnings,
+                    firstSuppressibleParent,
+                    existingNonRolloutSuppressions);
+        });
 
         suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
 
