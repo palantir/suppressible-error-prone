@@ -33,6 +33,10 @@ import java.util.stream.Collectors;
  * whitespace up to and including the newline.
  */
 final class LazySuppressionReplacement extends Replacement {
+    // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
+    // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
+    // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
+    // at the same level.
     private final Range<Integer> range;
     private final List<String> existingSuppressions;
     private final String suffix;
@@ -50,7 +54,14 @@ final class LazySuppressionReplacement extends Replacement {
         this.sourceCode = sourceCode;
         this.suppressWarnings = suppressWarnings;
 
-        // Calculate range immediately to avoid tree representation changes
+        // There is an additional issue that by the time error-prone comes around to apply the replacements, the
+        // compiler seems to change the representation of the tree for another phase - `App.Builder` becomes
+        // `App$Builder` etc and the start position for the expression changes to be after `App` rather than at the
+        // start of `App`. If we calculate the replacement range too late, we insert our @SuppressWarnings at the
+        // wrong location, and the indentation is miscalculated. But we can't calculate the replacement string
+        // straight away, as we might not have all the new suppressions added yet. So we have to immediately
+        // calculate the replacement range and indentation/suffix, but hold off building the final replacement
+        // string until we have all the new suppressions.
         this.range = calculateRange(endPositions, suppressWarnings, declaration);
 
         this.suffix = suppressWarnings
