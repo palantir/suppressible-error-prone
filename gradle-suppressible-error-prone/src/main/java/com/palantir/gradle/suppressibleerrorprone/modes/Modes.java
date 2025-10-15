@@ -28,11 +28,14 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.CombinedValue;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.DisableModeInterference;
-import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemovingAndSuppressingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveRolloutAndSuppressingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveUnusedAndApplyingInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.interferences.RemoveUnusedAndSuppressInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.interferences.SuppressingAndApplyingInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.ApplyMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.DisableMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.RemoveRolloutMode;
+import com.palantir.gradle.suppressibleerrorprone.modes.modes.RemoveUnusedMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.SuppressMode;
 import com.palantir.gradle.suppressibleerrorprone.modes.modes.TimingsMode;
 import java.util.List;
@@ -60,13 +63,16 @@ public abstract class Modes {
             ModeName.APPLY, new ApplyMode(),
             ModeName.DISABLE, new DisableMode(),
             ModeName.REMOVE_ROLLOUT, new RemoveRolloutMode(),
+            ModeName.REMOVE_UNUSED, new RemoveUnusedMode(),
             ModeName.SUPPRESS, new SuppressMode(),
             ModeName.TIMINGS, new TimingsMode());
 
     private final Set<ModeInterference> interferences = Set.of(
             new DisableModeInterference(),
-            new RemovingAndSuppressingInterference(),
-            new SuppressingAndApplyingInterference());
+            new RemoveRolloutAndSuppressingInterference(),
+            new SuppressingAndApplyingInterference(),
+            new RemoveUnusedAndApplyingInterference(),
+            new RemoveUnusedAndSuppressInterference());
 
     public final CombinedValue modifyCheckApi() {
         return ModifyCheckApiOption.combine(
@@ -127,7 +133,8 @@ public abstract class Modes {
                 .append(nonInterferingCommonOptions)
                 .toSet();
 
-        return CommonOptions.naivelyCombine(allCommonOptions);
+        CommonOptions commonOptions = CommonOptions.naivelyCombine(allCommonOptions);
+        return commonOptions;
     }
 
     private Map<ModeName, Optional<String>> modesEnabledAndFlagValues() {

@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import one.util.streamex.EntryStream;
 
 /**
@@ -41,6 +42,10 @@ public interface CommonOptions {
         return RemoveRolloutCheck.DISABLE;
     }
 
+    default boolean ignoreSuppressionAnnotations() {
+        return false;
+    }
+
     default CommonOptions naivelyCombinedWith(CommonOptions other) {
         return new CommonOptions() {
             @Override
@@ -52,12 +57,18 @@ public interface CommonOptions {
             public Map<String, String> extraErrorProneCheckOptions() {
                 return EntryStream.of(CommonOptions.this.extraErrorProneCheckOptions())
                         .append(other.extraErrorProneCheckOptions())
-                        .toMap();
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey, Map.Entry::getValue, (val1, val2) -> val1 + "," + val2));
             }
 
             @Override
             public RemoveRolloutCheck removeRolloutCheck() {
                 return CommonOptions.this.removeRolloutCheck().or(other.removeRolloutCheck());
+            }
+
+            @Override
+            public boolean ignoreSuppressionAnnotations() {
+                return CommonOptions.this.ignoreSuppressionAnnotations() || other.ignoreSuppressionAnnotations();
             }
         };
     }
@@ -66,18 +77,31 @@ public interface CommonOptions {
         return commonOptions.stream().reduce(CommonOptions.empty(), CommonOptions::naivelyCombinedWith);
     }
 
+    // NOTE: Maybe CommonOptions itself should be an interface without default methods, while a
+    // DefaultCommonOptions provides sensible defaults.
+    // Or maybe CommonOptions should just be a record with methods
     default CommonOptions withExtraErrorProneCheckFlag(String key, Supplier<String> value) {
         return new CommonOptions() {
+            @Override
+            public Map<String, String> extraErrorProneCheckOptions() {
+                Map<String, String> map = new HashMap<>(CommonOptions.this.extraErrorProneCheckOptions());
+                map.put(key, value.get());
+                return Collections.unmodifiableMap(map);
+            }
+
             @Override
             public PatchChecksOption patchChecks() {
                 return CommonOptions.this.patchChecks();
             }
 
             @Override
-            public Map<String, String> extraErrorProneCheckOptions() {
-                Map<String, String> map = new HashMap<>(CommonOptions.this.extraErrorProneCheckOptions());
-                map.put(key, value.get());
-                return Collections.unmodifiableMap(map);
+            public RemoveRolloutCheck removeRolloutCheck() {
+                return CommonOptions.this.removeRolloutCheck();
+            }
+
+            @Override
+            public boolean ignoreSuppressionAnnotations() {
+                return CommonOptions.this.ignoreSuppressionAnnotations();
             }
         };
     }

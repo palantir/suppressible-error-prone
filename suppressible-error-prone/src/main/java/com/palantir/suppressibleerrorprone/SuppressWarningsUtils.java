@@ -16,14 +16,18 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -37,6 +41,14 @@ final class SuppressWarningsUtils {
         public static SuppressionsType fromName(String name) {
             return name.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX) ? AUTOMATICALLY_ADDED : HUMAN_AUTHORED;
         }
+    }
+
+    public static List<String> sortHumanFirstThenAlphabetical(Collection<String> suppressions) {
+        return suppressions.stream()
+                .sorted(Comparator.comparing((String suppression) ->
+                                SuppressionsType.fromName(suppression) == SuppressionsType.AUTOMATICALLY_ADDED)
+                        .thenComparing(String::compareTo))
+                .collect(Collectors.toList());
     }
 
     public static List<String> modifySuppressions(
@@ -118,6 +130,16 @@ final class SuppressWarningsUtils {
         }
 
         return lambdaExpressionTree.getParameters().contains(variableTree);
+    }
+
+    public static Optional<? extends AnnotationTree> getSuppressWarnings(TreePath suppressible) {
+        if (!suppressibleTreePath(suppressible)) {
+            throw new IllegalArgumentException("Suppress annotations not allowed in " + suppressible);
+        }
+
+        return AnnotationUtils.getModifiers(suppressible.getLeaf()).getAnnotations().stream()
+                .filter(AnnotationUtils::isSuppressWarningsAnnotation)
+                .findFirst();
     }
 
     private SuppressWarningsUtils() {}

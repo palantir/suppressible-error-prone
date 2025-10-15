@@ -16,42 +16,39 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 
-import com.google.common.base.Splitter;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-public final class ApplyMode implements Mode {
+public final class RemoveUnusedMode implements Mode {
+    private static final String ALL_CHECKS = "";
+
+    @Override
+    public ModifyCheckApiOption modifyCheckApi() {
+        return ModifyCheckApiOption.mustModify(
+                ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER, ModifiedFile.VISITOR_STATE);
+    }
+
     @Override
     public CommonOptions configureAndReturnCommonOptions(ModeOptionContext context) {
         return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return PatchChecksOption.someChecks(() -> checksToApplySuggestedPatchesFor(context));
+                return PatchChecksOption.allChecks();
             }
 
             @Override
             public Map<String, String> extraErrorProneCheckOptions() {
-                return Map.of("SuppressibleErrorProne:Mode", "Apply");
+                return Map.of("SuppressibleErrorProne:Mode", "RemoveUnused");
+            }
+
+            @Override
+            public boolean ignoreSuppressionAnnotations() {
+                return true;
             }
         };
-    }
-
-    private static Set<String> checksToApplySuggestedPatchesFor(ModeOptionContext context) {
-        boolean hasSpecificPatchChecks =
-                context.flagValue().isPresent() && !context.flagValue().get().isBlank();
-
-        if (hasSpecificPatchChecks) {
-            return Splitter.on(',')
-                    .omitEmptyStrings()
-                    .splitToStream(context.flagValue().get())
-                    .map(String::trim)
-                    .collect(Collectors.toSet());
-        }
-
-        return context.extension().patchChecksForCompilation(context.javaCompile());
     }
 }
