@@ -19,9 +19,11 @@ package com.palantir.gradle.suppressibleerrorprone;
 import com.palantir.gradle.suppressibleerrorprone.modes.Modes;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import net.ltgt.gradle.errorprone.ErrorProneOptions;
@@ -75,7 +77,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         if (getModes().modifyCheckApi() instanceof ModifyCheckApiOption.MustModify mustModify) {
             // When auto-suppressing, the logic will run a bytecode patched version of errorprone
             // (via an artifact transform) that intercepts every error from every check and adds a custom fix
-            setupErrorProneArtifactTransform(project, mustModify.modifyVisitorState());
+            setupErrorProneArtifactTransform(project, mustModify.modifiedFiles());
         }
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
@@ -108,7 +110,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         });
     }
 
-    private static void setupErrorProneArtifactTransform(Project project, boolean modifyVisitorState) {
+    private static void setupErrorProneArtifactTransform(Project project, Set<ModifiedFile> modifiedFiles) {
         Attribute<Boolean> suppressible =
                 Attribute.of("com.palantir.suppressible-error-prone.suppressible", Boolean.class);
         project.getDependencies().getAttributesSchema().attribute(suppressible);
@@ -120,7 +122,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 .attribute(suppressible, false);
 
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
-            spec.getParameters().getModifyVisitorState().set(modifyVisitorState);
+            spec.getParameters().getFilesToModify().set(modifiedFiles);
 
             Attribute<String> artifactType = Attribute.of("artifactType", String.class);
             spec.getFrom().attribute(suppressible, false).attribute(artifactType, "jar");
@@ -204,6 +206,10 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                                 commonOptions.patchChecks().asCommaSeparated().orElse(null)));
 
         errorProneOptions.getErrorproneArgumentProviders().add(patchChecksCommandLineArgumentProvider);
+
+        errorProneOptions
+                .getIgnoreSuppressionAnnotations()
+                .set(getProviderFactory().provider(commonOptions::ignoreSuppressionAnnotations));
 
         errorProneOptions
                 .getCheckOptions()

@@ -47,19 +47,16 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
     }
 
     /**
-     * The {@code error_prone_check_api} jar must be modified to allow {@code `for-rollout:`} suppressions to work.
+     * Modify these files in the error-prone API.
      */
-    static ModifyCheckApiOption mustModify() {
-        return new MustModify(false);
+    static MustModify mustModify(ModifiedFile... modifiedFile) {
+        return new MustModify(Set.of(modifiedFile));
     }
 
-    /**
-     * The {@code error_prone_check_api} jar must be modified to allow {@code `for-rollout:`} suppressions to work,
-     * and {@code VisitorState} must be modified to intercept reportMatch.
-     */
-    static ModifyCheckApiOption mustModifyIncludingVisitorState() {
-        return new MustModify(true);
+    default Set<ModifiedFile> getModifiedFiles() {
+        return Set.of();
     }
+    ;
 
     enum DoNotModify implements ModifyCheckApiOption, CombinedValue {
         INSTANCE
@@ -69,9 +66,11 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
         INSTANCE
     }
 
-    record MustModify(boolean modifyVisitorState) implements ModifyCheckApiOption, CombinedValue {
+    record MustModify(Set<ModifiedFile> modifiedFiles) implements ModifyCheckApiOption, CombinedValue {
         public MustModify combine(MustModify other) {
-            return new MustModify(modifyVisitorState || other.modifyVisitorState);
+            Set<ModifiedFile> union =
+                    StreamEx.of(modifiedFiles).append(other.modifiedFiles).toSet();
+            return new MustModify(union);
         }
     }
 
@@ -84,7 +83,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
 
         if (withoutNoEffects.isEmpty()) {
             // By default, we need to modify the check API to support for-rollout suppressions
-            return new MustModify(false);
+            return mustModify(ModifiedFile.BUG_CHECKER_INFO);
         }
 
         boolean doNotModify = withoutNoEffects.contains(DoNotModify.INSTANCE);
@@ -102,5 +101,17 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
                 .map(MustModify.class::cast)
                 .reduce(MustModify::combine)
                 .get();
+    }
+
+    enum ModifiedFile {
+        BUG_CHECKER_INFO("BugCheckerInfo"),
+        VISITOR_STATE("VisitorState"),
+        SUPPRESSIBLE_TREE_PATH_SCANNER("SuppressibleTreePathScanner");
+
+        private final String className;
+
+        ModifiedFile(String className) {
+            this.className = className;
+        }
     }
 }
