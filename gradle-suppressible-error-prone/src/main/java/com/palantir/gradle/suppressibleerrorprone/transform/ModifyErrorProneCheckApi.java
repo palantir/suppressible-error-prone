@@ -16,6 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone.transform;
 
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi.Params;
 import com.palantir.gradle.utils.environmentvariables.EnvironmentVariables;
 import java.io.BufferedOutputStream;
@@ -36,6 +37,7 @@ import org.gradle.api.artifacts.transform.TransformParameters;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Nested;
 import org.objectweb.asm.ClassReader;
@@ -67,7 +69,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         visitJar(output, (classJarPath, inputStream) -> classVisitorFor(classJarPath)
                 .map(classVisitorFactory -> {
                     ClassReader classReader = newClassReader(inputStream);
-                    ClassWriter classWriter = new ClassWriter(classReader, 0);
+                    ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES);
                     ClassVisitor classVisitor = classVisitorFactory.apply(classWriter);
 
                     classReader.accept(classVisitor, 0);
@@ -79,7 +81,8 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // We always want to modify the BugCheckerInfo class, as this is where we help errorprone understand
         // what the `for-rollout:` prefix for suppressions mean (which means this class is always modified,
         // even during normal compilation).
-        if (classJarPath.equals("com/google/errorprone/BugCheckerInfo.class")) {
+        if (classJarPath.equals("com/google/errorprone/BugCheckerInfo.class")
+                && getParameters().getFilesToModify().get().contains(ModifiedFile.BUG_CHECKER_INFO)) {
             return Optional.of(BugCheckerInfoVisitor::new);
         }
 
@@ -87,8 +90,13 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // it intercepts all errors and changes them. So when we're just running normal compilation, we want
         // to avoid running our modifications at all, and let the errors continue on their way unchanged.
         if (classJarPath.equals("com/google/errorprone/VisitorState.class")
-                && getParameters().getModifyVisitorState().get()) {
+                && getParameters().getFilesToModify().get().contains(ModifiedFile.VISITOR_STATE)) {
             return Optional.of(VisitorStateClassVisitor::new);
+        }
+
+        if (classJarPath.equals("com/google/errorprone/bugpatterns/BugChecker$SuppressibleTreePathScanner.class")
+                && getParameters().getFilesToModify().get().contains(ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER)) {
+            return Optional.of(SuppressibleTreePathScannerClassVisitor::new);
         }
 
         return Optional.empty();
@@ -132,7 +140,7 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
 
     public abstract static class Params implements TransformParameters {
         @Input
-        public abstract Property<Boolean> getModifyVisitorState();
+        public abstract SetProperty<ModifiedFile> getFilesToModify();
 
         @Input
         public abstract Property<String> getCacheBust();
