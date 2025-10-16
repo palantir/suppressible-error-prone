@@ -18,6 +18,7 @@ package com.palantir.suppressibleerrorprone;
 
 import com.google.errorprone.VisitorState;
 
+@SuppressWarnings("for-rollout:FinalClass")
 public class SuppressibleTreePathScannerModifications {
 
     public static boolean shouldIgnoreSuppressions(VisitorState state) {
