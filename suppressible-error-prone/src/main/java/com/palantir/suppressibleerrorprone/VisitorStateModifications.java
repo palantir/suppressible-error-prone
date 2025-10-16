@@ -33,8 +33,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
+
 // CHECKSTYLE:ON
 
 public final class VisitorStateModifications {
@@ -44,7 +46,7 @@ public final class VisitorStateModifications {
     // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
     // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
     // garbage collected.
-    private static final Map<Tree, SuppressingFix> FIXES = new WeakHashMap<>();
+    private static final Map<Tree, LazySuppressionFix> FIXES = new WeakHashMap<>();
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -114,12 +116,22 @@ public final class VisitorStateModifications {
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
         boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
 
-        SuppressingFix suppressingFix = FIXES.computeIfAbsent(
-                firstSuppressibleParent,
-                _ignored -> new SuppressingFix(
-                        Optional.ofNullable(visitorState.getSourceCode()), suppressWarnings, firstSuppressibleParent));
+        LazySuppressionFix suppressingFix = FIXES.computeIfAbsent(firstSuppressibleParent, _ignored -> {
+            // Initialize every fix with all remove-rollout: suppressions removed
+            Stream<String> existingSuppressions = suppressWarnings
+                    .map(AnnotationUtils::annotationStringValues)
+                    .orElseGet(Stream::of);
+            Set<String> existingNonRolloutSuppressions = existingSuppressions
+                    .filter(sup -> !sup.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX))
+                    .collect(Collectors.toSet());
+            return new LazySuppressionFix(
+                    Optional.ofNullable(visitorState.getSourceCode()),
+                    suppressWarnings,
+                    firstSuppressibleParent,
+                    existingNonRolloutSuppressions);
+        });
 
-        suppressingFix.addSuppression(description.checkName);
+        suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
 
         // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
         if (alreadyReportedFix) {

@@ -694,6 +694,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     new int[3].toString();
                     new int[3].equals(new int[3]);
                 }
+                
+                // Does not remove existing suppressions
+                @SuppressWarnings("checkstyle:LineLength")
+                public static void helper() {
+                    new int[3].equals(new int[3]);
+                }
             }
         '''.stripIndent(true)
 
@@ -711,6 +717,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
+                    new int[3].equals(new int[3]);
+                }
+                                
+                // Does not remove existing suppressions
+                @SuppressWarnings({"checkstyle:LineLength", "for-rollout:ArrayEquals"})
+                public static void helper() {
                     new int[3].equals(new int[3]);
                 }
             }
@@ -1161,8 +1173,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         writeJavaSourceFileToSourceSets '''
             package app;
             
+            // We can remove entire lines
             @SuppressWarnings("for-rollout:Test")
-            public final class App {}
+            public final class App {
+                // We keep non-rollout suppressions untouched
+                @SuppressWarnings({"for-rollout:Test", "Test"})
+                void nested() {}
+            }
         '''.stripIndent(true)
 
         when:
@@ -1173,7 +1190,12 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         javaSourceIsSyntacticallyEqualTo '''
             package app;
             
-            public final class App {}
+            // We can remove entire lines
+            public final class App {
+                // We keep non-rollout suppressions untouched
+                @SuppressWarnings("Test")
+                void nested() {}
+            }
         '''.stripIndent(true)
     }
 

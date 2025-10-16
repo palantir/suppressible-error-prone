@@ -27,14 +27,27 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
-final class SuppressingFix implements Fix {
-    private final Set<String> newSuppressions = new HashSet<>();
-    private final Function<EndPosTable, ImmutableSet<Replacement>> replacement;
+/**
+ * A Fix which contains the desired end state of the {@code @SuppressWarnings} annotation on a suppressible. Supports
+ * lazily adding/removing suppressions. If no suppressions are present at render time, it will remove the
+ * {@code @SuppressWarnings} annotation, along with the newline. Suppressions in the rendered fix are sorted by
+ * human-authored first, then alphabetically.
+ *
+ * <p>
+ *
+ * We have to handle line removal ourselves because the normal {@link com.google.errorprone.fixes.SuggestedFix} does not
+ * allow us to introduce a Replacement which has a different start position than the tree's normal start position.
+ */
+final class LazySuppressionFix implements Fix {
+    // This set describes the desired end state of the fix. Suppressions can be added and removed from this set until
+    // the LazySuppressingReplacement is rendered
+    private final Set<String> desiredSuppressions = new HashSet<>();
+    private final FirstTimeMemoizingFunction<EndPosTable, ImmutableSet<Replacement>> replacement;
 
-    SuppressingFix(Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
-        // See note in SuppressingReplacement about when we have to calculate stuff
+    private LazySuppressionFix(
+            Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree declaration) {
+        // See note in LazySuppressionReplacement about when we have to calculate stuff
         // We *cannot* simply make this a memoized supplier. The first thing error-prone does with the Fix is to
         // evaluate it to produce a nice error message, and we don't want to fix the number of suppression we make
         // until we're ready to produce the Replacement after *all* the error-prone checks have been run.
@@ -43,12 +56,34 @@ final class SuppressingFix implements Fix {
         // to use this FirstTimeMemoizingFunction thing, that will allow use to defer creating the Replacement until
         // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
         // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
-        this.replacement = new FirstTimeMemoizingFunction<>((EndPosTable endPositions) -> ImmutableSet.of(
-                new SuppressingReplacement(endPositions, newSuppressions, sourceCode, suppressWarnings, tree)));
+        this.replacement = new FirstTimeMemoizingFunction<>(
+                (EndPosTable endPositions) -> ImmutableSet.of(new LazySuppressionReplacement(
+                        endPositions, desiredSuppressions, sourceCode, suppression, declaration)));
+    }
+
+    /**
+     * Initialize a {@code LazySuppressingFix} on {@code suppressWarnings} with the initial suppressions
+     * {@code desiredSuppressions}.
+     */
+    LazySuppressionFix(
+            Optional<CharSequence> sourceCode,
+            Optional<? extends AnnotationTree> suppressWarnings,
+            Tree declaration,
+            Set<String> desiredSuppressions) {
+        this(sourceCode, suppressWarnings, declaration);
+        this.desiredSuppressions.addAll(desiredSuppressions);
+    }
+
+    /**
+     * Initialize a {@code LazySuppressingFix} on {@code suppressWarnings} with no suppressions initially.
+     */
+    public static LazySuppressionFix empty(
+            Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree tree) {
+        return new LazySuppressionFix(sourceCode, suppression, tree);
     }
 
     public void addSuppression(String suppression) {
-        newSuppressions.add(suppression);
+        desiredSuppressions.add(suppression);
     }
 
     @Override
@@ -58,12 +93,12 @@ final class SuppressingFix implements Fix {
 
     @Override
     public String toString(JCCompilationUnit compilationUnit) {
-        return "SuppressingFix";
+        return "LazySuppressionFix";
     }
 
     @Override
     public String getShortDescription() {
-        return "Adding automatic suppressions";
+        return "Adding/modifying/removing @SuppressWarnings with proper line handling";
     }
 
     @Override
