@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 import java.util.jar.JarFile;
@@ -81,8 +82,10 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // We always want to modify the BugCheckerInfo class, as this is where we help errorprone understand
         // what the `for-rollout:` prefix for suppressions mean (which means this class is always modified,
         // even during normal compilation).
+
+        Set<ModifiedFile> filesToModify = getParameters().getFilesToModify().get();
         if (classJarPath.equals("com/google/errorprone/BugCheckerInfo.class")
-                && getParameters().getFilesToModify().get().contains(ModifiedFile.BUG_CHECKER_INFO)) {
+                && filesToModify.contains(ModifiedFile.BUG_CHECKER_INFO)) {
             return Optional.of(BugCheckerInfoVisitor::new);
         }
 
@@ -90,12 +93,12 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         // it intercepts all errors and changes them. So when we're just running normal compilation, we want
         // to avoid running our modifications at all, and let the errors continue on their way unchanged.
         if (classJarPath.equals("com/google/errorprone/VisitorState.class")
-                && getParameters().getFilesToModify().get().contains(ModifiedFile.VISITOR_STATE)) {
+                && filesToModify.contains(ModifiedFile.VISITOR_STATE)) {
             return Optional.of(VisitorStateClassVisitor::new);
         }
 
         if (classJarPath.equals("com/google/errorprone/bugpatterns/BugChecker$SuppressibleTreePathScanner.class")
-                && getParameters().getFilesToModify().get().contains(ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER)) {
+                && filesToModify.contains(ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER)) {
             return Optional.of(SuppressibleTreePathScannerClassVisitor::new);
         }
 

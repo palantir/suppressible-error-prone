@@ -19,12 +19,9 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DoNotModify;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.MustModify;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.NoEffect;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import one.util.streamex.StreamEx;
 
 /**
@@ -53,7 +50,7 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
      * Modify these files in the error-prone API.
      */
     static MustModify mustModify(ModifiedFile... modifiedFile) {
-        return new MustModify(Arrays.stream(modifiedFile).collect(Collectors.toSet()));
+        return new MustModify(Set.of(modifiedFile));
     }
 
     default Set<ModifiedFile> getModifiedFiles() {
@@ -71,8 +68,8 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
 
     record MustModify(Set<ModifiedFile> modifiedFiles) implements ModifyCheckApiOption, CombinedValue {
         public MustModify combine(MustModify other) {
-            Set<ModifiedFile> union = Stream.concat(modifiedFiles.stream(), other.modifiedFiles.stream())
-                    .collect(Collectors.toSet());
+            Set<ModifiedFile> union =
+                    StreamEx.of(modifiedFiles).append(other.modifiedFiles).toSet();
             return new MustModify(union);
         }
     }
