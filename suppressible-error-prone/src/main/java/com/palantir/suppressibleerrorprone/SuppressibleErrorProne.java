@@ -26,7 +26,7 @@ import com.google.errorprone.bugpatterns.BugChecker;
         link = "https://github.com/palantir/suppressible-error-prone",
         linkType = BugPattern.LinkType.CUSTOM,
         severity = SeverityLevel.WARNING,
-        summary = "A change made by suppressible-error-prone",
+        summary = "A fix on a suppressible by suppressible-error-prone",
         // Make it unsuppressible so that it can actually remove itself
         suppressionAnnotations = {})
 public class SuppressibleErrorProne extends BugChecker {}
