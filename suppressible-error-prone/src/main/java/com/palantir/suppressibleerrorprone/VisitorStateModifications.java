@@ -21,41 +21,27 @@ package com.palantir.suppressibleerrorprone;
 import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
-import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.ModifiersTree;
-import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.lang.model.element.Name;
 
 // CHECKSTYLE:ON
 
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
-    // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
-    // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
-    // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
-    // garbage collected.
-    private static final Map<Tree, LazySuppressionFix> FIXES = new WeakHashMap<>();
+    private static final ReportedFixCache FIXES = new ReportedFixCache();
 
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
-        if (description == Description.NO_MATCH) {
+        // Prevent infinite recursion on reported fixes
+        if (description == Description.NO_MATCH || description.checkName.equals("SuppressibleErrorProne")) {
             return description;
         }
 
-        Set<String> modes = visitorState.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Mode");
-        if (modes.contains("RemoveUnused")) {
+        if (getModes(visitorState).contains("RemoveUnused")) {
             throw new UnsupportedOperationException("RemoveUnused mode is not yet supported");
         }
 
@@ -103,71 +89,21 @@ public final class VisitorStateModifications {
             return Description.NO_MATCH;
         }
 
-        Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
-
-        ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
-
-        Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
-                .filter(annotation -> {
-                    Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
-                    return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
-                })
-                .findFirst();
-
         // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
         // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
         // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
         // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
-        boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
-
-        LazySuppressionFix suppressingFix = FIXES.computeIfAbsent(firstSuppressibleParent, _ignored -> {
-            // Initialize every fix with all remove-rollout: suppressions removed
-            Stream<String> existingSuppressions = suppressWarnings
-                    .map(AnnotationUtils::annotationStringValues)
-                    .orElseGet(Stream::of);
-            Set<String> existingNonRolloutSuppressions = existingSuppressions
-                    .filter(sup -> !sup.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX))
-                    .collect(Collectors.toSet());
-            return new LazySuppressionFix(
-                    Optional.ofNullable(visitorState.getSourceCode()),
-                    suppressWarnings,
-                    firstSuppressibleParent,
-                    existingNonRolloutSuppressions);
-        });
-
+        LazySuppressionFix suppressingFix = FIXES.getOrReportNew(
+                firstSuppressible.get(),
+                visitorState,
+                bugchecker -> !bugchecker.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX));
         suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
-
-        // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
-        if (alreadyReportedFix) {
-            return Description.NO_MATCH;
-        }
-
-        return Description.builder(
-                        description.position,
-                        description.checkName,
-                        description.getLink(),
-                        description.getMessageWithoutCheckName())
-                .addFix(suppressingFix)
-                .build();
+        return Description.NO_MATCH;
     }
 
-    private static Optional<ModifiersTree> modifiersTree(Tree tree) {
-        // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
-        // of class-like type definitions.
-        if (tree instanceof ClassTree classTree) {
-            return Optional.of(classTree.getModifiers());
-        }
-
-        if (tree instanceof MethodTree methodTree) {
-            return Optional.of(methodTree.getModifiers());
-        }
-
-        if (tree instanceof VariableTree variableTree) {
-            return Optional.of(variableTree.getModifiers());
-        }
-
-        return Optional.empty();
+    private static Set<String> getModes(VisitorState state) {
+        return state.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Mode");
     }
 
     private VisitorStateModifications() {}
