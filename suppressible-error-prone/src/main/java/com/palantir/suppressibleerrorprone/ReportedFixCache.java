@@ -55,7 +55,8 @@ final class ReportedFixCache {
     }
 
     /**
-     * Initialize a {@code LazySuppressionFix} on {@code declaration}, asserting that none exists yet.
+     * Initialize a {@code LazySuppressionFix} on {@code declaration}, choosing which suppressions to keep with
+     * {@code filterExisting}.
      */
     @SuppressWarnings("PreferSafeLoggableExceptions") // It doesn't matter in our internal codebases
     public LazySuppressionFix reportNew(
