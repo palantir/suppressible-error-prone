@@ -22,40 +22,41 @@ import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
-import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.WeakHashMap;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.lang.model.element.Name;
+
 // CHECKSTYLE:ON
 
-@SuppressWarnings("RestrictedApi")
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
-    private static final ReportedFixCache FIXES = new ReportedFixCache();
-    private static final Set<String> ALL_BUGCHECKER_NAMES = AllErrorprones.allBugcheckerNames();
+    // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
+    // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
+    // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
+    // garbage collected.
+    private static final Map<Tree, LazySuppressionFix> FIXES = new WeakHashMap<>();
 
-    // Used during RemoveUnused mode to attach fixes when we initially see this compilation unit
-    private static final Set<CompilationUnitTree> SEEN = new HashSet<>();
-
-    @SuppressWarnings("CyclomaticComplexity") // Unfortunately this logic is just complex
+    @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
-        // Prevent infinite recursion on reported fixes
-        if (description == Description.NO_MATCH || description.checkName.equals("SuppressibleErrorProne")) {
+        if (description == Description.NO_MATCH) {
             return description;
         }
 
         Set<String> modes = visitorState.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Mode");
-        CompilationUnitTree compilationUnit = visitorState.getPath().getCompilationUnit();
-
-        if (modes.contains("RemoveUnused") && !SEEN.contains(compilationUnit)) {
-            removeAllErrorproneSuppressionsOnCompilationUnit(compilationUnit, visitorState);
-            SEEN.add(compilationUnit);
+        if (modes.contains("RemoveUnused")) {
+            throw new UnsupportedOperationException("RemoveUnused mode is not yet supported");
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -86,25 +87,6 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
-        Optional<TreePath> firstSuppressibleWhichSuppressesDescription = Stream.iterate(
-                        pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppresses(path, description))
-                .findFirst();
-
-        if (firstSuppressibleWhichSuppressesDescription.isPresent() && modes.contains("RemoveUnused")) {
-            suppressCheck(visitorState, description.checkName, firstSuppressibleWhichSuppressesDescription.get());
-            return Description.NO_MATCH;
-        }
-
-        if (!modes.contains("Suppress")) {
-            log.warning("No autofix was found for " + description.checkName + " at position "
-                    + description.position.getStartPosition() + " in "
-                    + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
-                    + " -PerrorProneSuppress was not passed either. "
-                    + " SuppressibleErrorProne will not be able to add a suppression for this error.");
-            return Description.NO_MATCH;
-        }
-
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
                 .dropWhile(path -> !SuppressWarningsUtils.suppressibleTreePath(path))
@@ -121,56 +103,71 @@ public final class VisitorStateModifications {
             return Description.NO_MATCH;
         }
 
+        Tree firstSuppressibleParent = firstSuppressible.get().getLeaf();
+
+        ModifiersTree modifiersTree = modifiersTree(firstSuppressibleParent).get();
+
+        Optional<? extends AnnotationTree> suppressWarnings = modifiersTree.getAnnotations().stream()
+                .filter(annotation -> {
+                    Name annotationName = AnnotationUtils.annotationName(annotation.getAnnotationType());
+                    return annotationName.contentEquals(CommonConstants.SUPPRESS_WARNINGS_ANNOTATION);
+                })
+                .findFirst();
+
         // In order to be able to suppress multiple errors in one pass on the same element, we need to do a single
         // Fix/Replacement in error-prone. It's not possible to do this bit by bit with multiple Replacements. To do
         // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
         // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
-        suppressCheck(
-                visitorState,
-                CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName,
-                firstSuppressible.get());
+        boolean alreadyReportedFix = FIXES.containsKey(firstSuppressibleParent);
 
-        return Description.NO_MATCH;
-    }
+        LazySuppressionFix suppressingFix = FIXES.computeIfAbsent(firstSuppressibleParent, _ignored -> {
+            // Initialize every fix with all remove-rollout: suppressions removed
+            Stream<String> existingSuppressions = suppressWarnings
+                    .map(AnnotationUtils::annotationStringValues)
+                    .orElseGet(Stream::of);
+            Set<String> existingNonRolloutSuppressions = existingSuppressions
+                    .filter(sup -> !sup.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX))
+                    .collect(Collectors.toSet());
+            return new LazySuppressionFix(
+                    Optional.ofNullable(visitorState.getSourceCode()),
+                    suppressWarnings,
+                    firstSuppressibleParent,
+                    existingNonRolloutSuppressions);
+        });
 
-    private static void suppressCheck(VisitorState visitorState, String suppression, TreePath suppressibleParent) {
-        LazySuppressionFix lazyFix =
-                FIXES.getOrReportNew(suppressibleParent, visitorState, ReportedFixCache.KEEP_EVERYTHING);
-        lazyFix.addSuppression(suppression);
-    }
+        suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
 
-    private static boolean suppresses(TreePath declaration, Description description) {
-        if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
-            return false;
+        // If we already submitted our mutable fix, we don't need to do so again, just need to add the error to the fix.
+        if (alreadyReportedFix) {
+            return Description.NO_MATCH;
         }
 
-        Optional<? extends AnnotationTree> suppressWarningsMaybe =
-                SuppressWarningsUtils.getSuppressWarnings(declaration);
-        if (suppressWarningsMaybe.isEmpty()) {
-            return false;
-        }
-
-        String checkName = description.checkName;
-        return AnnotationUtils.annotationStringValues(suppressWarningsMaybe.get())
-                .anyMatch(checkName::equals);
+        return Description.builder(
+                        description.position,
+                        description.checkName,
+                        description.getLink(),
+                        description.getMessageWithoutCheckName())
+                .addFix(suppressingFix)
+                .build();
     }
 
-    private static void removeAllErrorproneSuppressionsOnCompilationUnit(
-            CompilationUnitTree compilationUnit, VisitorState visitorState) {
-        Predicate<String> keepNonErrorproneSuppressions = Predicate.not(ALL_BUGCHECKER_NAMES::contains);
+    private static Optional<ModifiersTree> modifiersTree(Tree tree) {
+        // This covers all type definitions eg class, interface, enum, record, annotation, future kinds
+        // of class-like type definitions.
+        if (tree instanceof ClassTree classTree) {
+            return Optional.of(classTree.getModifiers());
+        }
 
-        new TreePathScanner<Void, Void>() {
-            @Override
-            public Void visitAnnotation(AnnotationTree node, Void unused) {
-                if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
-                    TreePath declaration = getCurrentPath().getParentPath().getParentPath();
-                    FIXES.reportNew(declaration, visitorState, keepNonErrorproneSuppressions);
-                }
+        if (tree instanceof MethodTree methodTree) {
+            return Optional.of(methodTree.getModifiers());
+        }
 
-                return super.visitAnnotation(node, null);
-            }
-        }.scan(compilationUnit, null);
+        if (tree instanceof VariableTree variableTree) {
+            return Optional.of(variableTree.getModifiers());
+        }
+
+        return Optional.empty();
     }
 
     private VisitorStateModifications() {}
