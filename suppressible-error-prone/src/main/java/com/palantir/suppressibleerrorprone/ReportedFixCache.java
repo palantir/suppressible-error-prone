@@ -92,7 +92,10 @@ final class ReportedFixCache {
                 declaration.getLeaf(),
                 filteredExistingSuppressions);
         Description description = Description.builder(
-                        (DiagnosticPosition) declaration.getLeaf(), "SuppressibleErrorProne", "", "")
+                        (DiagnosticPosition) declaration.getLeaf(),
+                        "SuppressibleErrorProne",
+                        "https://github.com/palantir/suppressible-error-prone",
+                        "A fix on a suppressible  by SuppressibleErrorProne")
                 .addFix(fix)
                 .build();
         state.reportMatch(description);
