@@ -21,6 +21,9 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.bugpatterns.BugChecker;
 
+/**
+ * Used by {@code ReportedFixCache} so we don't recursively call {@code VisitorStateModifications}
+ */
 @AutoService(BugChecker.class)
 @BugPattern(
         link = "https://github.com/palantir/suppressible-error-prone",
