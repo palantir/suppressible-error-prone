@@ -23,16 +23,13 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 // CHECKSTYLE:ON
 
@@ -40,29 +37,24 @@ import java.util.stream.Stream;
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
 
-    // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
-    // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
-    // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
-    // garbage collected.
-    private static final Set<CompilationUnitTree> SEEN = new HashSet<>();
-    private static final Map<Tree, Set<String>> OLD_SUPPRESSIONS = new WeakHashMap<>();
+    private static final ReportedFixCache FIXES = new ReportedFixCache();
+    private static final Set<String> ALL_BUGCHECKER_NAMES = AllErrorprones.allBugcheckerNames();
 
-    private static final ReportedFixCache FIXES =
-            ReportedFixCache.startWithRemoving(AllErrorprones.allBugcheckerNames());
+    // Used during RemoveUnused mode to attach fixes when we initially see this compilation unit
+    private static final Set<CompilationUnitTree> SEEN = new HashSet<>();
 
     @SuppressWarnings("CyclomaticComplexity") // Unfortunately this logic is just complex
     public static Description interceptDescription(VisitorState visitorState, Description description) {
+        // Prevent infinite recursion on reported fixes
         if (description == Description.NO_MATCH || description.checkName.equals("SuppressibleErrorProne")) {
             return description;
         }
 
         Set<String> modes = visitorState.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Mode");
-
         CompilationUnitTree compilationUnit = visitorState.getPath().getCompilationUnit();
 
         if (modes.contains("RemoveUnused") && !SEEN.contains(compilationUnit)) {
-            attachEmptySuppressionFixesToAllSuppressibles(compilationUnit, visitorState);
-            cacheOldSuppressions(compilationUnit, visitorState);
+            removeAllErrorproneSuppressionsOnCompilationUnit(compilationUnit, visitorState);
             SEEN.add(compilationUnit);
         }
 
@@ -105,7 +97,6 @@ public final class VisitorStateModifications {
         }
 
         if (!modes.contains("Suppress")) {
-            // Maybe follow the previous behavior of ignoring this diagnostic rather than relaying to javac?
             log.warning("No autofix was found for " + description.checkName + " at position "
                     + description.position.getStartPosition() + " in "
                     + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
@@ -143,25 +134,9 @@ public final class VisitorStateModifications {
         return Description.NO_MATCH;
     }
 
-    private static void cacheOldSuppressions(CompilationUnitTree compilationUnit, VisitorState visitorState) {
-        new TreePathScanner<Void, Void>() {
-            @Override
-            public Void visitAnnotation(AnnotationTree node, Void unused) {
-                if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
-                    Tree declaration =
-                            getCurrentPath().getParentPath().getParentPath().getLeaf();
-                    OLD_SUPPRESSIONS.put(
-                            declaration,
-                            AnnotationUtils.annotationStringValues(node).collect(Collectors.toSet()));
-                }
-
-                return super.visitAnnotation(node, unused);
-            }
-        }.scan(compilationUnit, null);
-    }
-
     private static void suppressCheck(VisitorState visitorState, String suppression, TreePath suppressibleParent) {
-        LazySuppressionFix lazyFix = FIXES.getOrReportNew(suppressibleParent, visitorState);
+        LazySuppressionFix lazyFix =
+                FIXES.getOrReportNew(suppressibleParent, visitorState, ReportedFixCache.KEEP_EVERYTHING);
         lazyFix.addSuppression(suppression);
     }
 
@@ -181,22 +156,19 @@ public final class VisitorStateModifications {
                 .anyMatch(checkName::equals);
     }
 
-    private static void attachEmptySuppressionFixesToAllSuppressibles(
+    private static void removeAllErrorproneSuppressionsOnCompilationUnit(
             CompilationUnitTree compilationUnit, VisitorState visitorState) {
+        Predicate<String> keepNonErrorproneSuppressions = Predicate.not(ALL_BUGCHECKER_NAMES::contains);
 
         new TreePathScanner<Void, Void>() {
             @Override
             public Void visitAnnotation(AnnotationTree node, Void unused) {
                 if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
                     TreePath declaration = getCurrentPath().getParentPath().getParentPath();
-                    Optional<CharSequence> source = Optional.ofNullable(visitorState.getSourceCode());
-
-                    // Start by making all suppressions empty
-                    // Then, as we encounter Descriptions without fixes, we add back the closest suppression
-                    LazySuppressionFix fix = FIXES.getOrReportNew(declaration, visitorState);
+                    FIXES.reportNew(declaration, visitorState, keepNonErrorproneSuppressions);
                 }
 
-                return super.visitAnnotation(node, unused);
+                return super.visitAnnotation(node, null);
             }
         }.scan(compilationUnit, null);
     }

@@ -16,7 +16,6 @@
 
 package com.palantir.suppressibleerrorprone;
 
-import com.google.common.base.Predicates;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
@@ -24,7 +23,6 @@ import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -34,36 +32,43 @@ import java.util.stream.Stream;
 import javax.lang.model.element.Name;
 
 final class ReportedFixCache {
-    private final Map<Tree, LazySuppressionFix> cache = new WeakHashMap<>();
-    private final Predicate<String> initializer;
+    // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
+    // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
+    // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely
+    // garbage collected.
+    private final WeakHashMap<Tree, LazySuppressionFix> cache = new WeakHashMap<>();
 
-    private ReportedFixCache(Predicate<String> initializer) {
-        this.initializer = initializer;
-    }
+    public static final Predicate<String> REMOVE_EVERYTHING = bc -> false;
+    public static final Predicate<String> KEEP_EVERYTHING = bc -> true;
 
-    public static ReportedFixCache startWithUnmodified() {
-        return new ReportedFixCache(suppression -> true);
-    }
+    ReportedFixCache() {}
 
-    public static ReportedFixCache startWithRemovingAll() {
-        return new ReportedFixCache(suppression -> false);
-    }
-
-    public static ReportedFixCache startWithRemoving(Set<String> suppressionsToRemove) {
-        System.err.println(suppressionsToRemove);
-        return new ReportedFixCache(Predicates.not(suppressionsToRemove::contains));
+    /**
+     * When first called on a {@code declaration}, initialize a {@code LazySuppressionFix} on it, choosing which
+     * suppressions to keep with {@code filterExisting}. Subsequent calls on this {@code declaration} will return the
+     * initialized {@code LazySuppressionFix}.
+     */
+    public LazySuppressionFix getOrReportNew(
+            TreePath declaration, VisitorState visitorState, Predicate<String> filterExisting) {
+        return cache.computeIfAbsent(
+                declaration.getLeaf(), _ignored -> createAndReportFix(declaration, visitorState, filterExisting));
     }
 
     /**
-     * Gets an existing fix on this declaration if it exists. Otherwise, initialize the fix with
-     * declaration is a TreePath because we need information about it's parent to check if it is suppressible
+     * Initialize a {@code LazySuppressionFix} on {@code declaration}, asserting that none exists yet.
      */
-    public LazySuppressionFix getOrReportNew(TreePath declaration, VisitorState visitorState) {
-        return cache.computeIfAbsent(declaration.getLeaf(), _ignored -> createAndReportFix(declaration, visitorState));
+    @SuppressWarnings("PreferSafeLoggableExceptions") // It doesn't matter in our internal codebases
+    public LazySuppressionFix reportNew(
+            TreePath declaration, VisitorState visitorState, Predicate<String> filterExisting) {
+        if (cache.containsKey(declaration.getLeaf())) {
+            throw new IllegalArgumentException("A fix on this declaration already exists");
+        }
+        return cache.put(declaration.getLeaf(), createAndReportFix(declaration, visitorState, filterExisting));
     }
 
     @SuppressWarnings("RestrictedApi")
-    private LazySuppressionFix createAndReportFix(TreePath declaration, VisitorState state) {
+    private LazySuppressionFix createAndReportFix(
+            TreePath declaration, VisitorState state, Predicate<String> filterExisting) {
         if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
             throw new IllegalArgumentException("Not suppressible: " + declaration);
         }
@@ -78,7 +83,7 @@ final class ReportedFixCache {
         Stream<String> allExistingSuppressions =
                 suppressWarnings.map(AnnotationUtils::annotationStringValues).orElseGet(Stream::of);
         Set<String> filteredExistingSuppressions =
-                allExistingSuppressions.filter(initializer).collect(Collectors.toSet());
+                allExistingSuppressions.filter(filterExisting).collect(Collectors.toSet());
 
         LazySuppressionFix fix = new LazySuppressionFix(
                 Optional.ofNullable(state.getSourceCode()),
