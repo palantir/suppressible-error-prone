@@ -21,6 +21,11 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.bugpatterns.BugChecker;
 
+/**
+ * Used by {@link ReportedFixCache} to register {@link LazySuppressionFix}es.
+ * We need this "default" bugchecker type, as using the name of any individual suppression being removed/added is
+ * inappropriate — a {@link LazySuppressionFix} may remove or add multiple suppressions.
+ */
 @AutoService(BugChecker.class)
 @BugPattern(
         link = "https://github.com/palantir/suppressible-error-prone",

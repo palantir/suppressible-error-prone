@@ -26,17 +26,24 @@ import java.util.stream.Stream;
 import one.util.streamex.StreamEx;
 
 public final class AllErrorprones {
+    private static Set<String> cachedAllBugcheckerNames;
+
     public static Set<String> allBugcheckerNames() {
-        Stream<BugChecker> pluginChecks =
-                ServiceLoader.load(BugChecker.class).stream().map(ServiceLoader.Provider::get);
-        Stream<String> pluginCheckNames =
-                StreamEx.of(pluginChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
+        if (cachedAllBugcheckerNames == null) {
+            Stream<BugChecker> pluginChecks =
+                    ServiceLoader.load(BugChecker.class).stream().map(ServiceLoader.Provider::get);
+            Stream<String> pluginCheckNames =
+                    StreamEx.of(pluginChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
 
-        Stream<BugCheckerInfo> builtInChecks = BuiltInCheckerSuppliers.allChecks().getAllChecks().values().stream();
-        Stream<String> builtInCheckNames =
-                StreamEx.of(builtInChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
+            Stream<BugCheckerInfo> builtInChecks = BuiltInCheckerSuppliers.allChecks().getAllChecks().values().stream();
+            Stream<String> builtInCheckNames =
+                    StreamEx.of(builtInChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
 
-        return Stream.concat(pluginCheckNames, builtInCheckNames).collect(Collectors.toSet());
+            cachedAllBugcheckerNames =
+                    Stream.concat(pluginCheckNames, builtInCheckNames).collect(Collectors.toSet());
+        }
+
+        return cachedAllBugcheckerNames;
     }
 
     private AllErrorprones() {}

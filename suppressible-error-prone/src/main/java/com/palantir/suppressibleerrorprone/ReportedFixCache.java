@@ -67,7 +67,6 @@ final class ReportedFixCache {
         return cache.put(declaration.getLeaf(), createAndReportFix(declaration, visitorState, filterExisting));
     }
 
-    @SuppressWarnings("RestrictedApi")
     private LazySuppressionFix createAndReportFix(
             TreePath declaration, VisitorState state, Predicate<String> filterExisting) {
         if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
@@ -91,6 +90,7 @@ final class ReportedFixCache {
                 suppressWarnings,
                 declaration.getLeaf(),
                 filteredExistingSuppressions);
+        @SuppressWarnings("RestrictedApi")
         Description description = Description.builder(
                         (DiagnosticPosition) declaration.getLeaf(),
                         "SuppressibleErrorProne",
