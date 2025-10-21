@@ -22,32 +22,33 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 import one.util.streamex.EntryStream;
 
 /**
  * Interference between Apply && (Suppress || RemoveUnused).
  */
 public final class ApplyingAndSuppressingOrRemoveUnusedInterference implements ModeInterference {
-    private static final Set<ModeName> APPLY_AND_REMOVE_UNUSED_AND_SUPPRESS =
-            Set.of(ModeName.APPLY, ModeName.REMOVE_UNUSED, ModeName.SUPPRESS);
-    private static final Set<ModeName> APPLY_AND_REMOVE_UNUSED = Set.of(ModeName.APPLY, ModeName.REMOVE_UNUSED);
-    private static final Set<ModeName> APPLY_AND_SUPPRESS = Set.of(ModeName.APPLY, ModeName.SUPPRESS);
 
     @Override
     public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
-        Optional<Set<ModeName>> maximalInterference = getMaximalInterference(modeNames);
-        return maximalInterference
-                .map(ModeInterferenceResult::interferenceBetween)
-                .orElseGet(ModeInterferenceResult::noInterference);
+        if (!modeNames.contains(ModeName.APPLY)) {
+            return ModeInterferenceResult.noInterference();
+        }
+
+        Set<ModeName> interferingWithApply =
+                Sets.intersection(modeNames, Set.of(ModeName.SUPPRESS, ModeName.REMOVE_UNUSED));
+
+        if (interferingWithApply.isEmpty()) {
+            return ModeInterferenceResult.noInterference();
+        }
+
+        return ModeInterferenceResult.interferenceBetween(Sets.union(Set.of(ModeName.APPLY), interferingWithApply));
     }
 
     @Override
     public CommonOptions interfere(Map<ModeName, CommonOptions> modeCommonOptions) {
-        Set<ModeName> maximalInterference =
-                getMaximalInterference(modeCommonOptions.keySet()).get();
+        Set<ModeName> maximalInterference = modeCommonOptions.keySet();
         CommonOptions apply = modeCommonOptions.get(ModeName.APPLY);
         CommonOptions naivelyCombined = EntryStream.of(modeCommonOptions)
                 .filterKeys(maximalInterference::contains)
@@ -64,11 +65,5 @@ public final class ApplyingAndSuppressingOrRemoveUnusedInterference implements M
         return naivelyCombined.withExtraErrorProneCheckFlag(
                 "SuppressibleErrorProne:PreferPatchChecks",
                 () -> apply.patchChecks().asCommaSeparated().orElse(""));
-    }
-
-    private static Optional<Set<ModeName>> getMaximalInterference(Set<ModeName> modeNames) {
-        return Stream.of(APPLY_AND_REMOVE_UNUSED_AND_SUPPRESS, APPLY_AND_REMOVE_UNUSED, APPLY_AND_SUPPRESS)
-                .filter(set -> Sets.difference(set, modeNames).isEmpty())
-                .findFirst();
     }
 }
