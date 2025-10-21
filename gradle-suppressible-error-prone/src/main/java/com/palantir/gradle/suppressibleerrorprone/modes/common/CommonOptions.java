@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import one.util.streamex.EntryStream;
 
 /**
@@ -56,7 +57,8 @@ public interface CommonOptions {
             public Map<String, String> extraErrorProneCheckOptions() {
                 return EntryStream.of(CommonOptions.this.extraErrorProneCheckOptions())
                         .append(other.extraErrorProneCheckOptions())
-                        .toMap();
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey, Map.Entry::getValue, (val1, val2) -> val1 + "," + val2));
             }
 
             @Override

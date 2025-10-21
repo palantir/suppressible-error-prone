@@ -19,18 +19,17 @@ package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.RemoveRolloutCheck;
 import java.util.Map;
 
-public final class RemoveRolloutMode implements Mode {
+public final class RemoveUnusedMode implements Mode {
     private static final String ALL_CHECKS = "";
 
     @Override
     public ModifyCheckApiOption modifyCheckApi() {
-        // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
-        // logic for for-rollout suppressions.
-        return ModifyCheckApiOption.doNotModify();
+        return ModifyCheckApiOption.mustModify(
+                ModifiedFile.BUG_CHECKER_INFO, ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER, ModifiedFile.VISITOR_STATE);
     }
 
     @Override
@@ -38,25 +37,17 @@ public final class RemoveRolloutMode implements Mode {
         return new CommonOptions() {
             @Override
             public PatchChecksOption patchChecks() {
-                return PatchChecksOption.someChecks("RemoveRolloutSuppressions");
+                return PatchChecksOption.allChecks();
             }
 
             @Override
             public Map<String, String> extraErrorProneCheckOptions() {
-                // For the suppressions to remove, if no specific check is enabled, we need to just remove everything
-                // We can't explicitly list all possible checks, because some might not exist anymore
-                // The logic itself needs to consider an empty list as "remove all"
-
-                return Map.of(
-                        "SuppressibleErrorProne:RemoveRolloutSuppressions",
-                        context.flagValue().orElse(ALL_CHECKS),
-                        SUPPRESSIBLE_ERROR_PRONE_MODE,
-                        "RemoveRollout");
+                return Map.of(SUPPRESSIBLE_ERROR_PRONE_MODE, "RemoveUnused");
             }
 
             @Override
-            public RemoveRolloutCheck removeRolloutCheck() {
-                return RemoveRolloutCheck.ENABLED;
+            public boolean ignoreSuppressionAnnotations() {
+                return true;
             }
         };
     }

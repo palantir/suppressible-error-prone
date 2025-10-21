@@ -20,6 +20,7 @@ import com.google.common.base.Splitter;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,6 +31,11 @@ public final class ApplyMode implements Mode {
             @Override
             public PatchChecksOption patchChecks() {
                 return PatchChecksOption.someChecks(() -> checksToApplySuggestedPatchesFor(context));
+            }
+
+            @Override
+            public Map<String, String> extraErrorProneCheckOptions() {
+                return Map.of(SUPPRESSIBLE_ERROR_PRONE_MODE, "Apply");
             }
         };
     }

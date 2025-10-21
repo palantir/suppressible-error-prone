@@ -16,22 +16,42 @@
 
 package com.palantir.gradle.suppressibleerrorprone.modes.interferences;
 
+import com.google.common.collect.Sets;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterference;
+import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeInterferenceResult;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModeName;
-import com.palantir.gradle.suppressibleerrorprone.modes.common.SpecificModeInterference;
 import java.util.Map;
 import java.util.Set;
+import one.util.streamex.EntryStream;
 
-public final class SuppressingAndApplyingInterference extends SpecificModeInterference {
+/**
+ * Interference between Apply && (Suppress || RemoveUnused).
+ */
+public final class ApplyingAndSuppressingOrRemoveUnusedInterference implements ModeInterference {
+
     @Override
-    protected Set<ModeName> interferingModes() {
-        return Set.of(ModeName.SUPPRESS, ModeName.APPLY);
+    public ModeInterferenceResult interferesWith(Set<ModeName> modeNames) {
+        if (!modeNames.contains(ModeName.APPLY)) {
+            return ModeInterferenceResult.noInterference();
+        }
+
+        Set<ModeName> interferingWithApply =
+                Sets.intersection(modeNames, Set.of(ModeName.SUPPRESS, ModeName.REMOVE_UNUSED));
+
+        if (interferingWithApply.isEmpty()) {
+            return ModeInterferenceResult.noInterference();
+        }
+
+        return ModeInterferenceResult.interferenceBetween(Sets.union(Set.of(ModeName.APPLY), interferingWithApply));
     }
 
     @Override
     public CommonOptions interfere(Map<ModeName, CommonOptions> modeCommonOptions) {
-        CommonOptions suppress = modeCommonOptions.get(ModeName.SUPPRESS);
         CommonOptions apply = modeCommonOptions.get(ModeName.APPLY);
+        CommonOptions naivelyCombined = EntryStream.of(modeCommonOptions)
+                .values()
+                .reduce(CommonOptions.empty(), CommonOptions::naivelyCombinedWith);
 
         // If we're applying suggested patches at the same time as suppressing, we still need to tell
         // errorprone to patch all checks, so we can make suggested fixes for suppressions in any check.
@@ -40,9 +60,8 @@ public final class SuppressingAndApplyingInterference extends SpecificModeInterf
         // fixes for and which to suppress. So we add the PreferPatchChecks argument here, which we can
         // use inside error-prone/the compiler.
 
-        return suppress.naivelyCombinedWith(apply)
-                .withExtraErrorProneCheckFlag(
-                        "SuppressibleErrorProne:PreferPatchChecks",
-                        () -> apply.patchChecks().asCommaSeparated().orElse(""));
+        return naivelyCombined.withExtraErrorProneCheckFlag(
+                "SuppressibleErrorProne:PreferPatchChecks",
+                () -> apply.patchChecks().asCommaSeparated().orElse(""));
     }
 }

@@ -16,6 +16,7 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
@@ -26,6 +27,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -128,6 +130,16 @@ final class SuppressWarningsUtils {
         }
 
         return lambdaExpressionTree.getParameters().contains(variableTree);
+    }
+
+    public static Optional<? extends AnnotationTree> getSuppressWarnings(TreePath suppressible) {
+        if (!suppressibleTreePath(suppressible)) {
+            throw new IllegalArgumentException("Suppress annotations not allowed in " + suppressible);
+        }
+
+        return AnnotationUtils.getModifiers(suppressible.getLeaf()).getAnnotations().stream()
+                .filter(AnnotationUtils::isSuppressWarningsAnnotation)
+                .findFirst();
     }
 
     private SuppressWarningsUtils() {}
