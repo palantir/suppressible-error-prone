@@ -48,10 +48,8 @@ public final class ApplyingAndSuppressingOrRemoveUnusedInterference implements M
 
     @Override
     public CommonOptions interfere(Map<ModeName, CommonOptions> modeCommonOptions) {
-        Set<ModeName> maximalInterference = modeCommonOptions.keySet();
         CommonOptions apply = modeCommonOptions.get(ModeName.APPLY);
         CommonOptions naivelyCombined = EntryStream.of(modeCommonOptions)
-                .filterKeys(maximalInterference::contains)
                 .values()
                 .reduce(CommonOptions.empty(), CommonOptions::naivelyCombinedWith);
 
