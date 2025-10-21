@@ -35,7 +35,7 @@ public final class ApplyMode implements Mode {
 
             @Override
             public Map<String, String> extraErrorProneCheckOptions() {
-                return Map.of("SuppressibleErrorProne:Mode", "Apply");
+                return Map.of(SUPPRESSIBLE_ERROR_PRONE_MODE, "Apply");
             }
         };
     }

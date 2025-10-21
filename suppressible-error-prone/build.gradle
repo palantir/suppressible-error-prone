@@ -47,6 +47,6 @@ publishing {
 
 tasks.withType(JavaCompile) {
     options.errorprone {
-        disable('StrictUnusedVariable')
+        disable('StrictUnusedVariable', 'PreferSafeLoggableExceptions')
     }
 }

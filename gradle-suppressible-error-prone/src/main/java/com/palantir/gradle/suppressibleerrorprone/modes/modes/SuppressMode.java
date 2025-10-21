@@ -39,7 +39,7 @@ public final class SuppressMode implements Mode {
 
             @Override
             public Map<String, String> extraErrorProneCheckOptions() {
-                return Map.of("SuppressibleErrorProne:Mode", "Suppress");
+                return Map.of(SUPPRESSIBLE_ERROR_PRONE_MODE, "Suppress");
             }
         };
     }

@@ -93,7 +93,7 @@ final class ReportedFixCache {
         @SuppressWarnings("RestrictedApi")
         Description description = Description.builder(
                         (DiagnosticPosition) declaration.getLeaf(),
-                        "SuppressibleErrorProne",
+                        SuppressibleErrorProne.class.getSimpleName(),
                         "https://github.com/palantir/suppressible-error-prone",
                         "A fix on a suppressible by suppressible-error-prone")
                 .addFix(fix)

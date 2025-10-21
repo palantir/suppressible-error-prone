@@ -50,7 +50,7 @@ public final class RemoveRolloutMode implements Mode {
                 return Map.of(
                         "SuppressibleErrorProne:RemoveRolloutSuppressions",
                         context.flagValue().orElse(ALL_CHECKS),
-                        "SuppressibleErrorProne:Mode",
+                        SUPPRESSIBLE_ERROR_PRONE_MODE,
                         "RemoveRollout");
             }
 

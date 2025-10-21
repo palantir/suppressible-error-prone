@@ -37,7 +37,8 @@ public final class VisitorStateModifications {
     @SuppressWarnings("RestrictedApi")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         // Prevent infinite recursion on reported fixes
-        if (description == Description.NO_MATCH || description.checkName.equals("SuppressibleErrorProne")) {
+        if (description == Description.NO_MATCH
+                || description.checkName.equals(SuppressibleErrorProne.class.getSimpleName())) {
             return description;
         }
 
@@ -103,7 +104,7 @@ public final class VisitorStateModifications {
     }
 
     private static Set<String> getModes(VisitorState state) {
-        return state.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Mode");
+        return state.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Modes");
     }
 
     private VisitorStateModifications() {}

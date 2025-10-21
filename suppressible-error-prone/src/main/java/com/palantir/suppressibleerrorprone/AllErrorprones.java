@@ -16,34 +16,33 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.google.common.base.Suppliers;
 import com.google.errorprone.BugCheckerInfo;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import one.util.streamex.StreamEx;
 
 public final class AllErrorprones {
-    private static Set<String> cachedAllBugcheckerNames;
+    private static Supplier<Set<String>> cachedAllBugcheckerNames = Suppliers.memoize(() -> {
+        Stream<BugChecker> pluginChecks =
+                ServiceLoader.load(BugChecker.class).stream().map(ServiceLoader.Provider::get);
+        Stream<String> pluginCheckNames =
+                StreamEx.of(pluginChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
+
+        Stream<BugCheckerInfo> builtInChecks = BuiltInCheckerSuppliers.allChecks().getAllChecks().values().stream();
+        Stream<String> builtInCheckNames =
+                StreamEx.of(builtInChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
+
+        return Stream.concat(pluginCheckNames, builtInCheckNames).collect(Collectors.toSet());
+    });
 
     public static Set<String> allBugcheckerNames() {
-        if (cachedAllBugcheckerNames == null) {
-            Stream<BugChecker> pluginChecks =
-                    ServiceLoader.load(BugChecker.class).stream().map(ServiceLoader.Provider::get);
-            Stream<String> pluginCheckNames =
-                    StreamEx.of(pluginChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
-
-            Stream<BugCheckerInfo> builtInChecks = BuiltInCheckerSuppliers.allChecks().getAllChecks().values().stream();
-            Stream<String> builtInCheckNames =
-                    StreamEx.of(builtInChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
-
-            cachedAllBugcheckerNames =
-                    Stream.concat(pluginCheckNames, builtInCheckNames).collect(Collectors.toSet());
-        }
-
-        return cachedAllBugcheckerNames;
+        return cachedAllBugcheckerNames.get();
     }
 
     private AllErrorprones() {}

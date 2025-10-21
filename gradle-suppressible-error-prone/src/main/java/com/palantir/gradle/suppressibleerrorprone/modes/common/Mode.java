@@ -31,6 +31,8 @@ import org.gradle.api.tasks.compile.JavaCompile;
  * (see {@link CommonOptions}). Modes can interfere with each other, see {@link ModeInterference}.
  */
 public interface Mode {
+    String SUPPRESSIBLE_ERROR_PRONE_MODE = "SuppressibleErrorProne:Mode";
+
     default ModifyCheckApiOption modifyCheckApi() {
         return ModifyCheckApiOption.noEffect();
     }
