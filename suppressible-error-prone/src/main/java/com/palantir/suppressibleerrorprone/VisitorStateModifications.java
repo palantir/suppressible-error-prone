@@ -104,7 +104,7 @@ public final class VisitorStateModifications {
     }
 
     private static Set<String> getModes(VisitorState state) {
-        return state.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Modes");
+        return state.errorProneOptions().getFlags().getSetOrEmpty("SuppressibleErrorProne:Mode");
     }
 
     private VisitorStateModifications() {}
