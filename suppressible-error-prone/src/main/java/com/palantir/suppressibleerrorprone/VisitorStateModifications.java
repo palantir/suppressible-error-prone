@@ -21,7 +21,11 @@ package com.palantir.suppressibleerrorprone;
 import com.google.errorprone.BugPattern.SeverityLevel;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.matchers.Description;
+import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -29,12 +33,13 @@ import java.util.stream.Stream;
 
 // CHECKSTYLE:ON
 
+@SuppressWarnings("RestrictedApi")
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
-
     private static final ReportedFixCache FIXES = new ReportedFixCache();
+    private static final Set<CompilationUnitTree> SEEN = new HashSet<>();
 
-    @SuppressWarnings("RestrictedApi")
+    @SuppressWarnings("CyclomaticComplexity")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         // Prevent infinite recursion on reported fixes
         if (description == Description.NO_MATCH
@@ -42,8 +47,13 @@ public final class VisitorStateModifications {
             return description;
         }
 
-        if (getModes(visitorState).contains("RemoveUnused")) {
-            throw new UnsupportedOperationException("RemoveUnused mode is not yet supported");
+        CompilationUnitTree compilationUnit = visitorState.getPath().getCompilationUnit();
+
+        Set<String> modes = getModes(visitorState);
+
+        if (modes.contains("RemoveUnused") && !SEEN.contains(compilationUnit)) {
+            removeAllSuppressionsOnErrorpronesInCompilationUnit(compilationUnit, visitorState);
+            SEEN.add(compilationUnit);
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -74,6 +84,25 @@ public final class VisitorStateModifications {
         TreePath pathToActualError =
                 TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
 
+        Optional<TreePath> firstSuppressibleWhichSuppressesDescription = Stream.iterate(
+                        pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
+                .dropWhile(path -> !suppresses(path, description))
+                .findFirst();
+
+        if (firstSuppressibleWhichSuppressesDescription.isPresent() && modes.contains("RemoveUnused")) {
+            FIXES.getExisting(firstSuppressibleWhichSuppressesDescription.get()).addSuppression(description.checkName);
+            return Description.NO_MATCH;
+        }
+
+        if (!modes.contains("Suppress")) {
+            log.warning("No autofix was found for " + description.checkName + " at position "
+                    + description.position.getStartPosition() + " in "
+                    + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
+                    + " -PerrorProneSuppress was not passed either. "
+                    + " SuppressibleErrorProne will not be able to add a suppression for this error.");
+            return Description.NO_MATCH;
+        }
+
         Optional<TreePath> firstSuppressible = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
                 .dropWhile(path -> !SuppressWarningsUtils.suppressibleTreePath(path))
@@ -95,12 +124,45 @@ public final class VisitorStateModifications {
         // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
         // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
-        LazySuppressionFix suppressingFix = FIXES.getOrReportNew(
-                firstSuppressible.get(),
-                visitorState,
-                bugchecker -> !bugchecker.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX));
+        LazySuppressionFix suppressingFix =
+                FIXES.getOrReportNew(firstSuppressible.get(), visitorState, ReportedFixCache.KEEP_EVERYTHING);
         suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
         return Description.NO_MATCH;
+    }
+
+    private static boolean suppresses(TreePath declaration, Description description) {
+        if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
+            return false;
+        }
+
+        Optional<? extends AnnotationTree> suppressWarningsMaybe =
+                SuppressWarningsUtils.getSuppressWarnings(declaration);
+        if (suppressWarningsMaybe.isEmpty()) {
+            return false;
+        }
+
+        String checkName = description.checkName;
+        return AnnotationUtils.annotationStringValues(suppressWarningsMaybe.get())
+                .anyMatch(checkName::equals);
+    }
+
+    private static void removeAllSuppressionsOnErrorpronesInCompilationUnit(
+            CompilationUnitTree compilationUnit, VisitorState visitorState) {
+
+        new TreePathScanner<Void, Void>() {
+            @Override
+            public Void visitAnnotation(AnnotationTree node, Void unused) {
+                if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
+                    TreePath declaration = getCurrentPath().getParentPath().getParentPath();
+
+                    // Start by removing all suppressions on error-prones, including rollout and human-made.
+                    // Then, as we encounter Descriptions without fixes, we add back the closest suppression
+                    FIXES.getOrReportNew(declaration, visitorState, ReportedFixCache.NOT_AN_ERRORPRONE);
+                }
+
+                return super.visitAnnotation(node, unused);
+            }
+        }.scan(compilationUnit, null);
     }
 
     private static Set<String> getModes(VisitorState state) {

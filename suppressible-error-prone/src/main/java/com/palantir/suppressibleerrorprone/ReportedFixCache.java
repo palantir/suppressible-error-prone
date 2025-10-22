@@ -40,6 +40,12 @@ final class ReportedFixCache {
 
     public static final Predicate<String> REMOVE_EVERYTHING = bc -> false;
     public static final Predicate<String> KEEP_EVERYTHING = bc -> true;
+    public static final Predicate<String> NOT_AN_ERRORPRONE = suppression -> {
+        String checkerName = suppression.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX)
+                ? suppression.substring(CommonConstants.AUTOMATICALLY_ADDED_PREFIX.length())
+                : suppression;
+        return !AllErrorprones.allBugcheckerNames().contains(checkerName);
+    };
 
     ReportedFixCache() {}
 
@@ -65,6 +71,16 @@ final class ReportedFixCache {
             throw new IllegalArgumentException("A fix on this declaration already exists");
         }
         return cache.put(declaration.getLeaf(), createAndReportFix(declaration, visitorState, filterExisting));
+    }
+
+    /**
+     * Gets an existing {@code LazySuppressionFix} on {@code declaration}
+     */
+    public LazySuppressionFix getExisting(TreePath declaration) {
+        if (!cache.containsKey(declaration.getLeaf())) {
+            throw new IllegalArgumentException("A fix on this declaration must already exists");
+        }
+        return cache.get(declaration.getLeaf());
     }
 
     private LazySuppressionFix createAndReportFix(
