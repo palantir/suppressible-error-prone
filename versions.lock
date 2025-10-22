@@ -32,7 +32,7 @@ com.google.j2objc:j2objc-annotations:3.1 (1 constraints: b809f1a0)
 
 com.google.protobuf:protobuf-java:3.25.5 (1 constraints: 2c1160c9)
 
-com.palantir.gradle.utils:environment-variables:0.19.0 (1 constraints: 3c053e3b)
+com.palantir.gradle.utils:environment-variables:0.20.0 (1 constraints: 3405273b)
 
 io.github.eisop:dataflow-errorprone:3.41.0-eisop1 (3 constraints: 3e40ddde)
 
@@ -58,17 +58,17 @@ org.pcollections:pcollections:4.0.1 (1 constraints: f21028b8)
 
 cglib:cglib-nodep:3.2.2 (1 constraints: 490ded24)
 
-com.fasterxml.jackson.core:jackson-annotations:2.20 (4 constraints: c441b04c)
+com.fasterxml.jackson.core:jackson-annotations:2.20 (4 constraints: 5c4144c9)
 
-com.fasterxml.jackson.core:jackson-core:2.20.0 (5 constraints: 076b0210)
+com.fasterxml.jackson.core:jackson-core:2.20.0 (5 constraints: fd6ae90f)
 
-com.fasterxml.jackson.core:jackson-databind:2.20.0 (4 constraints: 8458cdfe)
+com.fasterxml.jackson.core:jackson-databind:2.20.0 (4 constraints: 7a58b4fe)
 
-com.fasterxml.jackson.datatype:jackson-datatype-guava:2.20.0 (1 constraints: 8a142d90)
+com.fasterxml.jackson.datatype:jackson-datatype-guava:2.20.0 (1 constraints: 80141490)
 
-com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.0 (1 constraints: 11132d39)
+com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.0 (1 constraints: 07131439)
 
-com.fasterxml.jackson.module:jackson-module-parameter-names:2.20.0 (1 constraints: 11132d39)
+com.fasterxml.jackson.module:jackson-module-parameter-names:2.20.0 (1 constraints: 07131439)
 
 com.google.auto.value:auto-value:1.10 (1 constraints: e711f8e8)
 
@@ -90,9 +90,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.14.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.14.0 (1 constraints: 37052f3b)
 
-com.palantir.javaformat:palantir-java-format:2.80.0 (1 constraints: 3c054b3b)
+com.palantir.javaformat:palantir-java-format:2.81.0 (1 constraints: 3d054e3b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.80.0 (1 constraints: 0d132c39)
+com.palantir.javaformat:palantir-java-format-spi:2.81.0 (1 constraints: 0e132f39)
 
 commons-io:commons-io:2.20.0 (2 constraints: 101f108c)
 
