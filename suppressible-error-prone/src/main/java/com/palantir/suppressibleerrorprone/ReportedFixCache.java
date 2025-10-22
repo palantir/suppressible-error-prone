@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Name;
 
-final class ReportedFixCache {
+public final class ReportedFixCache {
     // Weak map so that we don't leak memory by keeping hold of references to the source element tree keys and our
     // mutable fixes values around forever, once error-prone has finished with the source element tree used as a key
     // here (once the file has been visited by all the error-prone checks), our SuppressingFixes can be safely

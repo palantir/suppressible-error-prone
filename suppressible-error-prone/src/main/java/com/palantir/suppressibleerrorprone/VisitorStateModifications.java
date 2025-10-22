@@ -24,8 +24,6 @@ import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -37,7 +35,6 @@ import java.util.stream.Stream;
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
     private static final ReportedFixCache FIXES = new ReportedFixCache();
-    private static final Set<CompilationUnitTree> SEEN = new HashSet<>();
 
     @SuppressWarnings("CyclomaticComplexity")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
@@ -48,12 +45,12 @@ public final class VisitorStateModifications {
         }
 
         CompilationUnitTree compilationUnit = visitorState.getPath().getCompilationUnit();
-
         Set<String> modes = getModes(visitorState);
 
-        if (modes.contains("RemoveUnused") && !SEEN.contains(compilationUnit)) {
-            removeAllSuppressionsOnErrorpronesInCompilationUnit(compilationUnit, visitorState);
-            SEEN.add(compilationUnit);
+        if (modes.contains("RemoveUnused")) {
+            // Start by removing all suppressions on error-prones, including rollout and human-made.
+            // Then, as we encounter Descriptions without fixes, we add back the closest suppression
+            SuppressionRemover.removeAllSuppressionsOnErrorprones(FIXES, compilationUnit, visitorState);
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -90,6 +87,8 @@ public final class VisitorStateModifications {
                 .findFirst();
 
         if (firstSuppressibleWhichSuppressesDescription.isPresent() && modes.contains("RemoveUnused")) {
+            // In RemoveUnused mode, removeAllSuppressionsOnErrorprones guarantees that a fix must already exist on
+            // this suppressible.
             FIXES.getExisting(firstSuppressibleWhichSuppressesDescription.get()).addSuppression(description.checkName);
             return Description.NO_MATCH;
         }
@@ -144,25 +143,6 @@ public final class VisitorStateModifications {
         String checkName = description.checkName;
         return AnnotationUtils.annotationStringValues(suppressWarningsMaybe.get())
                 .anyMatch(checkName::equals);
-    }
-
-    private static void removeAllSuppressionsOnErrorpronesInCompilationUnit(
-            CompilationUnitTree compilationUnit, VisitorState visitorState) {
-
-        new TreePathScanner<Void, Void>() {
-            @Override
-            public Void visitAnnotation(AnnotationTree node, Void unused) {
-                if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
-                    TreePath declaration = getCurrentPath().getParentPath().getParentPath();
-
-                    // Start by removing all suppressions on error-prones, including rollout and human-made.
-                    // Then, as we encounter Descriptions without fixes, we add back the closest suppression
-                    FIXES.getOrReportNew(declaration, visitorState, ReportedFixCache.NOT_AN_ERRORPRONE);
-                }
-
-                return super.visitAnnotation(node, unused);
-            }
-        }.scan(compilationUnit, null);
     }
 
     private static Set<String> getModes(VisitorState state) {

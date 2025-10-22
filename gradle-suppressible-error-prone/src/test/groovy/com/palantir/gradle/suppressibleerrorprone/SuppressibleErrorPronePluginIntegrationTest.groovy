@@ -1641,7 +1641,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     new int[3].toString();
                 }
             }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
@@ -1689,7 +1689,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'errorProneRemoveUnused handles multiple suppressions on different tree types gracefully'() {
@@ -1751,7 +1751,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'errorProneRemoveUnused removes entire SuppressWarnings annotation when all suppressions are unused'() {
@@ -1780,7 +1780,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 System.out.println("No violations here");
             }
         }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'errorProneRemoveUnused and errorProneSuppress uses existing suppressions if possible'() {
@@ -1838,7 +1838,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'errorProneRemoveUnused and errorProneApply applies fixes on previously suppressed elements'() {
@@ -1895,7 +1895,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'errorProneRemoveUnused + errorProneApply + errorProneSuppress applies fixes and suppressions on previously suppressed elements'() {
@@ -1956,7 +1956,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-    '''.stripIndent(true)
+        '''.stripIndent(true)
     }
 
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
