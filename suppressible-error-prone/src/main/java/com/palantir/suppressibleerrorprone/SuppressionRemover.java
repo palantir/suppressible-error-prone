@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 
+@SuppressWarnings("for-rollout:FinalClass")
 public class SuppressionRemover {
     // Weak set so that we don't leak memory by keeping hold of references to CompilationUnitTrees after error-prone
     // has finished processing.
@@ -34,6 +35,7 @@ public class SuppressionRemover {
             ReportedFixCache reportedFixes, CompilationUnitTree unit, VisitorState state) {
         if (attachedFixes.add(unit)) {
             new TreePathScanner<Void, Void>() {
+                @SuppressWarnings("for-rollout:VoidUsed")
                 @Override
                 public Void visitAnnotation(AnnotationTree node, Void unused) {
                     if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
