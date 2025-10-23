@@ -99,6 +99,7 @@ public final class VisitorStateModifications {
                     + visitorState.getPath().getCompilationUnit().getSourceFile() + "."
                     + " -PerrorProneSuppress was not passed either. "
                     + " SuppressibleErrorProne will not be able to add a suppression for this error.");
+            // Returning description here could trigger an unintended autofix
             return Description.NO_MATCH;
         }
 
