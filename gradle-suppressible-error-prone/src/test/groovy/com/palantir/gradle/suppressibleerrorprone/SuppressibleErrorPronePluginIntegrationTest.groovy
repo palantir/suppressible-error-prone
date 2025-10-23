@@ -1644,6 +1644,43 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
     }
 
+    def 'errorProneRemoveUnused does not apply fixes'() {
+        given:
+        // language=Java
+        def initialSource = '''
+            package app;
+
+            public final class App {
+                class Inner {
+                    class InnerInner {}
+                }
+            }
+        '''.stripIndent(true)
+
+        writeJavaSourceFileToSourceSets initialSource
+
+        when: 'errorProneRemoveUnused is run by itself'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then: 'No checks are applied'
+        javaSourceIsSyntacticallyEqualTo initialSource
+
+        when: 'ClassCanBeStatic is applied alongside errorProneRemoveUnused'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ClassCanBeStatic')
+
+        then: 'ClassCanBeStatic is applied'
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                static class Inner {
+                    static class InnerInner {}
+                }
+            }
+        '''.stripIndent(true)
+    }
+
     def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''
@@ -1668,7 +1705,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
 
         then:
 
