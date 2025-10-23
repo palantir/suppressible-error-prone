@@ -92,7 +92,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:' + project.findProperty("suppressibleErrorProneVersion")
             }
             
-            
             suppressibleErrorProne {
                 configureEachErrorProneOptions {
                     // These interfere with some tests, so disable them
@@ -1609,6 +1608,392 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
         then:
         !output.contains('[RemoveRolloutSuppressions]')
+    }
+
+    def 'errorProneRemoveUnused removes only unused error-prone suppressions, and leaves unknown suppressions untouched'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "InlineTrivialConstant", "NotAnErrorProne", "checkstyle:Bla",})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+ 
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused=ArrayToString')
+
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            @SuppressWarnings({"ArrayToString", "InlineTrivialConstant", "NotAnErrorProne", "checkstyle:Bla"})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+ 
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused does not apply fixes'() {
+        given:
+        // language=Java
+        def initialSource = '''
+            package app;
+
+            public final class App {
+                class Inner {
+                    class InnerInner {}
+                }
+            }
+        '''.stripIndent(true)
+
+        writeJavaSourceFileToSourceSets initialSource
+
+        when: 'errorProneRemoveUnused is run by itself'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then: 'No checks are applied'
+        javaSourceIsSyntacticallyEqualTo initialSource
+
+        when: 'ClassCanBeStatic is applied alongside errorProneRemoveUnused'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ClassCanBeStatic')
+
+        then: 'ClassCanBeStatic is applied'
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                static class Inner {
+                    static class InnerInner {}
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            @SuppressWarnings("InlineTrivialConstant")
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("InlineTrivialConstant")
+                class Inner { 
+                    @SuppressWarnings("InlineTrivialConstant")
+                    class InnerInner {
+                        @SuppressWarnings("InlineTrivialConstant")
+                        class InnerInnerInner {
+                            private static final String EMPTY = "";
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                class Inner {
+                    class InnerInner {
+                        @SuppressWarnings("InlineTrivialConstant")
+                        class InnerInnerInner {
+                            private static final String EMPTY = "";
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused handles multiple suppressions on different tree types gracefully'() {
+        // Here we test the three types of trees you can suppress — ClassTree, MethodTree, VariableTree
+
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                // Doesn't move an already existing suppression, even if it could be closer to the violation
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                static class Inner {
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+
+                // Doesn't move an already existing suppression, even if it could be closer to the violation
+                @SuppressWarnings("ArrayEquals")
+                static class Inner {
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+
+                    boolean truism = new int[3].equals(new int[3]);
+
+                    static class InnerInner {
+                        @SuppressWarnings("ArrayEquals")
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused removes entire SuppressWarnings annotation when all suppressions are unused'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+        package app;
+
+        @SuppressWarnings({"UnusedVariable", "ArrayToString"})
+        public final class App {
+            public static void main(String[] args) {
+                System.out.println("No violations here");
+            }
+        }
+    '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+        package app;
+
+        public final class App {
+            public static void main(String[] args) {
+                System.out.println("No violations here");
+            }
+        }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused and errorProneSuppress uses existing suppressions if possible'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            @SuppressWarnings("InlineTrivialConstant")
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings("InlineTrivialConstant")
+                static class Inner {
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneSuppress')
+
+        then:
+
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                static class Inner {
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+
+                    @SuppressWarnings("for-rollout:ArrayEquals")
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    static class InnerInner {
+                        @SuppressWarnings("ArrayEquals")
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused and errorProneApply applies fixes on previously suppressed elements'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+            @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                static class Inner {
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+                    
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ArrayEquals')
+
+        then:
+
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            import java.util.Arrays;
+
+            public final class App {
+                @SuppressWarnings("InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+                
+                static class Inner {
+                    @SuppressWarnings("InlineTrivialConstant")
+                    private static final String EMPTY = "";
+
+                    boolean truism = Arrays.equals(new int[3], new int[3]);
+                    
+                    static class InnerInner {
+                        void method() {
+                            Arrays.equals(new int[3], new int[3]);
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
+    }
+
+    def 'errorProneRemoveUnused + errorProneApply + errorProneSuppress applies fixes and suppressions on previously suppressed elements'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            @SuppressWarnings("ArrayEquals")
+            public final class App {
+                private static final String EMPTY_STRING = "";
+                
+                // Although InlineTrivialConstant can be placed lower in the AST hierarchy, 
+                // we preserve existing suppressions whenever possible rather than move suppressions around.
+                // Also, note that we don't add for-rollout here.
+                @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                static class Inner {
+                    private static final String EMPTY = "";
+                    boolean truism = new int[3].equals(new int[3]);
+
+                    @SuppressWarnings("InlineTrivialConstant")
+                    static class InnerInner {
+                        @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
+                        void method() {
+                            new int[3].equals(new int[3]);
+                        } 
+                    }
+                }
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneSuppress', '-PerrorProneApply=ArrayEquals')
+
+        then:
+
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            import java.util.Arrays;
+
+            public final class App {
+                @SuppressWarnings("for-rollout:InlineTrivialConstant")
+                private static final String EMPTY_STRING = "";
+
+                // Although InlineTrivialConstant can be placed lower in the AST hierarchy,
+                // we preserve existing suppressions whenever possible rather than move suppressions around.
+                // Also, note that we don't add for-rollout here.
+                @SuppressWarnings("InlineTrivialConstant")
+                static class Inner {
+                    private static final String EMPTY = "";
+                    boolean truism = Arrays.equals(new int[3], new int[3]);
+                    
+                    static class InnerInner {
+                        void method() {
+                            Arrays.equals(new int[3], new int[3]);
+                        }
+                    }
+                }
+            }
+        '''.stripIndent(true)
     }
 
     def 'error-prone dependencies have versions bound together by a virtual platform'() {
