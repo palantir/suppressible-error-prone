@@ -25,8 +25,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-@SuppressWarnings("for-rollout:FinalClass")
-public class SuppressionRemover {
+public final class SuppressionRemover {
     // Weak set so that we don't leak memory by keeping hold of references to CompilationUnitTrees after error-prone
     // has finished processing.
     private static final Set<CompilationUnitTree> attachedFixes = Collections.newSetFromMap(new WeakHashMap<>());
