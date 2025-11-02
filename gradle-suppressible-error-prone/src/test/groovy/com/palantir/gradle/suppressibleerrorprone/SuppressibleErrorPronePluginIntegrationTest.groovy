@@ -34,23 +34,19 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     File mainSourceSet
     File otherSourceSet
 
-    // This makes debugging the errorprone check code running inside the compiler (including the bytecode
-    // edited modifications we have made) "just work" from inside these tests.
-    // Change the variable below to true to enable it, after setting up the standalone debugger:
-    //   1. Make a new run configuration in IntelliJ of type JVM Debug
-    //   2. Change it to "Listen" rather than "Attach"
-    //   3. Select Auto-restart.
-    //   4. Run the debugger
-    //   5. Run the tests as well
-    // If the variable below is true the tests will fail as the compilation process will try to
-    // attach to a non-existent debugger. Set it to false before you push any code.
-    boolean debuggingErrorPrones = false
 
     def setupSpec() {
         FileUtils.deleteDirectory(nebulatestSourceSets)
     }
 
     def setup() {
+        // To debug the tests in this file
+        // 1. Run the "Debug errorprones" debug configuration, which ships with this repository
+        // 2. Go to the test you're looking for and run debug on it as well, but without any special configurations
+
+        // An implementation detail: this is already set in IntegrationTestKitSpec, but only at runner creation time,
+        // which is too late! We set it early here
+        debug = isJwdpLoaded()
         sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
         mainSourceSet = directory('src/main/java', sourceSetRoot)
         otherSourceSet = directory('src/other/java', sourceSetRoot)
@@ -108,17 +104,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             sourceSets.other.java.srcDirs('${projectDir.relativePath(otherSourceSet)}')
         """.stripIndent(true)
 
-        if (debuggingErrorPrones) {
+        if (debug) {
             // language=Gradle
             buildFile << '''
-                tasks.withType(JavaCompile).configureEach {
-                    it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
-                        @Override
-                        public Iterable<String> asArguments() {
-                            return List.of("-agentlib:jdwp=transport=dt_socket,server=n,address=localhost:5005")
-                        }
-                    })
-                }
+                apply plugin: 'com.palantir.remote-debug-java-compile'
             '''.stripIndent(true)
         }
 
@@ -2031,7 +2020,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     BuildResult runTasksSuccessfully(String... tasks) {
         def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
         String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        if (debuggingErrorPrones) {
+        if (debug) {
             return super.runTasks(strings)
         } else {
             return super.runTasksWithConfigurationCache(strings)
@@ -2041,7 +2030,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     BuildResult runTasksWithFailure(String... tasks) {
         def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
         String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        if (debuggingErrorPrones) {
+        if (debug) {
             return super.runTasksAndFail(strings)
         } else {
             return super.runTasksAndFailWithConfigurationCache(strings)
