@@ -94,7 +94,7 @@ com.palantir.javaformat:palantir-java-format:2.81.0 (1 constraints: 3d054e3b)
 
 com.palantir.javaformat:palantir-java-format-spi:2.81.0 (1 constraints: 0e132f39)
 
-commons-io:commons-io:2.20.0 (2 constraints: 101f108c)
+commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
 junit:junit:4.13.2 (4 constraints: 873fce86)
 
