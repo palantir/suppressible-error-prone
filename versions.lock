@@ -90,9 +90,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.30.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.30.0 (1 constraints: 35052b3b)
 
-com.palantir.javaformat:palantir-java-format:2.81.0 (1 constraints: 3d054e3b)
+com.palantir.javaformat:palantir-java-format:2.82.0 (1 constraints: 3e05513b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.81.0 (1 constraints: 0e132f39)
+com.palantir.javaformat:palantir-java-format-spi:2.82.0 (1 constraints: 0f133239)
 
 commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
