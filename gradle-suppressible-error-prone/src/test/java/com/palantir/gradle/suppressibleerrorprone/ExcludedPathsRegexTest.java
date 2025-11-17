@@ -39,10 +39,13 @@ final class ExcludedPathsRegexTest {
 
     static Stream<Arguments> paths() {
         return Stream.of(
-                Arguments.of("/project/build/Stuff.java", true),
-                Arguments.of("/project/generated_src/something", true),
-                Arguments.of("/project/generated_testSrc/something", true),
+                Arguments.of("/project/build/something", false),
+                Arguments.of("/project/build/generated/something", true),
+                Arguments.of("/project/build/generatedOther/something", true),
+                Arguments.of("/project/src/something", false),
                 Arguments.of("/project/src/generated/something", true),
-                Arguments.of("/project/src/something", false));
+                Arguments.of("/project/src/generatedOther/something", true),
+                Arguments.of("/project/generated_src/something", true),
+                Arguments.of("/project/generated_testSrc/something", true));
     }
 }

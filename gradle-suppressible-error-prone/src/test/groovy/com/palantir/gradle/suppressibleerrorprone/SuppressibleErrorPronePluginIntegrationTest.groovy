@@ -26,13 +26,7 @@ import com.palantir.javaformat.java.Formatter
 
 
 class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec {
-    // We need to put the source sets in a different directory that does not contain the any words that would hit
-    // the errorprone excludedPathRegex, ie build in build/nebulatest
-    static File nebulatestSourceSets = new File('nebulatestSourceSets/' + SuppressibleErrorPronePluginIntegrationTest.class.simpleName)
     static Formatter formatter = Formatter.createFormatter(JavaFormatterOptions.builder().style(JavaFormatterOptions.Style.PALANTIR).build())
-    File sourceSetRoot
-    File mainSourceSet
-    File otherSourceSet
 
     // This makes debugging the errorprone check code running inside the compiler (including the bytecode
     // edited modifications we have made) "just work" from inside these tests.
@@ -46,15 +40,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     // attach to a non-existent debugger. Set it to false before you push any code.
     boolean debuggingErrorPrones = false
 
-    def setupSpec() {
-        FileUtils.deleteDirectory(nebulatestSourceSets)
-    }
-
     def setup() {
-        sourceSetRoot = new File(nebulatestSourceSets, projectDir.name)
-        mainSourceSet = directory('src/main/java', sourceSetRoot)
-        otherSourceSet = directory('src/other/java', sourceSetRoot)
-
         // language=Gradle
         buildFile << '''
             buildscript {
@@ -102,11 +88,6 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 }
             }
         '''.stripIndent(true)
-
-        buildFile << """
-            sourceSets.main.java.srcDirs('${projectDir.relativePath(mainSourceSet)}')
-            sourceSets.other.java.srcDirs('${projectDir.relativePath(otherSourceSet)}')
-        """.stripIndent(true)
 
         if (debuggingErrorPrones) {
             // language=Gradle
@@ -184,8 +165,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
 
 
         when:
-        def sourceDir1 = new File(sourceSetRoot, '/src/generated')
-        def sourceDir2 = new File(sourceSetRoot, '/build/somePlace')
+        def sourceDir1 = new File(projectDir, 'src/generated')
+        def sourceDir2 = new File(projectDir, 'build/generated')
 
         writeJavaSourceFile(erroringCode, sourceDir1)
         writeJavaSourceFile(erroringCode.replace('App', 'App2'), sourceDir2)
@@ -2049,18 +2030,18 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     }
 
     void writeJavaSourceFileToSourceSets(String source) {
-        super.writeJavaSourceFile(source, 'src/main/java', sourceSetRoot)
-        super.writeJavaSourceFile(source, 'src/other/java', sourceSetRoot)
+        super.writeJavaSourceFile(source, 'src/main/java')
+        super.writeJavaSourceFile(source, 'src/other/java')
     }
 
     void javaSourceContains(String substring) {
-        assert file('app/App.java', mainSourceSet).text.contains(substring)
-        assert file('app/App.java', otherSourceSet).text.contains(substring)
+        assert file('src/main/java/app/App.java').text.contains(substring)
+        assert file('src/other/java/app/App.java').text.contains(substring)
     }
 
     void javaSourceDoesNotContain(String substring) {
-        assert !file('app/App.java', mainSourceSet).text.contains(substring)
-        assert !file('app/App.java', otherSourceSet).text.contains(substring)
+        assert !file('src/main/java/app/App.java').text.contains(substring)
+        assert !file('src/other/java/app/App.java').text.contains(substring)
     }
 
     // Normalizes Java source by trimming whitespace and applying consistent formatting.
@@ -2075,27 +2056,27 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
     }
 
     void javaSourceIsSyntacticallyEqualTo(String source) {
-        def output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        def output = normalizeSource(file('src/main/java/app/App.java').text)
         def expected = normalizeSource(source)
 
         // Ensure test fixtures are properly formatted
         assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
         assert output == expected
 
-        def outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        def outputOther = normalizeSource(file('src/other/java/app/App.java').text)
         def expectedOther = normalizeSource(source)
         assert outputOther == expectedOther
     }
 
     void javaSourceIsSyntacticallyNotEqualTo(String source) {
-        def output = normalizeSource(file('app/App.java', mainSourceSet).text)
+        def output = normalizeSource(file('src/main/java/app/App.java').text)
         def expected = normalizeSource(source)
 
         // Ensure test fixtures are properly formatted
         assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
         assert output != expected
 
-        def outputOther = normalizeSource(file('app/App.java', otherSourceSet).text)
+        def outputOther = normalizeSource(file('src/other/java/app/App.java').text)
         def expectedOther = normalizeSource(source)
         assert outputOther != expectedOther
     }

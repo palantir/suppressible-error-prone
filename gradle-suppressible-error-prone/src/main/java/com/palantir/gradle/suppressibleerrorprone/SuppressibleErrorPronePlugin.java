@@ -239,7 +239,7 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
         // /check_api/src/main/java/com/google/errorprone/util/ASTHelpers.java#L1277-L1285
 
         // language=RegExp
-        return ".*/(build|generated_.*[sS]rc|src/generated.*)/.*";
+        return ".*/(build/generated.*|src/generated.*|generated_.*[sS]rc)/.*";
     }
 
     public abstract static class PatchChecksCommandLineArgumentProvider implements CommandLineArgumentProvider {
