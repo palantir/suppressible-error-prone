@@ -24,7 +24,7 @@ com.google.googlejavaformat:google-java-format:1.27.0 (2 constraints: b6258eff)
 
 com.google.guava:failureaccess:1.0.3 (1 constraints: 160ae3b4)
 
-com.google.guava:guava:33.5.0-jre (14 constraints: ef047572)
+com.google.guava:guava:33.5.0-jre (14 constraints: e1048170)
 
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava (1 constraints: bd17c918)
 
@@ -90,9 +90,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.39.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.39.0 (1 constraints: 3e05463b)
 
-com.palantir.javaformat:palantir-java-format:2.82.0 (1 constraints: 3e05513b)
+com.palantir.javaformat:palantir-java-format:2.83.0 (1 constraints: 3f05543b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.82.0 (1 constraints: 0f133239)
+com.palantir.javaformat:palantir-java-format-spi:2.83.0 (1 constraints: 10133539)
 
 commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
