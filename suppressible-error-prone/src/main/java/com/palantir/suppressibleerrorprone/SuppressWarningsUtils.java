@@ -142,5 +142,12 @@ final class SuppressWarningsUtils {
                 .findFirst();
     }
 
+    public static String stripForRollout(String suppression) {
+        if (suppression.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX)) {
+            return suppression.substring(12);
+        }
+        return suppression;
+    }
+
     private SuppressWarningsUtils() {}
 }
