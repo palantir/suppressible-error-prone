@@ -76,6 +76,8 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 // This should guarantee that we're using the same version, both of which should be in maven local
                 //   and be the current version
                 errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:' + project.findProperty("suppressibleErrorProneVersion")
+                errorprone "com.uber.nullaway:nullaway:0.12.12"
+                // NullAway is turned off by default, but is used in some tests
             }
             
             suppressibleErrorProne {
@@ -83,7 +85,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     // These interfere with some tests, so disable them
                     // TODO(callumr): Rewrite the tests to use custom testing error-prones rather than built in checks
                     //                to make upgrading error-prone easier.
-                    disable('Varifier', 'ReturnValueIgnored', 'UnusedVariable', 'IdentifierName', 'UnusedMethod')
+                    disable('Varifier', 'ReturnValueIgnored', 'UnusedVariable', 'IdentifierName', 'UnusedMethod', 'NullAway')
                     ignoreUnknownCheckNames = true
                 }
             }
@@ -1596,7 +1598,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         writeJavaSourceFileToSourceSets '''
             package app;
 
-            @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "InlineTrivialConstant", "NotAnErrorProne", "checkstyle:Bla",})
+            @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "InlineTrivialConstant", "NotAnErrorProne", "ShouldBePrivate", "checkstyle:Bla",})
             public final class App {
                 private static final String EMPTY_STRING = "";
  
@@ -1607,7 +1609,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
 
         when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused=ArrayToString')
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
 
         then:
         // language=Java
@@ -1624,6 +1626,73 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             }
         '''.stripIndent(true)
     }
+
+    // See SuppressionRemover#DO_NOT_REMOVE
+    def 'errorProneRemoveUnused leaves certain suppressions untouched'() {
+        // language=Java
+        def initialSource = '''
+            package app;
+
+            @SuppressWarnings({"NullAway", "for-rollout:rawtypes"})
+            public final class App {
+                private static final String EMPTY_STRING = "";
+
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+        '''.stripIndent(true)
+        writeJavaSourceFileToSourceSets initialSource
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo initialSource
+    }
+
+    def 'errorProneRemoveUnused understands alt-names'() {
+        // language=Java
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("ShouldBePrivate")
+                void fixme(String s) {}
+
+                @SuppressWarnings("MustBePrivate")
+                void fixme(Integer s) {}
+                
+                @SuppressWarnings("ShouldBePrivate")
+                private void fixme(Float s) {}
+
+                @SuppressWarnings("MustBePrivate")
+                private void fixme(Character s) {}
+            }
+        '''.stripIndent(true)
+
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("ShouldBePrivate")
+                void fixme(String s) {}
+
+                @SuppressWarnings("MustBePrivate")
+                void fixme(Integer s) {}
+                
+                private void fixme(Float s) {}
+
+                private void fixme(Character s) {}
+            }
+        '''.stripIndent(true)
+    }
+
+
 
     def 'errorProneRemoveUnused does not apply fixes'() {
         given:

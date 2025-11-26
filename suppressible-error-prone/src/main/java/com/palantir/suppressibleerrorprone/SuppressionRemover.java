@@ -30,7 +30,14 @@ public final class SuppressionRemover {
     // has finished processing.
     private static final Set<CompilationUnitTree> attachedFixes = Collections.newSetFromMap(new WeakHashMap<>());
 
-    public static void removeAllSuppressionsOnErrorprones(
+    private static final Set<String> DO_NOT_REMOVE = Set.of(
+            // NullAway does not respect -XepIgnoreSuppressionAnnotations, and it will take some work to make it so.
+            // In the meantime, let's not touch any NullAway suppressions
+            "NullAway", "CheckNullabilityTypes",
+            // rawtypes is used by both the compiler and error-prone, let's not remove these
+            "rawtypes", "RawTypes");
+
+    public static void removeAllKnownBugcheckerSuppressions(
             ReportedFixCache reportedFixes, CompilationUnitTree unit, VisitorState state) {
         if (attachedFixes.add(unit)) {
             new TreePathScanner<Void, Void>() {
@@ -40,7 +47,12 @@ public final class SuppressionRemover {
                     if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
                         TreePath declaration = getCurrentPath().getParentPath().getParentPath();
 
-                        reportedFixes.getOrReportNew(declaration, state, ReportedFixCache.NOT_AN_ERRORPRONE);
+                        reportedFixes.getOrReportNew(
+                                declaration,
+                                state,
+                                suppression -> !AllErrorprones.allBugcheckerNames(state)
+                                                .contains(SuppressWarningsUtils.stripForRollout(suppression))
+                                        || DO_NOT_REMOVE.contains(SuppressWarningsUtils.stripForRollout(suppression)));
                     }
 
                     return super.visitAnnotation(node, unused);

@@ -24,6 +24,7 @@ import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.TreePath;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -50,7 +51,8 @@ public final class VisitorStateModifications {
         if (modes.contains("RemoveUnused")) {
             // Start by removing all suppressions on error-prones, including rollout and human-made.
             // Then, as we encounter Descriptions without fixes, we add back the closest suppression
-            SuppressionRemover.removeAllSuppressionsOnErrorprones(FIXES, compilationUnit, visitorState);
+
+            SuppressionRemover.removeAllKnownBugcheckerSuppressions(FIXES, compilationUnit, visitorState);
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -83,13 +85,17 @@ public final class VisitorStateModifications {
 
         Optional<TreePath> firstSuppressibleWhichSuppressesDescription = Stream.iterate(
                         pathToActualError, treePath -> treePath.getParentPath() != null, TreePath::getParentPath)
-                .dropWhile(path -> !suppresses(path, description))
+                .dropWhile(path -> !suppresses(path, description, visitorState))
                 .findFirst();
 
         if (firstSuppressibleWhichSuppressesDescription.isPresent() && modes.contains("RemoveUnused")) {
             // In RemoveUnused mode, removeAllSuppressionsOnErrorprones guarantees that a fix must already exist on
             // this suppressible.
-            FIXES.getExisting(firstSuppressibleWhichSuppressesDescription.get()).addSuppression(description.checkName);
+            TreePath firstSuppressible = firstSuppressibleWhichSuppressesDescription.get();
+            String existingSuppression =
+                    suppressionsOn(firstSuppressible, description, visitorState).get(0);
+            FIXES.getOrReportNew(firstSuppressible, visitorState, suppression -> true)
+                    .addSuppression(existingSuppression);
             return Description.NO_MATCH;
         }
 
@@ -124,26 +130,31 @@ public final class VisitorStateModifications {
         // this, we make sure we only make one fix per source element we put the suppression on by using a Map. This
         // way we have our own mutable Fix that we can add errors to, and only once the file has been visited by all
         // the error-prone checks it will then produce a replacement with all the checks suppressed.
-        LazySuppressionFix suppressingFix =
-                FIXES.getOrReportNew(firstSuppressible.get(), visitorState, ReportedFixCache.KEEP_EVERYTHING);
+        LazySuppressionFix suppressingFix = FIXES.getOrReportNew(firstSuppressible.get(), visitorState, bc -> true);
         suppressingFix.addSuppression(CommonConstants.AUTOMATICALLY_ADDED_PREFIX + description.checkName);
         return Description.NO_MATCH;
     }
 
-    private static boolean suppresses(TreePath declaration, Description description) {
+    private static boolean suppresses(TreePath declaration, Description description, VisitorState state) {
+        return !suppressionsOn(declaration, description, state).isEmpty();
+    }
+
+    private static List<String> suppressionsOn(TreePath declaration, Description description, VisitorState state) {
         if (!SuppressWarningsUtils.suppressibleTreePath(declaration)) {
-            return false;
+            return List.of();
         }
 
         Optional<? extends AnnotationTree> suppressWarningsMaybe =
                 SuppressWarningsUtils.getSuppressWarnings(declaration);
         if (suppressWarningsMaybe.isEmpty()) {
-            return false;
+            return List.of();
         }
 
-        String checkName = description.checkName;
         return AnnotationUtils.annotationStringValues(suppressWarningsMaybe.get())
-                .anyMatch(checkName::equals);
+                .filter(suppression -> AllErrorprones.possibleCanonicalNames(
+                                state, SuppressWarningsUtils.stripForRollout(suppression))
+                        .contains(description.checkName))
+                .toList();
     }
 
     private static Set<String> getModes(VisitorState state) {
