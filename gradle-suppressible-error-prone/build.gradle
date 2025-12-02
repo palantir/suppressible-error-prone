@@ -53,6 +53,7 @@ tasks.withType(JavaCompile) {
 
 gradleTestUtils {
     gradleVersions = ['8.14.3']
+    configurationCacheEnabled = true
 }
 
 moduleJvmArgs {
