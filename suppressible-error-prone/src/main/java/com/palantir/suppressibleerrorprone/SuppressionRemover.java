@@ -30,12 +30,17 @@ public final class SuppressionRemover {
     // has finished processing.
     private static final Set<CompilationUnitTree> attachedFixes = Collections.newSetFromMap(new WeakHashMap<>());
 
-    private static final Set<String> DO_NOT_REMOVE = Set.of(
+    public static final Set<String> INCOMPATIBLE_WITH_REMOVE_UNUSED = Set.of(
             // NullAway does not respect -XepIgnoreSuppressionAnnotations, and it will take some work to make it so.
             // In the meantime, let's not touch any NullAway suppressions
-            "NullAway", "CheckNullabilityTypes",
+            "NullAway",
+            "CheckNullabilityTypes",
             // rawtypes is used by both the compiler and error-prone, let's not remove these
-            "rawtypes", "RawTypes");
+            "rawtypes",
+            "RawTypes",
+            // The autofix in SafeLoggingPropagation (adding an @Unsafe or @DoNotLog annotation) isn't always
+            // desirable — there are legitimate reasons to suppress it.
+            "SafeLoggingPropagation");
 
     public static void removeAllKnownBugcheckerSuppressions(
             ReportedFixCache reportedFixes, CompilationUnitTree unit, VisitorState state) {
@@ -52,7 +57,8 @@ public final class SuppressionRemover {
                                 state,
                                 suppression -> !AllErrorprones.allBugcheckerNames(state)
                                                 .contains(SuppressWarningsUtils.stripForRollout(suppression))
-                                        || DO_NOT_REMOVE.contains(SuppressWarningsUtils.stripForRollout(suppression)));
+                                        || INCOMPATIBLE_WITH_REMOVE_UNUSED.contains(
+                                                SuppressWarningsUtils.stripForRollout(suppression)));
                     }
 
                     return super.visitAnnotation(node, unused);
