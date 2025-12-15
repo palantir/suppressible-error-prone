@@ -31,11 +31,26 @@ public abstract class SuppressibleErrorProneExtension {
 
     public SuppressibleErrorProneExtension(Project project) {
         this.project = project;
+
+        getPreferKeepingExistingSuppression()
+                .convention(Set.of(
+                        // NullAway does not respect -XepIgnoreSuppressionAnnotations, and it will take some work to
+                        // make it so. In the meantime, let's not touch any NullAway suppressions
+                        "NullAway",
+                        "CheckNullabilityTypes",
+                        // rawtypes is used by both the compiler and error-prone, let's not remove these
+                        "rawtypes",
+                        "RawTypes",
+                        // The autofix in SafeLoggingPropagation (adding an @Unsafe or @DoNotLog annotation) isn't
+                        // always desirable — there are legitimate reasons to suppress it.
+                        "SafeLoggingPropagation"));
     }
 
     public abstract SetProperty<String> getPatchChecks();
 
     public abstract ListProperty<ConditionalPatchCheck> getConditionalPatchChecks();
+
+    public abstract SetProperty<String> getPreferKeepingExistingSuppression();
 
     public final Set<String> patchChecksForCompilation(JavaCompile javaCompile) {
         return Stream.concat(

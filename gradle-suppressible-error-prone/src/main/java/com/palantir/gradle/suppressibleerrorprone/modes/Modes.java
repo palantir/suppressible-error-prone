@@ -129,7 +129,17 @@ public abstract class Modes {
                 .append(nonInterferingCommonOptions)
                 .toSet();
 
-        return CommonOptions.naivelyCombine(allCommonOptions);
+        CommonOptions combined = CommonOptions.naivelyCombine(allCommonOptions);
+
+        return combined.withExtraErrorProneCheckFlag(
+                "SuppressibleErrorProne:PreferKeepingExistingSuppression", () -> javaCompile
+                        .getProject()
+                        .getExtensions()
+                        .getByType(com.palantir.gradle.suppressibleerrorprone.SuppressibleErrorProneExtension.class)
+                        .getPreferKeepingExistingSuppression()
+                        .get()
+                        .stream()
+                        .collect(Collectors.joining(",")));
     }
 
     private Map<ModeName, Optional<String>> modesEnabledAndFlagValues() {

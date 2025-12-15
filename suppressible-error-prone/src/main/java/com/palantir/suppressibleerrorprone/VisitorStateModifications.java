@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
-import one.util.streamex.MoreCollectors;
 
 // CHECKSTYLE:ON
 
@@ -52,7 +51,7 @@ public final class VisitorStateModifications {
         if (modes.contains("RemoveUnused")) {
             // Start by removing all suppressions on error-prones, including rollout and human-made.
             // Then, as we encounter Descriptions without fixes, we add back the closest suppression
-            SuppressionRemover.removeAllSuppressionsOnErrorprones(FIXES, compilationUnit, visitorState);
+            SuppressionRemover.removeAllKnownBugcheckerSuppressions(FIXES, compilationUnit, visitorState);
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
@@ -67,7 +66,28 @@ public final class VisitorStateModifications {
         boolean checkHasSuggestedFixes = !description.fixes.isEmpty();
 
         if (shouldPreferDefaultSuggestedFixesForThisCheck && checkHasSuggestedFixes) {
-            return description;
+            // If this check is in preferKeepingExistingSuppression AND there's an existing suppression
+            // that will be kept, we should NOT apply the fix because the suppression will remain
+            Set<String> preferKeepingExistingSuppression = visitorState
+                    .errorProneOptions()
+                    .getFlags()
+                    .getSetOrEmpty("SuppressibleErrorProne:PreferKeepingExistingSuppression");
+
+            TreePath pathToActualError =
+                    TreePath.getPath(visitorState.getPath().getCompilationUnit(), description.position.getTree());
+
+            boolean hasExistingSuppressionThatWillBeKept =
+                    preferKeepingExistingSuppression.contains(description.checkName)
+                            && Stream.iterate(
+                                            pathToActualError,
+                                            treePath -> treePath.getParentPath() != null,
+                                            TreePath::getParentPath)
+                                    .anyMatch(path -> suppresses(path, description, visitorState));
+
+            if (!hasExistingSuppressionThatWillBeKept) {
+                return description;
+            }
+            // Fall through to treat it like a regular check (either suppress or return NO_MATCH)
         }
 
         // If the check is a suggestion, we don't want to auto-suppress it, so we return no match (such that it also
@@ -91,17 +111,11 @@ public final class VisitorStateModifications {
         if (firstSuppressibleWhichSuppressesDescription.isPresent() && modes.contains("RemoveUnused")) {
             // In RemoveUnused mode, removeAllSuppressionsOnErrorprones guarantees that a fix must already exist on
             // this suppressible.
-            TreePath declaration = firstSuppressibleWhichSuppressesDescription.get();
-            Set<String> allNames =
-                    AllErrorprones.allNames(visitorState, description.checkName).get();
-            // Use the existing suppression, rather than changing it to the canonical suppression
-            String existingSuppression = AnnotationUtils.annotationStringValues(
-                            SuppressWarningsUtils.getSuppressWarnings(declaration)
-                                    .get())
-                    .filter(suppression -> allNames.contains(SuppressWarningsUtils.stripForRollout(suppression)))
-                    .collect(MoreCollectors.first())
-                    .get();
-            FIXES.getExisting(declaration).addSuppression(existingSuppression);
+            TreePath firstSuppressible = firstSuppressibleWhichSuppressesDescription.get();
+            String existingSuppression =
+                    suppressionsOn(firstSuppressible, description, visitorState).get(0);
+            FIXES.getOrReportNew(firstSuppressible, visitorState, suppression -> true)
+                    .addSuppression(existingSuppression);
             return Description.NO_MATCH;
         }
 

@@ -1706,6 +1706,59 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
         '''.stripIndent(true)
     }
 
+    def 'errorProneRemoveUnused leaves preferKeepingExistingSuppression checks untouched'() {
+        // language=Java
+        def initialSource = '''
+            package app;
+
+            @SuppressWarnings({"NullAway", "for-rollout:rawtypes"})
+            public final class App {}
+        '''.stripIndent(true)
+        writeJavaSourceFileToSourceSets initialSource
+        when:
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        then:
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo initialSource
+    }
+
+    def 'errorProneRemoveUnused + errorProneApply respects preferKeepingExistingSuppression'() {
+        given:
+        // language=Gradle
+        buildFile << '''
+            suppressibleErrorProne {
+                preferKeepingExistingSuppression = ["ShouldBePrivate"] as Set
+            }
+        '''.stripIndent(true)
+
+        writeJavaSourceFileToSourceSets '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("ShouldBePrivate")
+                void fixme(String s) {}
+                
+                void fixme(Integer i) {}
+            }
+        '''.stripIndent(true)
+
+        when: 'ShouldBePrivate is in preferKeepingExistingSuppression'
+        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ShouldBePrivate')
+
+        then: 'removeUnused + apply does not fix suppressed node'
+        // language=Java
+        javaSourceIsSyntacticallyEqualTo '''
+            package app;
+
+            public final class App {
+                @SuppressWarnings("ShouldBePrivate")
+                void fixme(String s) {}
+                
+                private void fixme(Integer i) {}
+            }
+        '''.stripIndent(true)
+    }
+
     def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
         // language=Java
         writeJavaSourceFileToSourceSets '''

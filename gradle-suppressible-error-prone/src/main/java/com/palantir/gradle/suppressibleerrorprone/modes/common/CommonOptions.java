@@ -20,8 +20,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import one.util.streamex.EntryStream;
 
 /**
@@ -44,6 +46,10 @@ public interface CommonOptions {
 
     default boolean ignoreSuppressionAnnotations() {
         return false;
+    }
+
+    default Set<String> preferKeepingExistingSuppression() {
+        return Set.of();
     }
 
     default CommonOptions naivelyCombinedWith(CommonOptions other) {
@@ -69,6 +75,15 @@ public interface CommonOptions {
             @Override
             public boolean ignoreSuppressionAnnotations() {
                 return CommonOptions.this.ignoreSuppressionAnnotations() || other.ignoreSuppressionAnnotations();
+            }
+
+            @Override
+            public Set<String> preferKeepingExistingSuppression() {
+                // Union the two sets when combining
+                return Stream.concat(
+                                CommonOptions.this.preferKeepingExistingSuppression().stream(),
+                                other.preferKeepingExistingSuppression().stream())
+                        .collect(Collectors.toSet());
             }
         };
     }
@@ -99,6 +114,11 @@ public interface CommonOptions {
             @Override
             public boolean ignoreSuppressionAnnotations() {
                 return CommonOptions.this.ignoreSuppressionAnnotations();
+            }
+
+            @Override
+            public Set<String> preferKeepingExistingSuppression() {
+                return CommonOptions.this.preferKeepingExistingSuppression();
             }
         };
     }
