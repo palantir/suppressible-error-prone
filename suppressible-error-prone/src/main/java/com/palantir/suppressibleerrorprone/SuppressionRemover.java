@@ -30,9 +30,13 @@ public final class SuppressionRemover {
     // has finished processing.
     private static final Set<CompilationUnitTree> attachedFixes = Collections.newSetFromMap(new WeakHashMap<>());
 
-    public static void removeAllSuppressionsOnErrorprones(
+    public static void removeAllKnownBugcheckerSuppressions(
             ReportedFixCache reportedFixes, CompilationUnitTree unit, VisitorState state) {
         if (attachedFixes.add(unit)) {
+            Set<String> preferKeepingExistingSuppression = state.errorProneOptions()
+                    .getFlags()
+                    .getSetOrEmpty("SuppressibleErrorProne:PreferKeepingExistingSuppression");
+
             new TreePathScanner<Void, Void>() {
                 @SuppressWarnings("for-rollout:VoidUsed")
                 @Override
@@ -41,8 +45,12 @@ public final class SuppressionRemover {
                         TreePath declaration = getCurrentPath().getParentPath().getParentPath();
 
                         reportedFixes.getOrReportNew(
-                                declaration, state, suppression -> !AllErrorprones.allBugcheckerNames(state)
-                                        .contains(suppression));
+                                declaration,
+                                state,
+                                suppression -> !AllErrorprones.allBugcheckerNames(state)
+                                                .contains(SuppressWarningsUtils.stripForRollout(suppression))
+                                        || preferKeepingExistingSuppression.contains(
+                                                SuppressWarningsUtils.stripForRollout(suppression)));
                     }
 
                     return super.visitAnnotation(node, unused);
