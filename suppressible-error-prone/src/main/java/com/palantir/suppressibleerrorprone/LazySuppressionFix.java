@@ -17,6 +17,7 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.fixes.ErrorProneEndPosTable;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.Replacement;
 import com.google.errorprone.fixes.Replacements.CoalescePolicy;
@@ -57,7 +58,7 @@ final class LazySuppressionFix implements Fix {
         // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
         // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
         this.replacement = new FirstTimeMemoizingFunction<>(
-                (EndPosTable endPositions) -> ImmutableSet.of(new LazySuppressionReplacement(
+                (ErrorProneEndPosTable endPositions) -> ImmutableSet.of(new LazySuppressionReplacement(
                         endPositions, desiredSuppressions, sourceCode, suppression, declaration)));
     }
 
@@ -87,8 +88,8 @@ final class LazySuppressionFix implements Fix {
     }
 
     @Override
-    public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
-        return replacement.apply(endPositions);
+    public ImmutableSet<Replacement> getReplacements(ErrorProneEndPosTable endPositions) {
+        return replacement.apply();
     }
 
     @Override

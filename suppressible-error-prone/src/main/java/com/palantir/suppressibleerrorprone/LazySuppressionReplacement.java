@@ -17,11 +17,11 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.common.collect.Range;
+import com.google.errorprone.fixes.ErrorProneEndPosTable;
+import com.google.errorprone.fixes.ErrorPronePosition;
 import com.google.errorprone.fixes.Replacement;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.tree.EndPosTable;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -45,7 +45,7 @@ final class LazySuppressionReplacement extends Replacement {
     private final Optional<? extends AnnotationTree> suppressWarnings;
 
     LazySuppressionReplacement(
-            EndPosTable endPositions,
+            ErrorProneEndPosTable endPositions,
             Set<String> desiredSuppressions,
             Optional<CharSequence> sourceCode,
             Optional<? extends AnnotationTree> suppressWarnings,
@@ -107,16 +107,16 @@ final class LazySuppressionReplacement extends Replacement {
     }
 
     private static Range<Integer> calculateRange(
-            EndPosTable endPositions, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+            ErrorProneEndPosTable endPositions, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
         return suppressWarnings
                 .map(annotationTree -> {
                     // @SuppressWarnings already exists, we need to replace the whole expression
-                    DiagnosticPosition position = (DiagnosticPosition) annotationTree;
+                    ErrorPronePosition position = ErrorPronePosition.from(annotationTree);
                     return Range.closedOpen(position.getStartPosition(), position.getEndPosition(endPositions));
                 })
                 .orElseGet(() -> {
                     // No @SuppressWarnings, we want to prefix a new one before the start of the tree
-                    int startPosition = ((DiagnosticPosition) tree).getStartPosition();
+                    int startPosition = ErrorPronePosition.from(tree).getStartPosition();
                     return Range.closedOpen(startPosition, startPosition);
                 });
     }
