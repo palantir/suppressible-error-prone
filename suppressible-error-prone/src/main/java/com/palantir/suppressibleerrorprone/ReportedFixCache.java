@@ -17,12 +17,12 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.fixes.ErrorPronePosition;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -108,7 +108,7 @@ public final class ReportedFixCache {
                 filteredExistingSuppressions);
         @SuppressWarnings("RestrictedApi")
         Description description = Description.builder(
-                        (DiagnosticPosition) declaration.getLeaf(),
+                        ErrorPronePosition.from(declaration.getLeaf()),
                         SuppressibleErrorProne.class.getSimpleName(),
                         "https://github.com/palantir/suppressible-error-prone",
                         "A fix on a suppressible by suppressible-error-prone")

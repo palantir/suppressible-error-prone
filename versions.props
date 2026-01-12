@@ -18,5 +18,5 @@ one.util:streamex = 0.8.4
 # We want to avoid upgrading errorprone automatically as it will bring with it new checks.
 # TODO(callumr): Work out some way to *test* against latest errorprone as well as this minimum bound but
 #                keep the dependency low so suppressible-error-prone upgrades do not get blocked.
-com.google.errorprone:* = 2.37.0
+com.google.errorprone:* = 2.46.0
 # dependency-upgrader:ON
