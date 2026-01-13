@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.transform;
+package com.palantir.suppressibleerrorprone.transform;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
-import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi.Params;
-import com.palantir.gradle.utils.environmentvariables.EnvironmentVariables;
+import com.palantir.suppressibleerrorprone.transform.ModifyErrorProneCheckApi.Params;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -102,6 +101,14 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
             return Optional.of(SuppressibleTreePathScannerClassVisitor::new);
         }
 
+        // Modify Replacement class to make it non-final (it's a record as of Error Prone 2.46.0)
+        // This allows LazySuppressionReplacement to extend it. We also remove final from equals/hashCode
+        // methods so they can be overridden.
+        if (classJarPath.equals("com/google/errorprone/fixes/Replacement.class")
+                && filesToModify.contains(ModifiedFile.REPLACEMENT)) {
+            return Optional.of(MakeRecordNonFinalVisitor::new);
+        }
+
         return Optional.empty();
     }
 
@@ -148,21 +155,18 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         @Input
         public abstract Property<String> getCacheBust();
 
-        @Nested
-        protected abstract EnvironmentVariables getEnvironmentVariables();
-
         public Params() {
             // When running tests, you might want to debug why the artifact transform isn't working. Let me tell you,
             // bashing your head against the wall because *for some reason* the artifact transform isn't running at
             // all when it should is really frustrating, only to find out hours later that it's just getting cached
             // as the inputs have not changed. So in tests only, we set the cache busting property to some random
             // value so the transform always happens and you can actually debug the transform.
-            getCacheBust()
-                    .set(getEnvironmentVariables()
-                            .envVarOrFromTestingProperty("CACHE_BUST_ERRORPRONE_TRANSFORM")
-                            .map(Boolean::parseBoolean)
-                            .orElse(false)
-                            .map(should -> should ? UUID.randomUUID().toString() : ""));
+            String cacheBust = System.getenv("CACHE_BUST_ERRORPRONE_TRANSFORM");
+            if (cacheBust != null && Boolean.parseBoolean(cacheBust)) {
+                getCacheBust().set(UUID.randomUUID().toString());
+            } else {
+                getCacheBust().set("");
+            }
         }
     }
 
