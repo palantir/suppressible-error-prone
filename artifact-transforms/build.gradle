@@ -4,7 +4,6 @@ plugins {
 }
 
 group = 'com.palantir.suppressible-error-prone'
-version = '0.0.1'
 
 publishing {
     publications {
