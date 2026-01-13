@@ -17,12 +17,12 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.fixes.ErrorProneEndPosTable;
 import com.google.errorprone.fixes.Fix;
 import com.google.errorprone.fixes.Replacement;
 import com.google.errorprone.fixes.Replacements.CoalescePolicy;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import java.util.HashSet;
 import java.util.Optional;
@@ -43,7 +43,7 @@ final class LazySuppressionFix implements Fix {
     // This set describes the desired end state of the fix. Suppressions can be added and removed from this set until
     // the LazySuppressingReplacement is rendered
     private final Set<String> desiredSuppressions = new HashSet<>();
-    private final FirstTimeMemoizingFunction<EndPosTable, ImmutableSet<Replacement>> replacement;
+    private final FirstTimeMemoizingFunction<ErrorProneEndPosTable, ImmutableSet<Replacement>> replacement;
 
     private LazySuppressionFix(
             Optional<CharSequence> sourceCode, Optional<? extends AnnotationTree> suppression, Tree declaration) {
@@ -57,7 +57,7 @@ final class LazySuppressionFix implements Fix {
         // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
         // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
         this.replacement = new FirstTimeMemoizingFunction<>(
-                (EndPosTable endPositions) -> ImmutableSet.of(new LazySuppressionReplacement(
+                (ErrorProneEndPosTable endPositions) -> ImmutableSet.of(new LazySuppressionReplacement(
                         endPositions, desiredSuppressions, sourceCode, suppression, declaration)));
     }
 
@@ -87,7 +87,7 @@ final class LazySuppressionFix implements Fix {
     }
 
     @Override
-    public ImmutableSet<Replacement> getReplacements(EndPosTable endPositions) {
+    public ImmutableSet<Replacement> getReplacements(ErrorProneEndPosTable endPositions) {
         return replacement.apply(endPositions);
     }
 

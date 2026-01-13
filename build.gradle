@@ -49,7 +49,7 @@ allprojects {
 
 javaVersions {
     javaCompiler = 25
-    libraryTarget = 17
+    libraryTarget = 21
     runtime = 21
 }
 

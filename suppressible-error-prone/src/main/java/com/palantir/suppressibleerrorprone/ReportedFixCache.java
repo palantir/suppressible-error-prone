@@ -17,6 +17,7 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.fixes.ErrorPronePosition;
 import com.google.errorprone.matchers.Description;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
@@ -108,7 +109,7 @@ public final class ReportedFixCache {
                 filteredExistingSuppressions);
         @SuppressWarnings("RestrictedApi")
         Description description = Description.builder(
-                        (DiagnosticPosition) declaration.getLeaf(),
+                        ErrorPronePosition.from((DiagnosticPosition) declaration.getLeaf()),
                         SuppressibleErrorProne.class.getSimpleName(),
                         "https://github.com/palantir/suppressible-error-prone",
                         "A fix on a suppressible by suppressible-error-prone")
