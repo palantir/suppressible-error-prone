@@ -21,6 +21,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.PatchChecksOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.RemoveRolloutCheck;
+import com.palantir.suppressibleerrorprone.transform.ModifiedFile;
 import java.util.Map;
 
 public final class RemoveRolloutMode implements Mode {
@@ -30,7 +31,7 @@ public final class RemoveRolloutMode implements Mode {
     public ModifyCheckApiOption modifyCheckApi() {
         // If we're going to remove suppressions, and possibly apply patches, we don't want to apply the custom
         // logic for for-rollout suppressions.
-        return ModifyCheckApiOption.doNotModify();
+        return ModifyCheckApiOption.mustModify(ModifiedFile.REPLACEMENT);
     }
 
     @Override
