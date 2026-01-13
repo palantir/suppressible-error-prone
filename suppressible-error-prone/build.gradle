@@ -84,8 +84,6 @@ dependencies.registerTransform(ModifyErrorProneCheckApi) { TransformSpec transfo
     }
 }
 
-configurations.annotationProcessor.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
 configurations.compileClasspath.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
-configurations.testAnnotationProcessor.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
 configurations.testCompileClasspath.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
 configurations.testRuntimeClasspath.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
