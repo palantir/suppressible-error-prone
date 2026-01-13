@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone.transform;
+package com.palantir.suppressibleerrorprone.transform;
 
-import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
-import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi.Params;
 import com.palantir.gradle.utils.environmentvariables.EnvironmentVariables;
+import com.palantir.suppressibleerrorprone.transform.ModifyErrorProneCheckApi.Params;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -100,6 +99,14 @@ public abstract class ModifyErrorProneCheckApi implements TransformAction<Params
         if (classJarPath.equals("com/google/errorprone/bugpatterns/BugChecker$SuppressibleTreePathScanner.class")
                 && filesToModify.contains(ModifiedFile.SUPPRESSIBLE_TREE_PATH_SCANNER)) {
             return Optional.of(SuppressibleTreePathScannerClassVisitor::new);
+        }
+
+        // Modify Replacement class to make it non-final (it's a record as of Error Prone 2.46.0)
+        // This allows LazySuppressionReplacement to extend it. We also remove final from equals/hashCode
+        // methods so they can be overridden.
+        if (classJarPath.equals("com/google/errorprone/fixes/Replacement.class")
+                && filesToModify.contains(ModifiedFile.REPLACEMENT)) {
+            return Optional.of(MakeRecordNonFinalVisitor::new);
         }
 
         return Optional.empty();

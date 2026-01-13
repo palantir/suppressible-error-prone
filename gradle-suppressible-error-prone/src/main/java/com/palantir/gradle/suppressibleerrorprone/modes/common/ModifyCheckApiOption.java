@@ -19,6 +19,7 @@ package com.palantir.gradle.suppressibleerrorprone.modes.common;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.DoNotModify;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.MustModify;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.NoEffect;
+import com.palantir.suppressibleerrorprone.transform.ModifiedFile;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -101,17 +102,5 @@ public sealed interface ModifyCheckApiOption permits DoNotModify, NoEffect, Must
                 .map(MustModify.class::cast)
                 .reduce(MustModify::combine)
                 .get();
-    }
-
-    enum ModifiedFile {
-        BUG_CHECKER_INFO("BugCheckerInfo"),
-        VISITOR_STATE("VisitorState"),
-        SUPPRESSIBLE_TREE_PATH_SCANNER("SuppressibleTreePathScanner");
-
-        private final String className;
-
-        ModifiedFile(String className) {
-            this.className = className;
-        }
     }
 }
