@@ -60,15 +60,15 @@ cglib:cglib-nodep:3.2.2 (1 constraints: 490ded24)
 
 com.fasterxml.jackson.core:jackson-annotations:2.20 (4 constraints: 5c4144c9)
 
-com.fasterxml.jackson.core:jackson-core:2.20.1 (5 constraints: 016b4f12)
+com.fasterxml.jackson.core:jackson-core:2.20.1 (5 constraints: 026b5012)
 
-com.fasterxml.jackson.core:jackson-databind:2.20.1 (4 constraints: 7d583000)
+com.fasterxml.jackson.core:jackson-databind:2.20.1 (4 constraints: 7e583100)
 
-com.fasterxml.jackson.datatype:jackson-datatype-guava:2.20.1 (1 constraints: 80141490)
+com.fasterxml.jackson.datatype:jackson-datatype-guava:2.20.1 (1 constraints: 81141590)
 
-com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.1 (1 constraints: 07131439)
+com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.1 (1 constraints: 08131539)
 
-com.fasterxml.jackson.module:jackson-module-parameter-names:2.20.1 (1 constraints: 07131439)
+com.fasterxml.jackson.module:jackson-module-parameter-names:2.20.1 (1 constraints: 08131539)
 
 com.google.code.findbugs:jsr305:3.0.2 (1 constraints: d8120c26)
 
@@ -90,9 +90,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.48.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.48.0 (1 constraints: 3e05473b)
 
-com.palantir.javaformat:palantir-java-format:2.83.0 (1 constraints: 3f05543b)
+com.palantir.javaformat:palantir-java-format:2.84.0 (1 constraints: 4005573b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.83.0 (1 constraints: 10133539)
+com.palantir.javaformat:palantir-java-format-spi:2.84.0 (1 constraints: 11133839)
 
 commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
