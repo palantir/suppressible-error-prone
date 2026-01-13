@@ -6,8 +6,8 @@ apply plugin: 'com.palantir.external-publish-gradle-plugin'
 
 dependencies {
     api 'net.ltgt.gradle:gradle-errorprone-plugin'
-    
-    implementation 'org.ow2.asm:asm'
+
+    implementation 'com.palantir.suppressible-error-prone:artifact-transforms'
     implementation 'com.palantir.gradle.utils:environment-variables'
     implementation 'one.util:streamex'
     implementation 'com.google.guava:guava'
@@ -44,6 +44,7 @@ test {
 // Added as a jar the errorprone configuration inside the plugin, so in nebula-tests needs to exist in maven local
 tasks.test.dependsOn tasks.findByPath(':suppressible-error-prone:publishToMavenLocal')
 tasks.test.dependsOn tasks.findByPath(':test-error-prone-checks:publishToMavenLocal')
+tasks.test.dependsOn gradle.includedBuild('artifact-transforms').task(':publishToMavenLocal')
 
 tasks.withType(JavaCompile) {
     options.errorprone {
