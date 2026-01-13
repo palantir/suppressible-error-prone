@@ -39,8 +39,7 @@ public final class VisitorStateModifications {
     @SuppressWarnings("CyclomaticComplexity")
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         // Prevent infinite recursion on reported fixes
-        if (description == Description.NO_MATCH
-                || description.checkName.equals(SuppressibleErrorProne.class.getSimpleName())) {
+        if (description.checkName.equals(SuppressibleErrorProne.class.getSimpleName())) {
             return description;
         }
 
@@ -51,6 +50,10 @@ public final class VisitorStateModifications {
             // Start by removing all suppressions on error-prones, including rollout and human-made.
             // Then, as we encounter Descriptions without fixes, we add back the closest suppression
             SuppressionRemover.removeAllSuppressionsOnErrorprones(FIXES, compilationUnit, visitorState);
+        }
+
+        if (description == Description.NO_MATCH) {
+            return description;
         }
 
         // If both -PerrorProneSuppress and -PerrorProneApply are used at the same time, for the checks configured as
