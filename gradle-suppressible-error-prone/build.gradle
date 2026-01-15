@@ -7,7 +7,7 @@ apply plugin: 'com.palantir.external-publish-gradle-plugin'
 dependencies {
     api 'net.ltgt.gradle:gradle-errorprone-plugin'
 
-    implementation 'com.palantir.suppressible-error-prone:artifact-transforms'
+    implementation 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
     implementation 'com.palantir.gradle.utils:environment-variables'
     implementation 'one.util:streamex'
     implementation 'com.google.guava:guava'
