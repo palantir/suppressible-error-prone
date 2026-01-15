@@ -7,12 +7,10 @@ buildscript {
 plugins {
     id 'java-library'
     id 'com.palantir.external-publish-jar'
+    id 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
 }
 
 dependencies {
-    // Add dependency on artifact-transforms to get access to ModifyErrorProneCheckApi
-    implementation 'com.palantir.suppressible-error-prone:artifact-transforms'
-
     implementation 'com.google.errorprone:error_prone_annotation'
     implementation 'com.google.errorprone:error_prone_check_api'
     implementation 'com.google.errorprone:error_prone_core'
@@ -61,29 +59,3 @@ tasks.withType(JavaCompile) {
         disable('StrictUnusedVariable', 'PreferSafeLoggableExceptions')
     }
 }
-
-// Register artifact transform to make Error Prone's Replacement record non-final
-// so that LazySuppressionReplacement can extend it
-import com.palantir.suppressibleerrorprone.transform.ModifyErrorProneCheckApi
-import com.palantir.suppressibleerrorprone.transform.ModifiedFile
-
-def ARTIFACT_TRANSFORM_APPLIED = Attribute.of('com.palantir.suppressible-error-prone.transform-applied', Boolean)
-
-// Set default value for jar artifacts
-dependencies.artifactTypes.getByName('jar').attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, false)
-
-dependencies.registerTransform(ModifyErrorProneCheckApi) { TransformSpec transform ->
-    transform.from
-        .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-        .attribute(ARTIFACT_TRANSFORM_APPLIED, false)
-    transform.to
-        .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-        .attribute(ARTIFACT_TRANSFORM_APPLIED, true)
-    transform.parameters { params ->
-        params.filesToModify.set([ModifiedFile.REPLACEMENT] as Set)
-    }
-}
-
-configurations.compileClasspath.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
-configurations.testCompileClasspath.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
-configurations.testRuntimeClasspath.attributes.attribute(ARTIFACT_TRANSFORM_APPLIED, true)
