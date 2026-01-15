@@ -37,6 +37,4 @@ repositories {
 dependencies {
     implementation 'org.ow2.asm:asm'
     implementation 'com.palantir.gradle.utils:environment-variables'
-
-    implementation(gradleApi())
 }
