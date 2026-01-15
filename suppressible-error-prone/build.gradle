@@ -1,13 +1,15 @@
+apply plugin: 'java-library'
+apply plugin: 'com.palantir.external-publish-jar'
+apply plugin: 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
+
 buildscript {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
     dependencies {
         classpath 'com.palantir.suppressible-error-prone:artifact-transforms'
     }
-}
-
-plugins {
-    id 'java-library'
-    id 'com.palantir.external-publish-jar'
-    id 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
 }
 
 dependencies {
