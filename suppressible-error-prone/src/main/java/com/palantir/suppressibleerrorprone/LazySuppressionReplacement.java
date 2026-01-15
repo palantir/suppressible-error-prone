@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
  * A Replacement that handles @SuppressWarnings modifications with line-removing capabilities.
  * When the final replacement text is empty (no suppressions), it will remove preceding
  * whitespace up to and including the newline.
+ * <p>
+ * Note that {@link Replacement} is a record, so we're extending it by removing the {@code final} tag via
+ * bytecode manipulation. For more details, see {@code SetupPreCompilationBytecodeManipulationPlugin}
  */
 final class LazySuppressionReplacement extends Replacement {
     // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
