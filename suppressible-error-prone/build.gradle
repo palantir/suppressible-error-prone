@@ -8,7 +8,7 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        classpath 'com.palantir.suppressible-error-prone:artifact-transforms'
+        classpath 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
     }
 }
 
