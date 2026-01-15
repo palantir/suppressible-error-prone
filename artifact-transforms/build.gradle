@@ -1,24 +1,40 @@
-plugins {
-    id 'java-library'
-    id 'maven-publish'
+buildscript {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.palantir.gradle.externalpublish:gradle-external-publish-plugin:1.27.0'
+        classpath 'com.palantir.gradle.consistentversions:gradle-consistent-versions:2.29.0'
+    }
 }
 
-group = 'com.palantir.suppressible-error-prone'
+plugins {
+    id 'java-library'
+    id 'java-gradle-plugin'
+}
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from components.java
+apply plugin: 'com.palantir.external-publish-jar'
+apply plugin: 'com.palantir.consistent-versions'
+
+gradlePlugin {
+    plugins {
+        setupPreCompilationBytecodeManipulation {
+            id = 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
+            implementationClass = 'com.palantir.gradle.suppressibleerrorprone.internal.SetupPreCompilationBytecodeManipulationPlugin'
         }
     }
 }
+
+group = 'com.palantir.suppressible-error-prone'
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation 'org.ow2.asm:asm:9.9.1'
+    implementation 'org.ow2.asm:asm'
+    implementation 'com.palantir.gradle.utils:environment-variables'
 
     implementation(gradleApi())
 }
