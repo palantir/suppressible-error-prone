@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -1950,6 +1951,94 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                 .as("every error-prone dependency should have the same version")
                 .contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar")
                 .contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
+    }
+
+    @Nested
+    class ErrorProneAnnotationsPlatformAlignment {
+        @BeforeEach
+        void setupTestEnvironment(RootProject rootProject) {
+            // Exclude suppressible-error-prone and its transitives - we only need the error-prone deps
+            // to test the platform alignment behavior
+            rootProject.buildGradle().append("""
+                configurations.configureEach {
+                    exclude group: 'com.palantir.suppressible-error-prone'
+                }
+
+                tasks.register('printErrorProneVersions') {
+                    inputs.files(configurations.named('annotationProcessor'))
+                    doLast {
+                        inputs.files.files.each {
+                            println("ERROR-PRONE: ${it.name}")
+                        }
+                    }
+                }
+                """);
+        }
+
+        @Test
+        void annotations_can_diverge_when_core_is_2_37_0_or_newer(GradleInvoker gradle, RootProject rootProject) {
+            // In error-prone 2.37.0, the type annotations from error_prone_type_annotations were merged into
+            // error_prone_annotations. When core is >= 2.37.0, it works with the new annotations format,
+            // so annotations can safely be at a different version.
+            rootProject.buildGradle().append("""
+                dependencies {
+                    errorprone 'com.google.errorprone:error_prone_core:2.38.0'
+                    errorprone 'com.google.errorprone:error_prone_annotations:2.41.0'
+                }
+                """);
+
+            InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
+
+            assertThat(result)
+                    .output()
+                    .as("when core >= 2.37.0, annotations is not bound to the platform, so versions can differ")
+                    .contains("ERROR-PRONE: error_prone_annotations-2.41.0.jar")
+                    .contains("ERROR-PRONE: error_prone_core-2.38.0.jar");
+        }
+
+        @Test
+        void annotations_is_bound_to_platform_when_core_is_before_2_37_0(
+                GradleInvoker gradle, RootProject rootProject) {
+            // Before 2.37.0, error_prone_core expects the old annotations format (without type annotations),
+            // so annotations must stay at the same version as core to avoid compatibility issues.
+            // When annotations is at a higher version, the platform alignment should bring core UP to match.
+            rootProject.buildGradle().append("""
+                dependencies {
+                    errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                    errorprone 'com.google.errorprone:error_prone_annotations:2.36.0'
+                }
+                """);
+
+            InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
+
+            assertThat(result)
+                    .output()
+                    .as("annotations < 2.37.0 is bound to the platform, so core is brought up to match")
+                    .contains("ERROR-PRONE: error_prone_annotations-2.36.0.jar")
+                    .contains("ERROR-PRONE: error_prone_core-2.36.0.jar");
+        }
+
+        @Test
+        void annotations_is_bound_to_platform_when_core_is_before_2_37_0_even_if_annotations_is_newer(
+                GradleInvoker gradle, RootProject rootProject) {
+            // Even if annotations is >= 2.37.0, when core is < 2.37.0 we need to bind them together.
+            // Core < 2.37.0 expects the old annotations format, so we can't let annotations diverge.
+            // Core is on both platforms, so it gets pulled up to match annotations.
+            rootProject.buildGradle().append("""
+                dependencies {
+                    errorprone 'com.google.errorprone:error_prone_core:2.36.0'
+                    errorprone 'com.google.errorprone:error_prone_annotations:2.38.0'
+                }
+                """);
+
+            InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
+
+            assertThat(result)
+                    .output()
+                    .as("core is brought up to match annotations via platform alignment")
+                    .contains("ERROR-PRONE: error_prone_annotations-2.38.0.jar")
+                    .contains("ERROR-PRONE: error_prone_core-2.38.0.jar");
+        }
     }
 
     // Helper methods

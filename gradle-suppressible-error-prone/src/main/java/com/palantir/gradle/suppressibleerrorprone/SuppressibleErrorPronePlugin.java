@@ -21,6 +21,7 @@ import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.ModifyCheckApiOption.ModifiedFile;
 import com.palantir.gradle.suppressibleerrorprone.transform.ModifyErrorProneCheckApi;
+import com.palantir.sls.versions.OrderableSlsVersion;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -79,6 +80,10 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             // (via an artifact transform) that intercepts every error from every check and adds a custom fix
             setupErrorProneArtifactTransform(project, mustModify.modifiedFiles());
         }
+
+        // Always register the component metadata rule to ensure error-prone dependencies are at consistent versions.
+        // This is registered unconditionally to prevent version mismatches even when not using artifact transforms.
+        project.getDependencies().getComponents().all(ConsistentErrorPronePlatformRule.class);
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
             // Required so that we can run the runtime parts of the errorprone patching in suppressing stage 1 and
@@ -141,8 +146,6 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                                 .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
                         annotationProcessor.getAttributes().attribute(suppressible, true);
                     });
-
-            project.getDependencies().getComponents().all(ConsistentErrorPronePlatformRule.class);
         });
     }
 
@@ -153,9 +156,29 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
      * This sets up a "virtual platform" that all errorprone dependencies are bound to. It means they will all have
      * the same version. It's very similar to adding `com.google.errorprone:* = ...` to the `versions.props` file
      * (in fact it's the same thing), except we are doing this from a gradle plugin.
+     *
+     * The exception is error_prone_annotations at version 2.37.0+: in 2.37.0 the type annotations were merged into
+     * error_prone_annotations (see https://github.com/google/error-prone/releases/tag/v2.37.0), so from that version
+     * onwards the annotations jar is "complete" and can safely diverge from the other error-prone jars. This is useful
+     * because many projects use error_prone_annotations as a compile-time dependency, and it can be at a different
+     * version to the error-prone core used for compilation.
      */
     static final class ConsistentErrorPronePlatformRule implements ComponentMetadataRule {
         private static final String ERRORPRONE_GROUP = "com.google.errorprone";
+        private static final String ANNOTATIONS_ARTIFACT = "error_prone_annotations";
+        private static final String CORE_ARTIFACT = "error_prone_core";
+        // In 2.37.0 the type annotations were merged into error_prone_annotations, so from that version onwards
+        // it is safe for annotations to diverge from other error-prone jars - but ONLY if core is also >= 2.37.0.
+        private static final OrderableSlsVersion ANNOTATIONS_SAFE_VERSION = OrderableSlsVersion.valueOf("2.37.0");
+
+        // We use two virtual platforms:
+        // - "core-platform": all error-prone deps except annotations always belong to this
+        // - "annotations-platform": annotations always belongs to this, and core also belongs to it when < 2.37.0
+        //
+        // When core < 2.37.0, it's on both platforms. If annotations is at a higher version, the annotations-platform
+        // will pull core up to match. When core >= 2.37.0, it's only on core-platform, so annotations can diverge.
+        private static final String CORE_PLATFORM = ERRORPRONE_GROUP + ":error-prone-core-platform";
+        private static final String ANNOTATIONS_PLATFORM = ERRORPRONE_GROUP + ":error-prone-annotations-platform";
 
         @Override
         public void execute(ComponentMetadataContext context) {
@@ -164,7 +187,30 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 return;
             }
 
-            context.getDetails().belongsTo("%s:_:%s".formatted(ERRORPRONE_GROUP, id.getVersion()));
+            String version = id.getVersion();
+
+            if (id.getName().equals(ANNOTATIONS_ARTIFACT)) {
+                // Annotations always belongs to the annotations-platform
+                context.getDetails().belongsTo("%s:%s".formatted(ANNOTATIONS_PLATFORM, version));
+                // When annotations < 2.37.0, it also belongs to core-platform to ensure alignment
+                if (!isSafeVersion(version)) {
+                    context.getDetails().belongsTo("%s:%s".formatted(CORE_PLATFORM, version));
+                }
+            } else {
+                // All other error-prone deps belong to the core-platform
+                context.getDetails().belongsTo("%s:%s".formatted(CORE_PLATFORM, version));
+
+                // When core < 2.37.0, it also belongs to annotations-platform to ensure alignment
+                if (id.getName().equals(CORE_ARTIFACT) && !isSafeVersion(version)) {
+                    context.getDetails().belongsTo("%s:%s".formatted(ANNOTATIONS_PLATFORM, version));
+                }
+            }
+        }
+
+        private static boolean isSafeVersion(String version) {
+            return OrderableSlsVersion.safeValueOf(version)
+                    .map(v -> v.compareTo(ANNOTATIONS_SAFE_VERSION) >= 0)
+                    .orElse(false);
         }
     }
 
