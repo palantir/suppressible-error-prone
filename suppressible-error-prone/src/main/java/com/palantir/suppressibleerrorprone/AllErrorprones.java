@@ -16,33 +16,63 @@
 
 package com.palantir.suppressibleerrorprone;
 
-import com.google.common.base.Suppliers;
 import com.google.errorprone.BugCheckerInfo;
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
+import com.google.errorprone.suppliers.Supplier;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import one.util.streamex.EntryStream;
 import one.util.streamex.StreamEx;
 
 public final class AllErrorprones {
-    private static Supplier<Set<String>> cachedAllBugcheckerNames = Suppliers.memoize(() -> {
-        Stream<BugChecker> pluginChecks =
-                ServiceLoader.load(BugChecker.class).stream().map(ServiceLoader.Provider::get);
-        Stream<String> pluginCheckNames =
-                StreamEx.of(pluginChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
+    private static Supplier<Map<String, Set<String>>> canonicalToAllNames = VisitorState.memoize(state -> {
+        // Use the same classloader that Error Prone was loaded from to avoid classloader skew
+        // when using Error Prone plugins together with the Error Prone javac plugin.
+        JavacProcessingEnvironment processingEnvironment = JavacProcessingEnvironment.instance(state.context);
+        ClassLoader loader = processingEnvironment.getProcessorClassLoader();
+        List<BugChecker> pluginChecks = ServiceLoader.load(BugChecker.class, loader).stream()
+                .map(Provider::get)
+                .collect(Collectors.toList());
+        EntryStream<String, Set<String>> pluginCheckNames =
+                StreamEx.of(pluginChecks).mapToEntry(BugChecker::canonicalName, BugChecker::allNames);
 
         Stream<BugCheckerInfo> builtInChecks = BuiltInCheckerSuppliers.allChecks().getAllChecks().values().stream();
-        Stream<String> builtInCheckNames =
-                StreamEx.of(builtInChecks).flatMap(bugchecker -> bugchecker.allNames().stream());
+        EntryStream<String, Set<String>> builtInCheckNames =
+                StreamEx.of(builtInChecks).mapToEntry(BugCheckerInfo::canonicalName, BugCheckerInfo::allNames);
 
-        return Stream.concat(pluginCheckNames, builtInCheckNames).collect(Collectors.toSet());
+        return pluginCheckNames.append(builtInCheckNames).toMap();
     });
 
-    public static Set<String> allBugcheckerNames() {
-        return cachedAllBugcheckerNames.get();
+    private static Supplier<Set<String>> allNames =
+            VisitorState.memoize(state -> EntryStream.of(canonicalToAllNames.get(state))
+                    .flatMap(entry -> entry.getValue().stream())
+                    .collect(Collectors.toSet()));
+
+    private static Supplier<Map<String, Set<String>>> nameToPossibleCanonicalNames =
+            VisitorState.memoize(state -> EntryStream.of(canonicalToAllNames.get(state))
+                    .flatMapValues(Set::stream)
+                    .invert()
+                    .grouping(Collectors.toSet()));
+
+    public static Set<String> allBugcheckerNames(VisitorState state) {
+        return allNames.get(state);
+    }
+
+    public static Optional<Set<String>> allNames(VisitorState state, String canonicalName) {
+        return Optional.ofNullable(canonicalToAllNames.get(state).get(canonicalName));
+    }
+
+    public static Set<String> possibleCanonicalNames(VisitorState state, String name) {
+        return nameToPossibleCanonicalNames.get(state).getOrDefault(name, Set.of());
     }
 
     private AllErrorprones() {}

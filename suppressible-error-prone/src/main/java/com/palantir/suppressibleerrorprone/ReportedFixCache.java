@@ -38,15 +38,6 @@ public final class ReportedFixCache {
     // garbage collected.
     private final WeakHashMap<Tree, LazySuppressionFix> cache = new WeakHashMap<>();
 
-    public static final Predicate<String> REMOVE_EVERYTHING = bc -> false;
-    public static final Predicate<String> KEEP_EVERYTHING = bc -> true;
-    public static final Predicate<String> NOT_AN_ERRORPRONE = suppression -> {
-        String checkerName = suppression.startsWith(CommonConstants.AUTOMATICALLY_ADDED_PREFIX)
-                ? suppression.substring(CommonConstants.AUTOMATICALLY_ADDED_PREFIX.length())
-                : suppression;
-        return !AllErrorprones.allBugcheckerNames().contains(checkerName);
-    };
-
     ReportedFixCache() {}
 
     /**

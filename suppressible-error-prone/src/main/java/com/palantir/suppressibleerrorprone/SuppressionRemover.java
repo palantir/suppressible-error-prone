@@ -40,7 +40,9 @@ public final class SuppressionRemover {
                     if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
                         TreePath declaration = getCurrentPath().getParentPath().getParentPath();
 
-                        reportedFixes.getOrReportNew(declaration, state, ReportedFixCache.NOT_AN_ERRORPRONE);
+                        reportedFixes.getOrReportNew(
+                                declaration, state, suppression -> !AllErrorprones.allBugcheckerNames(state)
+                                        .contains(suppression));
                     }
 
                     return super.visitAnnotation(node, unused);
