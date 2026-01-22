@@ -46,7 +46,9 @@ public final class TimingsPlugin implements Plugin {
 
     @Override
     public void init(JavacTask task, String... args) {
-        String path = args[0];
+        // Join all args back together since javac splits by spaces and paths may contain spaces.
+        // e.g., "/path/with spaces/file" becomes args = ["/path/with", "spaces/file"]
+        String path = String.join(" ", args);
         task.addTaskListener(new TimingsTaskListener(
                 ErrorProneTimings.instance(((BasicJavacTask) task).getContext()), Path.of(path)));
     }
