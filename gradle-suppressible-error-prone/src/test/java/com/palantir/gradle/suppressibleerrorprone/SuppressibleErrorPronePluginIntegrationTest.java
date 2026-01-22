@@ -31,8 +31,12 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @GradlePluginTests
 @DisabledConfigurationCache("Tests manipulate files directly which is not compatible with configuration cache")
@@ -1067,43 +1071,17 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                 .exists();
     }
 
-    @Test
-    void compile_tasks_are_never_up_to_date_when_applying_changes_with_errorProneApply(
-            GradleInvoker gradle, RootProject rootProject) {
-        rootProject.buildGradle().append("""
-            suppressibleErrorProne {
-                patchChecks.add('ArrayToString')
-            }
-            """);
-
-        String originalSource = """
-            package app;
-
-            public final class App {
-                public static void main(String... args) {
-                    new int[3].toString();
-                }
-            }
-            """;
-
-        writeJavaSourceFileToSourceSets(rootProject, originalSource);
-
-        // when: 'a compilation with code changes happens'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
-
-        // then: 'the source code is reset back to the original state'
-        writeJavaSourceFileToSourceSets(rootProject, originalSource);
-
-        // when: 'compilation with changes runs again'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
-
-        // then: 'changes are actually made, it was not up-to-date'
-        javaSourceIsSyntacticallyNotEqualTo(rootProject, originalSource);
+    static Stream<Arguments> compile_tasks_are_never_up_to_date_modes() {
+        return Stream.of(
+                Arguments.of((Object) new String[] {"-PerrorProneApply"}),
+                Arguments.of((Object) new String[] {"-PerrorProneSuppress"}),
+                Arguments.of((Object) new String[] {"-PerrorProneApply", "-PerrorProneSuppress"}));
     }
 
-    @Test
-    void compile_tasks_are_never_up_to_date_when_applying_changes_with_errorProneSuppress(
-            GradleInvoker gradle, RootProject rootProject) {
+    @ParameterizedTest
+    @MethodSource("compile_tasks_are_never_up_to_date_modes")
+    void compile_tasks_are_never_up_to_date_when_applying_changes(
+            String[] mode, GradleInvoker gradle, RootProject rootProject) {
         rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
@@ -1123,47 +1101,13 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
         // when: 'a compilation with code changes happens'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        runTasksSuccessfully(gradle, "compileAllErrorProne", mode);
 
         // then: 'the source code is reset back to the original state'
         writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
         // when: 'compilation with changes runs again'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
-
-        // then: 'changes are actually made, it was not up-to-date'
-        javaSourceIsSyntacticallyNotEqualTo(rootProject, originalSource);
-    }
-
-    @Test
-    void compile_tasks_are_never_up_to_date_when_applying_changes_with_errorProneApply_and_errorProneSuppress(
-            GradleInvoker gradle, RootProject rootProject) {
-        rootProject.buildGradle().append("""
-            suppressibleErrorProne {
-                patchChecks.add('ArrayToString')
-            }
-            """);
-
-        String originalSource = """
-            package app;
-
-            public final class App {
-                public static void main(String... args) {
-                    new int[3].toString();
-                }
-            }
-            """;
-
-        writeJavaSourceFileToSourceSets(rootProject, originalSource);
-
-        // when: 'a compilation with code changes happens'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress");
-
-        // then: 'the source code is reset back to the original state'
-        writeJavaSourceFileToSourceSets(rootProject, originalSource);
-
-        // when: 'compilation with changes runs again'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress");
+        runTasksSuccessfully(gradle, "compileAllErrorProne", mode);
 
         // then: 'changes are actually made, it was not up-to-date'
         javaSourceIsSyntacticallyNotEqualTo(rootProject, originalSource);
@@ -2039,6 +1983,16 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         String[] allTasks = new String[tasks.length + 1];
         System.arraycopy(tasks, 0, allTasks, 0, tasks.length);
         allTasks[tasks.length] = "-PsuppressibleErrorProneVersion=" + projectVersion;
+
+        // Note: Configuration cache is disabled at class level due to file manipulation
+        return gradle.withArgs(allTasks).buildsSuccessfully();
+    }
+
+    private InvocationResult runTasksSuccessfully(GradleInvoker gradle, String task, String[] additionalArgs) {
+        String[] allTasks = new String[additionalArgs.length + 2];
+        allTasks[0] = task;
+        System.arraycopy(additionalArgs, 0, allTasks, 1, additionalArgs.length);
+        allTasks[allTasks.length - 1] = "-PsuppressibleErrorProneVersion=" + projectVersion;
 
         // Note: Configuration cache is disabled at class level due to file manipulation
         return gradle.withArgs(allTasks).buildsSuccessfully();
