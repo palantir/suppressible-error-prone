@@ -60,27 +60,13 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     private String projectVersion;
 
     @BeforeEach
-    @SuppressWarnings("GradleTestPluginsBlock") // buildscript and apply plugin need special handling
     void setup(RootProject rootProject) {
         projectVersion = Optional.ofNullable(System.getProperty("projectVersion"))
                 .orElseThrow(() -> new IllegalStateException("projectVersion system property must be set"));
 
-        // Note: We use append() with buildscript block and apply plugin because these need special handling
-        // that can't use the plugins() API
-        rootProject.buildGradle().append("""
-            buildscript {
-                repositories {
-                    mavenCentral()
-                }
-                dependencies {
-                    classpath 'com.palantir.gradle.consistentversions:gradle-consistent-versions:3.1.0'
-                }
-            }
-            // Consistent versions checks we don't resolve configurations at configuration time and
-            // also interacts in many ways with dependencies
-            apply plugin: 'com.palantir.consistent-versions'
-            """);
-
+        // Consistent versions checks we don't resolve configurations at configuration time and
+        // also interacts in many ways with dependencies
+        rootProject.buildGradle().plugins().add("com.palantir.consistent-versions");
         rootProject.buildGradle().plugins().add("com.palantir.suppressible-error-prone");
         rootProject.buildGradle().plugins().add("java");
 

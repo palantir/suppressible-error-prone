@@ -6,7 +6,7 @@ apply plugin: 'com.palantir.external-publish-gradle-plugin'
 
 dependencies {
     api 'net.ltgt.gradle:gradle-errorprone-plugin'
-    
+
     implementation 'org.ow2.asm:asm'
     implementation 'com.palantir.gradle.utils:environment-variables'
     implementation 'one.util:streamex'
@@ -19,6 +19,8 @@ dependencies {
     testImplementation 'one.util:streamex'
     testImplementation 'com.palantir.gradle.plugintesting:configuration-cache-spec'
     testImplementation 'com.palantir.javaformat:palantir-java-format'
+
+    gradlePluginForTesting 'com.palantir.gradle.consistentversions:gradle-consistent-versions'
 }
 
 gradlePlugin {
