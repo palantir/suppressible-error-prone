@@ -1943,9 +1943,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     }
 
     @Test
-    void
-            errorProneRemoveUnused_errorProneApply_errorProneSuppress_applies_fixes_and_suppressions_on_previously_suppressed_elements(
-                    GradleInvoker gradle, RootProject rootProject) {
+    void errorProneRemoveUnused_apply_suppress_fixes_and_suppressions_on_previously_suppressed_elements(
+            GradleInvoker gradle, RootProject rootProject) {
         writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
