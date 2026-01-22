@@ -57,12 +57,12 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     // attach to a non-existent debugger. Set it to false before you push any code.
     private static final boolean DEBUGGING_ERROR_PRONES = false;
 
-    private String projectVersion;
-
     @BeforeEach
     void setup(RootProject rootProject) {
-        projectVersion = Optional.ofNullable(System.getProperty("projectVersion"))
+        String projectVersion = Optional.ofNullable(System.getProperty("projectVersion"))
                 .orElseThrow(() -> new IllegalStateException("projectVersion system property must be set"));
+
+        rootProject.gradlePropertiesFile().appendProperty("suppressibleErrorProneVersion", projectVersion);
 
         // Consistent versions checks we don't resolve configurations at configuration time and
         // also interacts in many ways with dependencies
@@ -135,7 +135,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        InvocationResult result = runTasksWithFailure(gradle, "compileAllErrorProne");
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
 
         assertThat(result.output()).contains("[ArrayToString]");
     }
@@ -156,7 +156,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -184,7 +184,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                         rootProject.path().relativize(sourceDir1),
                         rootProject.path().relativize(sourceDir2));
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -205,8 +205,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
         javaSourceContains(rootProject, "Arrays.toString(new int[3])");
     }
@@ -231,7 +231,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
         javaSourceContains(rootProject, "new int[3].toString()");
     }
@@ -255,7 +255,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """);
 
         // Doesn't actually do any patching as the set is empty. It just does a normal compile that fails.
-        InvocationResult result = runTasksWithFailure(gradle, "compileAllErrorProne", "-PerrorProneApply");
+        InvocationResult result =
+                gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsWithFailure();
 
         assertThat(result.output()).contains("[ArrayToString]");
         javaSourceContains(rootProject, "new int[3].toString()");
@@ -283,7 +284,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
         javaSourceContains(rootProject, "new int[3].toString()");
     }
@@ -301,7 +302,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply=ArrayToString,ArrayEquals");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply=ArrayToString,ArrayEquals")
+                .buildsSuccessfully();
 
         javaSourceContains(rootProject, "Arrays.toString(new int[3])");
         javaSourceContains(rootProject, "Arrays.equals(new int[2], new int[1])");
@@ -319,11 +321,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         javaSourceContains(rootProject, "@SuppressWarnings(\"for-rollout:ArrayToString\")");
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -340,7 +342,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // Suppression should be on the method, not the lambda parameter
         javaSourceIsSyntacticallyEqualTo(rootProject, """
@@ -358,7 +360,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the lambda implicit parameter which is not valid java
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -375,7 +377,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // Suppression should be on the method, not the lambda parameter
         javaSourceIsSyntacticallyEqualTo(rootProject, """
@@ -393,7 +395,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the lambda implicit parameter which is not valid java
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -414,7 +416,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // Suppression should be on the method, not the anonymous class
         javaSourceIsSyntacticallyEqualTo(rootProject, """
@@ -436,7 +438,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the anonymous class which is not valid java
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -467,7 +469,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -500,7 +502,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -529,7 +531,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -542,7 +544,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -560,7 +562,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -585,7 +587,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -606,7 +608,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -624,7 +626,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -653,7 +655,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -675,7 +678,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -707,7 +710,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -723,7 +727,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
@@ -740,12 +744,15 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """);
 
         // then: 'compilation succeeds when errorprone is disabled'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneDisable");
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable");
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable=true");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneDisable").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable")
+                .buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable=true")
+                .buildsSuccessfully();
 
         // then: 'compilation fails the legacy baseline errorprone disable property is set to false'
-        runTasksWithFailure(gradle, "compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable=false");
+        gradle.withArgs("compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable=false")
+                .buildsWithFailure();
     }
 
     @Test
@@ -779,7 +786,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
         javaSourceContains(rootProject, "Arrays.toString(new int[3])");
     }
@@ -807,7 +814,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
         javaSourceContains(rootProject, "Arrays.toString(new int[3])");
         javaSourceContains(rootProject, "new int[2].equals(new int[1])");
@@ -842,7 +849,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneApply");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
         javaSourceContains(rootProject, "Arrays.toString(new int[3])");
         javaSourceContains(rootProject, "new int[2].equals(new int[1])");
@@ -857,7 +864,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        InvocationResult result = runTasksSuccessfully(gradle, "compileAllErrorProne", "--dry-run");
+        InvocationResult result =
+                gradle.withArgs("compileAllErrorProne", "--dry-run").buildsSuccessfully();
 
         assertThat(result.output()).contains(":compileJava SKIPPED");
         assertThat(result.output()).doesNotContain(":compileTestJava SKIPPED");
@@ -889,7 +897,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """);
 
         // then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
-        InvocationResult result = runTasksWithFailure(gradle, "compileAllErrorProne");
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
         assertThat(result.output()).contains("[FieldCanBeFinal]");
 
         // Now reset the build file and test at SUGGESTION level
@@ -922,7 +930,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // then: 'it is not suppressed'
         javaSourceDoesNotContain(rootProject, "SuppressWarnings");
@@ -949,10 +957,10 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """);
 
         // then: 'compilation does not fail'
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
         // when: 'the check is run at the default WARNING level, and then automated suppressions are applied'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // then: 'it is suppressed'
         javaSourceIsSyntacticallyEqualTo(rootProject, """
@@ -1009,14 +1017,14 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """, rootProject.path().resolve("src/other/java"));
 
         // then: 'compilation fails'
-        InvocationResult result = runTasksWithFailure(gradle, "compileAllErrorProne");
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
         assertThat(result.output()).contains("[NonCanonicalStaticImport]");
 
         // when: 'we try to suppress it'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // then: 'nothing has changed as we cant put SuppressWarnings on an import'
-        InvocationResult result2 = runTasksWithFailure(gradle, "compileAllErrorProne");
+        InvocationResult result2 = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
         assertThat(result2.output()).contains("[NonCanonicalStaticImport]");
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
@@ -1039,7 +1047,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """);
 
         // when: 'a compilation happens but -PerrorProneTimings is not applied'
-        runTasksSuccessfully(gradle, "compileAllErrorProne");
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
         // then: 'timings are not outputted'
         assertThat(rootProject.path().resolve("build/errorprone-timings/compileJava"))
@@ -1048,7 +1056,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                 .doesNotExist();
 
         // when: 'a compilation happens and -PerrorProneTimings is applied'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneTimings");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneTimings").buildsSuccessfully();
 
         // then: 'timings are outputted'
         assertThat(rootProject.path().resolve("build/errorprone-timings/compileJava"))
@@ -1087,13 +1095,15 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
         // when: 'a compilation with code changes happens'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", mode);
+        String[] args = Stream.concat(Stream.of("compileAllErrorProne"), Stream.of(mode))
+                .toArray(String[]::new);
+        gradle.withArgs(args).buildsSuccessfully();
 
         // then: 'the source code is reset back to the original state'
         writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
         // when: 'compilation with changes runs again'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", mode);
+        gradle.withArgs(args).buildsSuccessfully();
 
         // then: 'changes are actually made, it was not up-to-date'
         javaSourceIsSyntacticallyNotEqualTo(rootProject, originalSource);
@@ -1102,13 +1112,15 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     @Test
     void throws_exception_when_errorProneDisable_is_combined_with_errorProneApply_or_errorProneSuppress(
             GradleInvoker gradle, RootProject rootProject) {
-        InvocationResult applyResult =
-                runTasksWithFailure(gradle, "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneApply");
+        InvocationResult applyResult = gradle.withArgs(
+                        "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneApply")
+                .buildsWithFailure();
 
         assertThat(applyResult.output()).contains("-PerrorProneDisable cannot be used");
 
-        InvocationResult suppressResult =
-                runTasksWithFailure(gradle, "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneSuppress");
+        InvocationResult suppressResult = gradle.withArgs(
+                        "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneSuppress")
+                .buildsWithFailure();
 
         assertThat(suppressResult.output()).contains("-PerrorProneDisable cannot be used");
     }
@@ -1123,7 +1135,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             public final class App {}
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout=Test");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=Test")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1147,7 +1160,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1171,7 +1184,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             public final class App {}
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout=Other");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=Other")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1190,7 +1204,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             public final class App {}
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1209,7 +1223,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             public final class App {}
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout=RemoveRolloutSuppressions");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=RemoveRolloutSuppressions")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1232,11 +1247,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle,
-                "compileAllErrorProne",
-                "-PerrorProneRemoveRollout=ArrayToString",
-                "-PerrorProneApply=ArrayToString");
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString",
+                        "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1275,11 +1290,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle,
-                "compileAllErrorProne",
-                "-PerrorProneRemoveRollout=ShouldBeNullable,ShouldBePrivate",
-                "-PerrorProneApply=ShouldBeNullable,ShouldBePrivate");
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ShouldBeNullable,ShouldBePrivate",
+                        "-PerrorProneApply=ShouldBeNullable,ShouldBePrivate")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1318,8 +1333,10 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneSuppress=ShouldBeNullable");
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout=ShouldBeNullable");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress=ShouldBeNullable")
+                .buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=ShouldBeNullable")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1346,11 +1363,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle,
-                "compileAllErrorProne",
-                "-PerrorProneRemoveRollout=ArrayToString",
-                "-PerrorProneApply=ArrayToString");
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString",
+                        "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1377,11 +1394,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle,
-                "compileAllErrorProne",
-                "-PerrorProneRemoveRollout=ArrayToString",
-                "-PerrorProneApply=ArrayToString");
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString",
+                        "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1408,8 +1425,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout=NullAway", "-PerrorProneApply=NullAway");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=NullAway", "-PerrorProneApply=NullAway")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1435,7 +1452,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout=ArrayToString");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=ArrayToString")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1462,11 +1480,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle,
-                "compileAllErrorProne",
-                "-PerrorProneRemoveRollout=ArrayToString,Test",
-                "-PerrorProneApply=Test");
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString,Test",
+                        "-PerrorProneApply=Test")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1493,8 +1511,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout", "-PerrorProneApply=ArrayToString");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout", "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1529,7 +1547,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveRollout", "-PerrorProneApply");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout", "-PerrorProneApply")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1558,7 +1577,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        InvocationResult result = runTasksWithFailure(gradle, "compileAllErrorProne");
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
 
         assertThat(result.output()).doesNotContain("[RemoveRolloutSuppressions]");
     }
@@ -1579,7 +1598,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused=ArrayToString");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused=ArrayToString")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1610,14 +1630,14 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         writeJavaSourceFileToSourceSets(rootProject, initialSource);
 
         // when: 'errorProneRemoveUnused is run by itself'
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
         // then: 'No checks are applied'
         javaSourceIsSyntacticallyEqualTo(rootProject, initialSource);
 
         // when: 'ClassCanBeStatic is applied alongside errorProneRemoveUnused'
-        runTasksSuccessfully(
-                gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneApply=ClassCanBeStatic");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneApply=ClassCanBeStatic")
+                .buildsSuccessfully();
 
         // then: 'ClassCanBeStatic is applied'
         javaSourceIsSyntacticallyEqualTo(rootProject, """
@@ -1655,7 +1675,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1707,7 +1727,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1749,7 +1769,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1790,7 +1810,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneSuppress");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneSuppress")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1844,8 +1865,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle, "compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneApply=ArrayEquals");
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneApply=ArrayEquals")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1901,12 +1922,12 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        runTasksSuccessfully(
-                gradle,
-                "compileAllErrorProne",
-                "-PerrorProneRemoveUnused",
-                "-PerrorProneSuppress",
-                "-PerrorProneApply=ArrayEquals");
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveUnused",
+                        "-PerrorProneSuppress",
+                        "-PerrorProneApply=ArrayEquals")
+                .buildsSuccessfully();
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1956,7 +1977,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        InvocationResult result = runTasksSuccessfully(gradle, "printErrorProneVersions");
+        InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
 
         // then: 'every single error-prone dependency has the same version'
         assertThat(result.output()).contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar");
@@ -1964,34 +1985,6 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     }
 
     // Helper methods
-
-    private InvocationResult runTasksSuccessfully(GradleInvoker gradle, String... tasks) {
-        String[] allTasks = new String[tasks.length + 1];
-        System.arraycopy(tasks, 0, allTasks, 0, tasks.length);
-        allTasks[tasks.length] = "-PsuppressibleErrorProneVersion=" + projectVersion;
-
-        // Note: Configuration cache is disabled at class level due to file manipulation
-        return gradle.withArgs(allTasks).buildsSuccessfully();
-    }
-
-    private InvocationResult runTasksSuccessfully(GradleInvoker gradle, String task, String[] additionalArgs) {
-        String[] allTasks = new String[additionalArgs.length + 2];
-        allTasks[0] = task;
-        System.arraycopy(additionalArgs, 0, allTasks, 1, additionalArgs.length);
-        allTasks[allTasks.length - 1] = "-PsuppressibleErrorProneVersion=" + projectVersion;
-
-        // Note: Configuration cache is disabled at class level due to file manipulation
-        return gradle.withArgs(allTasks).buildsSuccessfully();
-    }
-
-    private InvocationResult runTasksWithFailure(GradleInvoker gradle, String... tasks) {
-        String[] allTasks = new String[tasks.length + 1];
-        System.arraycopy(tasks, 0, allTasks, 0, tasks.length);
-        allTasks[tasks.length] = "-PsuppressibleErrorProneVersion=" + projectVersion;
-
-        // Note: Configuration cache is disabled at class level due to file manipulation
-        return gradle.withArgs(allTasks).buildsWithFailure();
-    }
 
     private void writeJavaSourceFileToSourceSets(RootProject rootProject, String source) {
         rootProject.sourceSet("main").java().writeClass(source.stripIndent());
