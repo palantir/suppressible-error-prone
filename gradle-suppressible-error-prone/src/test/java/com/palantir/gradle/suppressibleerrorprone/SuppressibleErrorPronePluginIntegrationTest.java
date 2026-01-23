@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.palantir.gradle.testing.execution.GradleInvoker;
 import com.palantir.gradle.testing.execution.InvocationResult;
-import com.palantir.gradle.testing.junit.DisabledConfigurationCache;
 import com.palantir.gradle.testing.junit.GradlePluginTests;
 import com.palantir.gradle.testing.project.RootProject;
 import com.palantir.javaformat.java.Formatter;
@@ -40,7 +39,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @GradlePluginTests
-@DisabledConfigurationCache("Tests manipulate files directly which is not compatible with configuration cache")
 final class SuppressibleErrorPronePluginIntegrationTest {
     private static final Formatter FORMATTER = Formatter.createFormatter(JavaFormatterOptions.builder()
             .style(JavaFormatterOptions.Style.PALANTIR)
