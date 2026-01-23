@@ -162,6 +162,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
     @Test
     void ensure_error_prone_checks_are_disabled_in_generated_code(GradleInvoker gradle, RootProject rootProject) {
+        @Language("Java")
         String erroringCode = """
             package app;
 
@@ -172,18 +173,13 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """;
 
-        Path sourceDir1 = rootProject.path().resolve("src/generated");
-        Path sourceDir2 = rootProject.path().resolve("build/generated");
+        rootProject.buildGradle().append("sourceSets.main.java.srcDirs('src/generated', 'build/generated')");
 
-        writeJavaSourceFile(erroringCode, sourceDir1);
-        writeJavaSourceFile(erroringCode.replace("App", "App2"), sourceDir2);
-
+        rootProject.directory("src/generated/app").file("App.java").overwrite(erroringCode.stripIndent());
         rootProject
-                .buildGradle()
-                .append(
-                        "sourceSets.main.java.srcDirs('%s', '%s')",
-                        rootProject.path().relativize(sourceDir1),
-                        rootProject.path().relativize(sourceDir2));
+                .directory("build/generated/app")
+                .file("App2.java")
+                .overwrite(erroringCode.replace("App", "App2").stripIndent());
 
         gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
@@ -979,43 +975,24 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     @Test
     void makes_no_changes_when_there_is_an_error_on_an_import(GradleInvoker gradle, RootProject rootProject) {
         // when: 'theres an illegal import'
-        writeJavaSourceFile("""
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             public class A {
                 public static class Inner {}
             }
-            """, rootProject.path().resolve("src/main/java"));
+            """);
 
-        writeJavaSourceFile("""
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             public class B extends A {}
-            """, rootProject.path().resolve("src/main/java"));
+            """);
 
         // This below hits the NonCanonicalStaticImport as it should refer to app.A.Inner, not app.B.Inner
-        writeJavaSourceFile("""
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             import static app.B.Inner;
             public final class App {}
-            """, rootProject.path().resolve("src/main/java"));
-
-        // Copy to other source set
-        writeJavaSourceFile("""
-            package app;
-            public class A {
-                public static class Inner {}
-            }
-            """, rootProject.path().resolve("src/other/java"));
-
-        writeJavaSourceFile("""
-            package app;
-            public class B extends A {}
-            """, rootProject.path().resolve("src/other/java"));
-
-        writeJavaSourceFile("""
-            package app;
-            import static app.B.Inner;
-            public final class App {}
-            """, rootProject.path().resolve("src/other/java"));
+            """);
 
         // then: 'compilation fails'
         InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
@@ -1992,37 +1969,6 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         rootProject.sourceSet("other").java().writeClass(source.stripIndent());
     }
 
-    private void writeJavaSourceFile(String source, Path sourceDir) {
-        try {
-            // Extract package and class name to create proper file structure
-            String className = extractClassName(source);
-
-            Path packageDir = sourceDir.resolve("app");
-            Files.createDirectories(packageDir);
-            Path javaFile = packageDir.resolve(className + ".java");
-            Files.writeString(javaFile, source.stripIndent());
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to write Java source file", e);
-        }
-    }
-
-    private static String extractClassName(String source) {
-        // Simple extraction - looks for "class X" or "interface X" etc.
-        String[] patterns = {"public final class ", "public class ", "class ", "interface ", "record ", "enum "};
-        for (String pattern : patterns) {
-            int idx = source.indexOf(pattern);
-            if (idx != -1) {
-                int start = idx + pattern.length();
-                int end = start;
-                while (end < source.length() && Character.isJavaIdentifierPart(source.charAt(end))) {
-                    end++;
-                }
-                return source.substring(start, end);
-            }
-        }
-        return "App";
-    }
-
     private void javaSourceContains(RootProject rootProject, String substring) {
         Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
         Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
@@ -2069,7 +2015,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         }
     }
 
-    private void javaSourceIsSyntacticallyEqualTo(RootProject rootProject, String source) {
+    private void javaSourceIsSyntacticallyEqualTo(RootProject rootProject, @Language("Java") String source) {
         Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
         Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
 
@@ -2089,7 +2035,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         }
     }
 
-    private void javaSourceIsSyntacticallyNotEqualTo(RootProject rootProject, String source) {
+    private void javaSourceIsSyntacticallyNotEqualTo(RootProject rootProject, @Language("Java") String source) {
         Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
         Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
 
