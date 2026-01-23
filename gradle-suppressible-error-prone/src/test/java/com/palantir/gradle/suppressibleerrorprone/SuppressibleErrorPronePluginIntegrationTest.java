@@ -16,6 +16,7 @@
 
 package com.palantir.gradle.suppressibleerrorprone;
 
+import static com.palantir.gradle.testing.assertion.GradlePluginTestAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.palantir.gradle.testing.execution.GradleInvoker;
@@ -49,9 +50,9 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     // Change the variable below to true to enable it, after setting up the standalone debugger:
     //   1. Make a new run configuration in IntelliJ of type JVM Debug
     //   2. Change it to "Listen" rather than "Attach"
-    //   3. Select Auto-restart.
+    //   3. Select Auto-restart
     //   4. Run the debugger
-    //   5. Run the tests as well
+    //   5. Debug the tests as well (Debug not run so that configuration cache testing support is disabled)
     // If the variable below is true the tests will fail as the compilation process will try to
     // attach to a non-existent debugger. Set it to false before you push any code.
     private static final boolean DEBUGGING_ERROR_PRONES = false;
@@ -136,7 +137,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
 
-        assertThat(result.output()).contains("[ArrayToString]");
+        assertThat(result).output().contains("[ArrayToString]");
     }
 
     @Test
@@ -171,15 +172,18 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """;
 
-        rootProject.buildGradle().append("sourceSets.main.java.srcDirs('src/generated', 'build/generated')");
+        rootProject.buildGradle().append("""
+            sourceSets {
+                generated {
+                    java.srcDirs('src/generated', 'build/generated')
+                }
+            }
+            """);
 
-        rootProject.directory("src/generated/app").file("App.java").overwrite(erroringCode.stripIndent());
-        rootProject
-                .directory("build/generated/app")
-                .file("App2.java")
-                .overwrite(erroringCode.replace("App", "App2").stripIndent());
+        rootProject.sourceSet("generated").java().writeClass(erroringCode);
+        rootProject.sourceSet("generated").java().writeClass(erroringCode.replace("App", "App2"));
 
-        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
+        gradle.withArgs("compileGeneratedJava").buildsSuccessfully();
     }
 
     @Test
@@ -253,7 +257,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         InvocationResult result =
                 gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsWithFailure();
 
-        assertThat(result.output()).contains("[ArrayToString]");
+        assertThat(result).output().contains("[ArrayToString]");
         javaSourceContains(rootProject, "new int[3].toString()");
     }
 
@@ -862,9 +866,9 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         InvocationResult result =
                 gradle.withArgs("compileAllErrorProne", "--dry-run").buildsSuccessfully();
 
-        assertThat(result.output()).contains(":compileJava SKIPPED");
-        assertThat(result.output()).doesNotContain(":compileTestJava SKIPPED");
-        assertThat(result.output()).contains(":compileOtherJava SKIPPED");
+        assertThat(result).output().contains(":compileJava SKIPPED");
+        assertThat(result).output().doesNotContain(":compileTestJava SKIPPED");
+        assertThat(result).output().contains(":compileOtherJava SKIPPED");
     }
 
     @Test
@@ -893,7 +897,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         // then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
         InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
-        assertThat(result.output()).contains("[FieldCanBeFinal]");
+        assertThat(result).output().contains("[FieldCanBeFinal]");
 
         // Now reset the build file and test at SUGGESTION level
         // We need a fresh project for this, so we'll just verify the initial error behavior
@@ -994,14 +998,14 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         // then: 'compilation fails'
         InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
-        assertThat(result.output()).contains("[NonCanonicalStaticImport]");
+        assertThat(result).output().contains("[NonCanonicalStaticImport]");
 
         // when: 'we try to suppress it'
         gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
         // then: 'nothing has changed as we cant put SuppressWarnings on an import'
         InvocationResult result2 = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
-        assertThat(result2.output()).contains("[NonCanonicalStaticImport]");
+        assertThat(result2).output().contains("[NonCanonicalStaticImport]");
 
         javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
@@ -1092,13 +1096,13 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                         "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneApply")
                 .buildsWithFailure();
 
-        assertThat(applyResult.output()).contains("-PerrorProneDisable cannot be used");
+        assertThat(applyResult).output().contains("-PerrorProneDisable cannot be used");
 
         InvocationResult suppressResult = gradle.withArgs(
                         "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneSuppress")
                 .buildsWithFailure();
 
-        assertThat(suppressResult.output()).contains("-PerrorProneDisable cannot be used");
+        assertThat(suppressResult).output().contains("-PerrorProneDisable cannot be used");
     }
 
     @Test
@@ -1555,7 +1559,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
 
-        assertThat(result.output()).doesNotContain("[RemoveRolloutSuppressions]");
+        assertThat(result).output().doesNotContain("[RemoveRolloutSuppressions]");
     }
 
     @Test
@@ -1956,8 +1960,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
 
         // then: 'every single error-prone dependency has the same version'
-        assertThat(result.output()).contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar");
-        assertThat(result.output()).contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
+        assertThat(result).output().contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar");
+        assertThat(result).output().contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
     }
 
     // Helper methods
