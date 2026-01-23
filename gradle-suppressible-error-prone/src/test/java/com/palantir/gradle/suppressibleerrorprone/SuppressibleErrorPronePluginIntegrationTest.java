@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -174,8 +175,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         Path sourceDir1 = rootProject.path().resolve("src/generated");
         Path sourceDir2 = rootProject.path().resolve("build/generated");
 
-        writeJavaSourceFile(rootProject, erroringCode, sourceDir1);
-        writeJavaSourceFile(rootProject, erroringCode.replace("App", "App2"), sourceDir2);
+        writeJavaSourceFile(erroringCode, sourceDir1);
+        writeJavaSourceFile(erroringCode.replace("App", "App2"), sourceDir2);
 
         rootProject
                 .buildGradle()
@@ -978,39 +979,39 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     @Test
     void makes_no_changes_when_there_is_an_error_on_an_import(GradleInvoker gradle, RootProject rootProject) {
         // when: 'theres an illegal import'
-        writeJavaSourceFile(rootProject, """
+        writeJavaSourceFile("""
             package app;
             public class A {
                 public static class Inner {}
             }
             """, rootProject.path().resolve("src/main/java"));
 
-        writeJavaSourceFile(rootProject, """
+        writeJavaSourceFile("""
             package app;
             public class B extends A {}
             """, rootProject.path().resolve("src/main/java"));
 
         // This below hits the NonCanonicalStaticImport as it should refer to app.A.Inner, not app.B.Inner
-        writeJavaSourceFile(rootProject, """
+        writeJavaSourceFile("""
             package app;
             import static app.B.Inner;
             public final class App {}
             """, rootProject.path().resolve("src/main/java"));
 
         // Copy to other source set
-        writeJavaSourceFile(rootProject, """
+        writeJavaSourceFile("""
             package app;
             public class A {
                 public static class Inner {}
             }
             """, rootProject.path().resolve("src/other/java"));
 
-        writeJavaSourceFile(rootProject, """
+        writeJavaSourceFile("""
             package app;
             public class B extends A {}
             """, rootProject.path().resolve("src/other/java"));
 
-        writeJavaSourceFile(rootProject, """
+        writeJavaSourceFile("""
             package app;
             import static app.B.Inner;
             public final class App {}
@@ -1986,12 +1987,12 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
     // Helper methods
 
-    private void writeJavaSourceFileToSourceSets(RootProject rootProject, String source) {
+    private void writeJavaSourceFileToSourceSets(RootProject rootProject, @Language("Java") String source) {
         rootProject.sourceSet("main").java().writeClass(source.stripIndent());
         rootProject.sourceSet("other").java().writeClass(source.stripIndent());
     }
 
-    private void writeJavaSourceFile(RootProject rootProject, String source, Path sourceDir) {
+    private void writeJavaSourceFile(String source, Path sourceDir) {
         try {
             // Extract package and class name to create proper file structure
             String className = extractClassName(source);
