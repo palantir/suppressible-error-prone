@@ -19,6 +19,7 @@ package com.palantir.gradle.suppressibleerrorprone;
 import static com.palantir.gradle.testing.assertion.GradlePluginTestAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.common.base.Splitter;
 import com.palantir.gradle.testing.execution.GradleInvoker;
 import com.palantir.gradle.testing.execution.InvocationResult;
 import com.palantir.gradle.testing.junit.GradlePluginTests;
@@ -31,6 +32,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
@@ -2002,16 +2004,12 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     // Normalizes Java source by trimming whitespace and applying consistent formatting.
     // Preserves newlines since the formatter allows them within methods, and we need
     // to test that error-prone doesn't introduce unwanted line breaks.
-    @SuppressWarnings("StringSplitter")
     private static String normalizeSource(String content) {
-        String[] lines = content.split("\n");
-        StringBuilder stripped = new StringBuilder();
-        for (String line : lines) {
-            stripped.append(line.trim()).append('\n');
-        }
+        String stripped =
+                Splitter.on('\n').splitToStream(content).map(String::trim).collect(Collectors.joining("\n"));
 
         try {
-            return FORMATTER.formatSource(stripped.toString());
+            return FORMATTER.formatSource(stripped);
         } catch (FormatterException e) {
             throw new RuntimeException("Failed to format source", e);
         }
