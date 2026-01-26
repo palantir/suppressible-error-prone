@@ -2006,7 +2006,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     // to test that error-prone doesn't introduce unwanted line breaks.
     private static String normalizeSource(String content) {
         String stripped =
-                Splitter.on('\n').splitToStream(content).map(String::trim).collect(Collectors.joining("\n"));
+                Splitter.on('\n').splitToStream(content).map(String::trim).collect(Collectors.joining("\n", "", "\n"));
 
         try {
             return FORMATTER.formatSource(stripped);
