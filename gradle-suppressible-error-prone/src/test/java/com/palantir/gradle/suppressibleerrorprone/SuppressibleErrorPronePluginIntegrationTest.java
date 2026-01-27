@@ -877,7 +877,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     }
 
     @Test
-    void suggestion_level_checks_are_not_suppressed(GradleInvoker gradle, RootProject rootProject) {
+    void suggestion_level_check_at_error_level_fails_compilation(GradleInvoker gradle, RootProject rootProject) {
         // The code below should hit the FieldCanBeFinal suggestion level check
         writeJavaSourceFileToSourceSets(rootProject, """
             package app;
@@ -903,13 +903,10 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         // then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
         InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
         assertThat(result).output().contains("[FieldCanBeFinal]");
-
-        // Now reset the build file and test at SUGGESTION level
-        // We need a fresh project for this, so we'll just verify the initial error behavior
     }
 
     @Test
-    void suggestion_level_checks_are_not_suppressed_at_default_level(GradleInvoker gradle, RootProject rootProject) {
+    void suggestion_level_checks_are_not_suppressed(GradleInvoker gradle, RootProject rootProject) {
         // The code below should hit the FieldCanBeFinal suggestion level check
         writeJavaSourceFileToSourceSets(rootProject, """
             package app;
