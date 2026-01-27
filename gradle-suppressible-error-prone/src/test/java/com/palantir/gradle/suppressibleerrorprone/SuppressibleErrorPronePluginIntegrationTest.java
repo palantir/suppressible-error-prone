@@ -868,9 +868,12 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         InvocationResult result =
                 gradle.withArgs("compileAllErrorProne", "--dry-run").buildsSuccessfully();
 
-        assertThat(result).output().contains(":compileJava SKIPPED");
-        assertThat(result).output().doesNotContain(":compileTestJava SKIPPED");
-        assertThat(result).output().contains(":compileOtherJava SKIPPED");
+        // Using output assertions because --dry-run doesn't produce task results
+        assertThat(result)
+                .output()
+                .contains(":compileJava SKIPPED")
+                .doesNotContain(":compileTestJava")
+                .contains(":compileOtherJava SKIPPED");
     }
 
     @Test
