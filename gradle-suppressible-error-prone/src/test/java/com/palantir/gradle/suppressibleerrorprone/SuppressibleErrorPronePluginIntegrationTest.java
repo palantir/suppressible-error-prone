@@ -186,7 +186,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         rootProject.sourceSet("generated").java().writeClass(erroringCode);
         rootProject.sourceSet("generated").java().writeClass(erroringCode.replace("App", "App2"));
 
-        gradle.withArgs("compileGeneratedJava").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
     @Test
