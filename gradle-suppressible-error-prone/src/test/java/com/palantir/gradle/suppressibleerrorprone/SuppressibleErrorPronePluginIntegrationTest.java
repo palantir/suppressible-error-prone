@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1032,15 +1033,15 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
     static Stream<Arguments> compile_tasks_are_never_up_to_date_modes() {
         return Stream.of(
-                Arguments.of((Object) new String[] {"-PerrorProneApply"}),
-                Arguments.of((Object) new String[] {"-PerrorProneSuppress"}),
-                Arguments.of((Object) new String[] {"-PerrorProneApply", "-PerrorProneSuppress"}));
+                Arguments.of(List.of("-PerrorProneApply")),
+                Arguments.of(List.of("-PerrorProneSuppress")),
+                Arguments.of(List.of("-PerrorProneApply", "-PerrorProneSuppress")));
     }
 
     @ParameterizedTest
     @MethodSource("compile_tasks_are_never_up_to_date_modes")
     void compile_tasks_are_never_up_to_date_when_applying_changes(
-            String[] mode, GradleInvoker gradle, RootProject rootProject) {
+            List<String> mode, GradleInvoker gradle, RootProject rootProject) {
         rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
@@ -1060,15 +1061,15 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
         // when: 'a compilation with code changes happens'
-        String[] args = Stream.concat(Stream.of("compileAllErrorProne"), Stream.of(mode))
-                .toArray(String[]::new);
-        gradle.withArgs(args).buildsSuccessfully();
+        List<String> args =
+                Stream.concat(Stream.of("compileAllErrorProne"), mode.stream()).toList();
+        gradle.withArgs(args.toArray(String[]::new)).buildsSuccessfully();
 
         // then: 'the source code is reset back to the original state'
         writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
         // when: 'compilation with changes runs again'
-        gradle.withArgs(args).buildsSuccessfully();
+        gradle.withArgs(args.toArray(String[]::new)).buildsSuccessfully();
 
         // then: 'changes are actually made, it was not up-to-date'
         javaSourceIsSyntacticallyNotEqualTo(rootProject, originalSource);
