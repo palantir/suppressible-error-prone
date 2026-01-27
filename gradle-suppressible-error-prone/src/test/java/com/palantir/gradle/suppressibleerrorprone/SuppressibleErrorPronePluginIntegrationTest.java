@@ -1012,22 +1012,22 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        // when: 'a compilation happens but -PerrorProneTimings is not applied'
         gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
-        // then: 'timings are not outputted'
         assertThat(rootProject.path().resolve("build/errorprone-timings/compileJava"))
+                .as("timings should not be outputted without -PerrorProneTimings")
                 .doesNotExist();
         assertThat(rootProject.path().resolve("build/errorprone-timings/compileOtherJava"))
+                .as("timings should not be outputted without -PerrorProneTimings")
                 .doesNotExist();
 
-        // when: 'a compilation happens and -PerrorProneTimings is applied'
         gradle.withArgs("compileAllErrorProne", "-PerrorProneTimings").buildsSuccessfully();
 
-        // then: 'timings are outputted'
         assertThat(rootProject.path().resolve("build/errorprone-timings/compileJava"))
+                .as("timings should be outputted with -PerrorProneTimings")
                 .exists();
         assertThat(rootProject.path().resolve("build/errorprone-timings/compileOtherJava"))
+                .as("timings should be outputted with -PerrorProneTimings")
                 .exists();
     }
 
@@ -1945,9 +1945,11 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
 
-        // then: 'every single error-prone dependency has the same version'
-        assertThat(result).output().contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar");
-        assertThat(result).output().contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
+        assertThat(result)
+                .output()
+                .as("every error-prone dependency should have the same version")
+                .contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar")
+                .contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
     }
 
     // Helper methods
