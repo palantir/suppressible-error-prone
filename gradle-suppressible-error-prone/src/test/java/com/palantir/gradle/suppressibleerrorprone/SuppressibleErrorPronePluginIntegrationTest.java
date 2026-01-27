@@ -877,35 +877,6 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     }
 
     @Test
-    void suggestion_level_check_at_error_level_fails_compilation(GradleInvoker gradle, RootProject rootProject) {
-        // The code below should hit the FieldCanBeFinal suggestion level check
-        writeJavaSourceFileToSourceSets(rootProject, """
-            package app;
-
-            public final class App {
-                private int field;
-                public App() {
-                    this.field = 3;
-                }
-                public int getField() {
-                    return field;
-                }
-            }
-            """);
-
-        // when: 'a suggestion check is made error level'
-        rootProject.buildGradle().append("""
-            tasks.withType(JavaCompile).configureEach {
-                options.errorprone.error('FieldCanBeFinal')
-            }
-            """);
-
-        // then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
-        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
-        assertThat(result).output().contains("[FieldCanBeFinal]");
-    }
-
-    @Test
     void suggestion_level_checks_are_not_suppressed(GradleInvoker gradle, RootProject rootProject) {
         // The code below should hit the FieldCanBeFinal suggestion level check
         writeJavaSourceFileToSourceSets(rootProject, """
@@ -922,7 +893,19 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             }
             """);
 
-        // when: 'the check is run at the default SUGGESTION level'
+        // First, verify the check actually runs by making it an error and confirming build failure
+        String originalBuildGradle = rootProject.buildGradle().text();
+        rootProject.buildGradle().append("""
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.error('FieldCanBeFinal')
+            }
+            """);
+
+        InvocationResult errorResult = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
+        assertThat(errorResult).output().contains("[FieldCanBeFinal]");
+
+        // Reset build.gradle and run at SUGGESTION level with suppress flag
+        rootProject.buildGradle().overwrite(originalBuildGradle);
         rootProject.buildGradle().append("""
             tasks.withType(JavaCompile).configureEach {
                 // This is disabled by default in error-prone, so enable it
