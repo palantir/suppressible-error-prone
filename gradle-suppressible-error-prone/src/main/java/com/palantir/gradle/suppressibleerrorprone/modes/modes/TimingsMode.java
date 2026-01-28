@@ -19,7 +19,9 @@ package com.palantir.gradle.suppressibleerrorprone.modes.modes;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.CommonOptions.Empty;
 import com.palantir.gradle.suppressibleerrorprone.modes.common.Mode;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import org.gradle.process.CommandLineArgumentProvider;
 
@@ -46,7 +48,11 @@ public final class TimingsMode implements Mode {
         context.javaCompile().getOptions().getCompilerArgumentProviders().add(new CommandLineArgumentProvider() {
             @Override
             public Iterable<String> asArguments() {
-                return List.of("-Xplugin:SuppressibleErrorProneTimings " + outputAbsolute);
+                // Base64 encode the path to avoid issues with spaces or special characters.
+                // Javac splits -Xplugin arguments by spaces, so unencoded paths with spaces would be truncated.
+                String encodedPath = Base64.getEncoder()
+                        .encodeToString(outputAbsolute.toString().getBytes(StandardCharsets.UTF_8));
+                return List.of("-Xplugin:SuppressibleErrorProneTimings " + encodedPath);
             }
         });
 

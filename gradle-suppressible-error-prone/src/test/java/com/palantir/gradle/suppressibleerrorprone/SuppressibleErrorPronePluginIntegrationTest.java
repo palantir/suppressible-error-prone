@@ -14,62 +14,78 @@
  * limitations under the License.
  */
 
-package com.palantir.gradle.suppressibleerrorprone
+package com.palantir.gradle.suppressibleerrorprone;
 
+import static com.palantir.gradle.testing.assertion.GradlePluginTestAssertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import com.palantir.gradle.plugintesting.ConfigurationCacheSpec
-import com.palantir.javaformat.java.JavaFormatterOptions
-import org.apache.commons.io.FileUtils
-import org.gradle.testkit.runner.BuildResult
-import spock.lang.Unroll
-import com.palantir.javaformat.java.Formatter
+import com.google.common.base.Splitter;
+import com.palantir.gradle.testing.execution.GradleInvoker;
+import com.palantir.gradle.testing.execution.InvocationResult;
+import com.palantir.gradle.testing.junit.GradlePluginTests;
+import com.palantir.gradle.testing.project.RootProject;
+import com.palantir.javaformat.java.Formatter;
+import com.palantir.javaformat.java.FormatterException;
+import com.palantir.javaformat.java.JavaFormatterOptions;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-
-class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec {
-    static Formatter formatter = Formatter.createFormatter(JavaFormatterOptions.builder().style(JavaFormatterOptions.Style.PALANTIR).build())
+@GradlePluginTests
+final class SuppressibleErrorPronePluginIntegrationTest {
+    private static final Formatter FORMATTER = Formatter.createFormatter(JavaFormatterOptions.builder()
+            .style(JavaFormatterOptions.Style.PALANTIR)
+            .build());
 
     // This makes debugging the errorprone check code running inside the compiler (including the bytecode
     // edited modifications we have made) "just work" from inside these tests.
     // Change the variable below to true to enable it, after setting up the standalone debugger:
     //   1. Make a new run configuration in IntelliJ of type JVM Debug
     //   2. Change it to "Listen" rather than "Attach"
-    //   3. Select Auto-restart.
+    //   3. Select Auto-restart
     //   4. Run the debugger
-    //   5. Run the tests as well
+    //   5. Debug the tests as well (Debug not run so that configuration cache testing support is disabled)
     // If the variable below is true the tests will fail as the compilation process will try to
     // attach to a non-existent debugger. Set it to false before you push any code.
-    boolean debuggingErrorPrones = false
+    private static final boolean DEBUGGING_ERROR_PRONES = false;
 
-    def setup() {
-        // language=Gradle
-        buildFile << '''
-            buildscript {
-                repositories {
-                    mavenCentral()
-                }
-                dependencies {
-                    classpath 'com.palantir.gradle.consistentversions:gradle-consistent-versions:3.1.0'
-                }
-            }
-            // Consistent versions checks we don't resolve configurations at configuration time and
-            // also interacts in many ways with dependencies
-            apply plugin: 'com.palantir.consistent-versions'
+    @BeforeEach
+    void setup(RootProject rootProject) {
+        String projectVersion = Optional.ofNullable(System.getProperty("projectVersion"))
+                .orElseThrow(() -> new IllegalStateException("projectVersion system property must be set"));
 
-            apply plugin: 'com.palantir.suppressible-error-prone'
-            apply plugin: 'java'
-            
+        rootProject.gradlePropertiesFile().appendProperty("suppressibleErrorProneVersion", projectVersion);
+
+        // Consistent versions checks we don't resolve configurations at configuration time and
+        // also interacts in many ways with dependencies
+        rootProject.buildGradle().plugins().add("com.palantir.consistent-versions");
+        rootProject.buildGradle().plugins().add("com.palantir.suppressible-error-prone");
+        rootProject.buildGradle().plugins().add("java");
+
+        rootProject.buildGradle().append("""
             repositories {
                 mavenCentral()
                 // Needed so that suppressible-error-prone and suppressible-error-prone-annotations can be added
                 // as jars to the various configurations. We make sure to publish these to maven local before the
-                // test task runs. 
+                // test task runs.
                 mavenLocal()
             }
-            
+
             sourceSets {
                 other
             }
-            
+
             dependencies {
                 errorprone 'com.google.errorprone:error_prone_core:2.31.0'
                 // Mimick the way SuppressibleErrorPronePlugin adds the dependency on suppressible-error-prone
@@ -77,7 +93,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 //   and be the current version
                 errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:' + project.findProperty("suppressibleErrorProneVersion")
             }
-            
+
             suppressibleErrorProne {
                 configureEachErrorProneOptions {
                     // These interfere with some tests, so disable them
@@ -87,11 +103,10 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     ignoreUnknownCheckNames = true
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        if (debuggingErrorPrones) {
-            // language=Gradle
-            buildFile << '''
+        if (DEBUGGING_ERROR_PRONES) {
+            rootProject.buildGradle().append("""
                 tasks.withType(JavaCompile).configureEach {
                     it.options.forkOptions.jvmArgumentProviders.add(new CommandLineArgumentProvider() {
                         @Override
@@ -100,324 +115,298 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                         }
                     })
                 }
-            '''.stripIndent(true)
+                """);
         }
 
-        file('gradle.properties') << '''
-            __TESTING=true
-            __TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM=true
-        '''.stripIndent(true)
+        rootProject
+                .gradlePropertiesFile()
+                .appendProperty("__TESTING", "true")
+                .appendProperty("__TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM", "true");
 
-        file('versions.lock')
+        rootProject.file("versions.lock").createEmpty();
     }
 
-    def 'reports a failing error prone'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void reports_a_failing_error_prone(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        def stderr = runTasksWithFailure('compileAllErrorProne').output
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
 
-        then:
-        stderr.contains('[ArrayToString]')
+        assertThat(result).output().contains("[ArrayToString]");
     }
 
-    def 'can suppress an error prone with for-rollout prefix'() {
+    @Test
+    void can_suppress_an_error_prone_with_for_rollout_prefix(GradleInvoker gradle, RootProject rootProject) {
         // This test is explicitly checking we suppress the for-rollout prefix as that is what exists
         // in people's codebases
 
-        when:
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        then:
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'ensure error prone checks are disabled in generated code'() {
-        // language=Java
-        def erroringCode = '''
+    @Test
+    void ensure_error_prone_checks_are_disabled_in_generated_code(GradleInvoker gradle, RootProject rootProject) {
+        @Language("Java")
+        String erroringCode = """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """;
 
+        rootProject.buildGradle().append("""
+            sourceSets {
+                generated {
+                    java.srcDirs('src/generated', 'build/generated')
+                }
+            }
+            """);
 
-        when:
-        def sourceDir1 = new File(projectDir, 'src/generated')
-        def sourceDir2 = new File(projectDir, 'build/generated')
+        rootProject.sourceSet("generated").java().writeClass(erroringCode);
+        rootProject.sourceSet("generated").java().writeClass(erroringCode.replace("App", "App2"));
 
-        writeJavaSourceFile(erroringCode, sourceDir1)
-        writeJavaSourceFile(erroringCode.replace('App', 'App2'), sourceDir2)
-
-        buildFile << """
-            sourceSets.main.java.srcDirs('${projectDir.relativePath(sourceDir1)}', '${projectDir.relativePath(sourceDir2)}')
-        """.stripIndent(true)
-
-        then:
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'can apply patches for a check if added to the patchChecks list'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void can_apply_patches_for_a_check_if_added_to_the_patchChecks_list(GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
-        then:
-        runTasksSuccessfully('compileAllErrorProne')
-
-        javaSourceContains('Arrays.toString(new int[3])')
+        javaSourceContains(rootProject, "Arrays.toString(new int[3])");
     }
 
-    def 'does not apply patches for a check if not added to the patchChecks list'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void does_not_apply_patches_for_a_check_if_not_added_to_the_patchChecks_list(
+            GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 // To make sure set is not empty
                 patchChecks = ['SomeCheck']
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
-        then:
-        javaSourceContains('new int[3].toString()')
+        javaSourceContains(rootProject, "new int[3].toString()");
     }
 
-    def 'does not apply patches if there is nothing in patchChecks set'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void does_not_apply_patches_if_there_is_nothing_in_patchChecks_set(GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.empty()
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
         // Doesn't actually do any patching as the set is empty. It just does a normal compile that fails.
-        def stderr = runTasksWithFailure('compileAllErrorProne', '-PerrorProneApply').output
+        InvocationResult result =
+                gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsWithFailure();
 
-        then:
-        stderr.contains('[ArrayToString]')
-        javaSourceContains('new int[3].toString()')
+        assertThat(result).output().contains("[ArrayToString]");
+        javaSourceContains(rootProject, "new int[3].toString()");
     }
 
-    def 'does not apply patches for check that was explicitly disabled'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void does_not_apply_patches_for_check_that_was_explicitly_disabled(GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-            
+
             tasks.withType(JavaCompile).configureEach {
                 options.errorprone.disable 'ArrayToString'
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
-        then:
-        javaSourceContains('new int[3].toString()')
+        javaSourceContains(rootProject, "new int[3].toString()");
     }
 
-    def 'can patch specific checks using -PerrorProneApply'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_patch_specific_checks_using_errorProneApply(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                     new int[2].equals(new int[1]);
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply=ArrayToString,ArrayEquals')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply=ArrayToString,ArrayEquals")
+                .buildsSuccessfully();
 
-        then:
-        javaSourceContains('Arrays.toString(new int[3])')
-        javaSourceContains('Arrays.equals(new int[2], new int[1])')
+        javaSourceContains(rootProject, "Arrays.toString(new int[3])");
+        javaSourceContains(rootProject, "Arrays.equals(new int[2], new int[1])");
     }
 
-    def 'can suppress a failing check (even if not in patchChecks set)'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_suppress_a_failing_check_even_if_not_in_patchChecks_set(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
-        javaSourceContains('@SuppressWarnings(\"for-rollout:ArrayToString\")')
+        javaSourceContains(rootProject, "@SuppressWarnings(\"for-rollout:ArrayToString\")");
 
-
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'does not apply SuppressWarnings to implicit lambda parameters'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_apply_suppress_warnings_to_implicit_lambda_parameters(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             import java.util.stream.Stream;
-            
+
             public class App {
                 void test() {
                     Stream.of(new Object()).forEach(o -> o.toString());
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
         // Suppression should be on the method, not the lambda parameter
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo """
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             import java.util.stream.Stream;
-            
+
             public class App {
                 @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
                 void test() {
                     Stream.of(new Object()).forEach(o -> o.toString());
                 }
             }
-        """.stripIndent(true)
+            """);
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the lambda implicit parameter which is not valid java
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'does not apply SuppressWarnings to explicit lambda parameters'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_apply_suppress_warnings_to_explicit_lambda_parameters(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             import java.util.stream.Stream;
-            
+
             public class App {
                 void test() {
                     Stream.of(new Object()).forEach((Object o) -> o.toString());
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
         // Suppression should be on the method, not the lambda parameter
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo("""
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             import java.util.stream.Stream;
-            
+
             public class App {
                 @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
                 void test() {
                     Stream.of(new Object()).forEach((Object o) -> o.toString());
                 }
             }
-        """.stripIndent(true))
+            """);
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the lambda implicit parameter which is not valid java
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'does not apply SuppressWarnings to anonymous classes'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_apply_suppress_warnings_to_anonymous_classes(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             import java.util.stream.Stream;
-            
+
             public class App {
                 void test() {
                     new Object() {
@@ -427,19 +416,16 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     };
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
         // Suppression should be on the method, not the anonymous class
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo("""
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             import java.util.stream.Stream;
-            
+
             public class App {
                 @SuppressWarnings("for-rollout:TestCheckNoSingleLetterVariable")
                 void test() {
@@ -450,25 +436,25 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     };
                 }
             }
-        """.stripIndent(true))
+            """);
 
         // Verify the code still compiles after the suppression has been applied, as previous versions
         //   were adding the annotation to the anonymous class which is not valid java
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'demonstrate suppressions on different source elements'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void demonstrate_suppressions_on_different_source_elements(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public final String field = new int[3].toString();
 
                 public App() {
                     new int[3].toString();
                 }
-                
+
                 public void method() {
                     new int[3].toString();
                 }
@@ -476,32 +462,29 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 public void variables() {
                     String variable = new int[3].toString();
                 }
-                
+
                 public static class SomeClass {
                     static {
                         new int[3].toString();
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public final String field = new int[3].toString();
-                
+
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public App() {
                     new int[3].toString();
                 }
-                
+
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public void method() {
                     new int[3].toString();
@@ -511,7 +494,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     @SuppressWarnings("for-rollout:ArrayToString")
                     String variable = new int[3].toString();
                 }
-                
+
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static class SomeClass {
                     static {
@@ -519,61 +502,59 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'supports errorprone checks that match on a larger element than they report errors on'() {
+    @Test
+    void supports_errorprone_checks_that_match_on_a_larger_element_than_they_report_errors_on(
+            GradleInvoker gradle, RootProject rootProject) {
         // The UnusedVariable check implements CompilationUnitTreeMatcher, so will start with a whole
         // CompilationUnitTree and then narrows down to the specific variable declaration that is unused.
         // This trips up the "naive" suppression logic, which looks at where the visitor has got to rather
         // than where the diagnostic description was produced.
 
-        // language=Gradle
-        buildFile << '''
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 configureEachErrorProneOptions {
                     enable('UnusedVariable')
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public void variables() {
                     String variable;
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 public void variables() {
                     @SuppressWarnings("for-rollout:UnusedVariable")
                     String variable;
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'supports suppressing errorprone checks on classes, interfaces, records, enums, etc'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void supports_suppressing_errorprone_checks_on_classes_interfaces_records_enums_etc(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 static class exports {}
                 interface opens {}
@@ -581,175 +562,164 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 enum to {;}
                 @interface module {}
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 static class exports {}
-                
+
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 interface opens {}
-                
+
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 record provides(int cat) {}
-                
+
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 enum to {
                     ;
                 }
-                
+
                 @SuppressWarnings("for-rollout:NamedLikeContextualKeyword")
                 @interface module {}
             }
-        '''.stripIndent(true)
+            """);
 
-
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'does not place suppress warnings annotation in the middle of a Type.Builder variables reference'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_place_suppress_warnings_annotation_in_the_middle_of_a_type_builder_variables_reference(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     App.Builder builder = new App.Builder(new int[3].toString());
                 }
-                
+
                 static class Builder {
                     Builder(Object object) {}
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("UnusedVariable")
                 public static void main(String[] args) {
                     @SuppressWarnings("for-rollout:ArrayToString")
                     App.Builder builder = new App.Builder(new int[3].toString());
                 }
-                
+
                 static class Builder {
                     Builder(Object object) {}
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'can run apply and suppress at the same time - it uses the suggested fix if a patch check, suppresses otherwise'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void can_run_apply_and_suppress_at_the_same_time_it_uses_the_suggested_fix_if_a_patch_check_suppresses_otherwise(
+            GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                     new int[3].equals(new int[3]);
                 }
-                
+
                 // Does not remove existing suppressions
                 @SuppressWarnings("checkstyle:LineLength")
                 public static void helper() {
                     new int[3].equals(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
                     new int[3].equals(new int[3]);
                 }
-                                
+
                 // Does not remove existing suppressions
                 @SuppressWarnings({"checkstyle:LineLength", "for-rollout:ArrayEquals"})
                 public static void helper() {
                     new int[3].equals(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'can run apply and suppress at the same time with IfModuleIsUsed without exploding'() {
-        // language=Gradle
-        buildFile << '''
-            import com.palantir.gradle.suppressibleerrorprone.ConditionalPatchCheck 
+    @Test
+    void can_run_apply_and_suppress_at_the_same_time_with_if_module_is_used_without_exploding(
+            GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
+            import com.palantir.gradle.suppressibleerrorprone.ConditionalPatchCheck
             import com.palantir.gradle.suppressibleerrorprone.IfModuleIsUsed
-            
+
             suppressibleErrorProne {
                 conditionalPatchChecks.add(new ConditionalPatchCheck(
                         new IfModuleIsUsed('com.fasterxml.jackson.core', 'jackson-core'), 'ArrayToString'))
             }
-            
+
             dependencies {
                 implementation 'com.fasterxml.jackson.core:jackson-core:2.17.1'
                 otherImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.1'
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                     new int[3].equals(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply", "-PerrorProneSuppress")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayEquals")
                 public static void main(String[] args) {
@@ -757,76 +727,75 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     new int[3].equals(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
     }
 
-    def 'can disable errorprone using property'() {
-        when: 'there is java code some that will fail an errorprone during compilation'
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_disable_errorprone_using_property(GradleInvoker gradle, RootProject rootProject) {
+        // when: 'there is java code some that will fail an errorprone during compilation'
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        then: 'compilation succeeds when errorprone is disabled'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneDisable')
-        runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable')
-        runTasksSuccessfully('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable=true')
+        // then: 'compilation succeeds when errorprone is disabled'
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneDisable").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable")
+                .buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable=true")
+                .buildsSuccessfully();
 
-        then: 'compilation fails the legacy baseline errorprone disable property is set to false'
-        runTasksWithFailure('compileAllErrorProne', '-Pcom.palantir.baseline-error-prone.disable=false')
+        // then: 'compilation fails the legacy baseline errorprone disable property is set to false'
+        gradle.withArgs("compileAllErrorProne", "-Pcom.palantir.baseline-error-prone.disable=false")
+                .buildsWithFailure();
     }
 
-    def 'should be able to refactor near usages of deprecated methods'() {
+    @Test
+    void should_be_able_to_refactor_near_usages_of_deprecated_methods(GradleInvoker gradle, RootProject rootProject) {
         // If a deprecated method usage appears in a compilation unit that is being refactored, the compiler will
         // raise a warning about the deprecated method usage. If -Werror is also enabled, compilation will fail
         // rather than succeed, even when patching checks. The code should make sure to disable the -Werror
         // behaviour so patching always succeeds.
 
-        // language=Gradle
-        buildFile << '''
+        rootProject.buildGradle().append("""
             tasks.withType(JavaCompile) {
                 options.compilerArgs += ['-Werror', '-Xlint:deprecation']
                 doFirst {
                     println "COMPILER ARGS: ${options.compilerArgs}"
                 }
             }
-            
+
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-         
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     Character.isJavaLetter('c'); // deprecated method
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
-        then:
-        javaSourceContains('Arrays.toString(new int[3])')
+        javaSourceContains(rootProject, "Arrays.toString(new int[3])");
     }
 
-    def 'can conditionally add patch checks'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void can_conditionally_add_patch_checks(GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             import com.palantir.gradle.suppressibleerrorprone.ConditionalPatchCheck
 
             suppressibleErrorProne {
@@ -834,31 +803,28 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 conditionalPatchChecks.add(new ConditionalPatchCheck({ true }, 'ArrayToString'))
                 conditionalPatchChecks.add(new ConditionalPatchCheck({ false }, Set.of('ArrayEquals')))
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                     new int[2].equals(new int[1]);
                 }
             }
-        '''.stripIndent(true)
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
+            """);
 
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
 
-        then:
-        javaSourceContains('Arrays.toString(new int[3])')
-        javaSourceContains('new int[2].equals(new int[1])')
+        javaSourceContains(rootProject, "Arrays.toString(new int[3])");
+        javaSourceContains(rootProject, "new int[2].equals(new int[1])");
     }
 
-    def 'IfModuleIsUsed works properly'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void if_module_is_used_works_properly(GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             import com.palantir.gradle.suppressibleerrorprone.ConditionalPatchCheck
             import com.palantir.gradle.suppressibleerrorprone.IfModuleIsUsed
 
@@ -866,58 +832,57 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 conditionalPatchChecks.add(new ConditionalPatchCheck(new IfModuleIsUsed('com.fasterxml.jackson.core', 'jackson-core'), 'ArrayToString'))
                 conditionalPatchChecks.add(new ConditionalPatchCheck(new IfModuleIsUsed('doesnt', 'exist'), 'ArrayEquals'))
             }
-            
+
             dependencies {
                 // Depends on jackson-core
                 implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
                 otherImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                     new int[2].equals(new int[1]);
                 }
             }
-        '''.stripIndent(true)
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneApply')
+            """);
 
-        then:
-        javaSourceContains('Arrays.toString(new int[3])')
-        javaSourceContains('new int[2].equals(new int[1])')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneApply").buildsSuccessfully();
+
+        javaSourceContains(rootProject, "Arrays.toString(new int[3])");
+        javaSourceContains(rootProject, "new int[2].equals(new int[1])");
     }
 
-    def 'compileAllErrorProne only depends on compile tasks with errorprone enabled'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void compileAllErrorProne_only_depends_on_compile_tasks_with_errorprone_enabled(
+            GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             tasks.named('compileTestJava').configure {
                 options.errorprone.enabled = false
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        def stdout = runTasksSuccessfully('compileAllErrorProne', '--dry-run').output
+        InvocationResult result =
+                gradle.withArgs("compileAllErrorProne", "--dry-run").buildsSuccessfully();
 
-        then:
-        stdout.contains(':compileJava SKIPPED')
-        !stdout.contains(':compileTestJava SKIPPED')
-        stdout.contains(':compileOtherJava SKIPPED')
+        // Using output assertions because --dry-run doesn't produce task results
+        assertThat(result)
+                .output()
+                .contains(":compileJava SKIPPED")
+                .doesNotContain(":compileTestJava")
+                .contains(":compileOtherJava SKIPPED");
     }
 
-    def 'SUGGESTION level checks are not suppressed'() {
-        def originalBuildFile = buildFile.text
-
+    @Test
+    void suggestion_level_checks_are_not_suppressed(GradleInvoker gradle, RootProject rootProject) {
         // The code below should hit the FieldCanBeFinal suggestion level check
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 private int field;
                 public App() {
@@ -927,232 +892,231 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     return field;
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when: 'a suggestion check is made error level'
-        // language=Gradle
-        buildFile << '''
+        // First, verify the check actually runs by making it an error and confirming build failure
+        String originalBuildGradle = rootProject.buildGradle().text();
+        rootProject.buildGradle().append("""
             tasks.withType(JavaCompile).configureEach {
                 options.errorprone.error('FieldCanBeFinal')
             }
-        '''.stripIndent(true)
+            """);
 
-        then: 'it causes the test code to fail compilation, confirming the check is being run on the code'
-        def stderr = runTasksWithFailure('compileAllErrorProne').output
-        stderr.contains('[FieldCanBeFinal]')
+        InvocationResult errorResult = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
+        assertThat(errorResult).output().contains("[FieldCanBeFinal]");
 
-        when: 'the check is run at the default SUGGESTION level, and then automated suppressions are not applied'
-        buildFile.text = originalBuildFile
-        // language=Gradle
-        buildFile << '''
+        // Reset build.gradle and run at SUGGESTION level with suppress flag
+        rootProject.buildGradle().overwrite(originalBuildGradle);
+        rootProject.buildGradle().append("""
             tasks.withType(JavaCompile).configureEach {
                 // This is disabled by default in error-prone, so enable it
                 //   https://github.com/google/error-prone/blob/04f05c24882152d3c84f4caf9345efd15859b928/core/src/main/java/com/google/errorprone/scanner/BuiltInCheckerSuppliers.java#L1191
                 options.errorprone.enable('FieldCanBeFinal')
             }
-        '''.stripIndent(true)
+            """);
 
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then: 'it is not suppressed'
-        javaSourceDoesNotContain("SuppressWarnings")
+        // then: 'it is not suppressed'
+        javaSourceDoesNotContain(rootProject, "SuppressWarnings");
     }
 
-    def 'WARNING level checks are suppressed'() {
-        when: 'the check is at warning level'
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void warning_level_checks_are_suppressed(GradleInvoker gradle, RootProject rootProject) {
+        // when: 'the check is at warning level'
+        rootProject.buildGradle().append("""
             tasks.withType(JavaCompile).configureEach {
                 options.errorprone.warn('ArrayToString')
             }
-        '''.stripIndent(true)
+            """);
 
         // The code below should hit the LongDoubleConversion warning level check
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String... args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        then: 'compilation does not fail'
-        runTasksSuccessfully('compileAllErrorProne')
+        // then: 'compilation does not fail'
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
-        when: 'the check is run at the default WARNING level, and then automated suppressions are applied'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        // when: 'the check is run at the default WARNING level, and then automated suppressions are applied'
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then: 'it is suppressed'
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        // then: 'it is suppressed'
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String... args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'makes no changes when there is an error on an import'() {
-        when: 'theres an illegal import'
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void makes_no_changes_when_there_is_an_error_on_an_import(GradleInvoker gradle, RootProject rootProject) {
+        // when: 'theres an illegal import'
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             public class A {
                 public static class Inner {}
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             public class B extends A {}
-        '''.stripIndent(true)
+            """);
 
         // This below hits the NonCanonicalStaticImport as it should refer to app.A.Inner, not app.B.Inner
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             import static app.B.Inner;
             public final class App {}
-        '''.stripIndent(true)
+            """);
 
-        then: 'compilation fails'
-        def stderr = runTasksWithFailure('compileAllErrorProne').output
-        stderr.contains('[NonCanonicalStaticImport]')
+        // then: 'compilation fails'
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
+        assertThat(result).output().contains("[NonCanonicalStaticImport]");
 
-        when: 'we try to suppress it'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        // when: 'we try to suppress it'
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then: 'nothing has changed as we cant put SuppressWarnings on an import'
-        def stderr2 = runTasksWithFailure('compileAllErrorProne').output
-        stderr2.contains('[NonCanonicalStaticImport]')
+        // then: 'nothing has changed as we cant put SuppressWarnings on an import'
+        InvocationResult result2 = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
+        assertThat(result2).output().contains("[NonCanonicalStaticImport]");
 
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             import static app.B.Inner;
-            
+
             public final class App {}
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'timings are outputted'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void timings_are_outputted(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String... args) {}
             }
-        '''.stripIndent(true)
+            """);
 
-        when: 'a compilation happens but -PerrorProneTimings is not applied'
-        runTasksSuccessfully('compileAllErrorProne')
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
 
-        then: 'timings are not outputted'
-        !new File(projectDir, 'build/errorprone-timings/compileJava').exists()
-        !new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+        assertThat(rootProject.path().resolve("build/errorprone-timings/compileJava"))
+                .as("timings should not be outputted without -PerrorProneTimings")
+                .doesNotExist();
+        assertThat(rootProject.path().resolve("build/errorprone-timings/compileOtherJava"))
+                .as("timings should not be outputted without -PerrorProneTimings")
+                .doesNotExist();
 
-        when: 'a compilation happens and -PerrorProneTimings is applied'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneTimings')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneTimings").buildsSuccessfully();
 
-        then: 'timings are outputted'
-        new File(projectDir, 'build/errorprone-timings/compileJava').exists()
-        new File(projectDir, 'build/errorprone-timings/compileOtherJava').exists()
+        assertThat(rootProject.path().resolve("build/errorprone-timings/compileJava"))
+                .as("timings should be outputted with -PerrorProneTimings")
+                .exists();
+        assertThat(rootProject.path().resolve("build/errorprone-timings/compileOtherJava"))
+                .as("timings should be outputted with -PerrorProneTimings")
+                .exists();
     }
 
-    @Unroll
-    def 'compile tasks are never up-to-date when applying changes under #mode'() {
-        // language=Gradle
-        buildFile << '''
+    static Stream<Arguments> compile_tasks_are_never_up_to_date_modes() {
+        return Stream.of(
+                Arguments.of(List.of("-PerrorProneApply")),
+                Arguments.of(List.of("-PerrorProneSuppress")),
+                Arguments.of(List.of("-PerrorProneApply", "-PerrorProneSuppress")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("compile_tasks_are_never_up_to_date_modes")
+    void compile_tasks_are_never_up_to_date_when_applying_changes(
+            List<String> mode, GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        def originalSource = '''
+        String originalSource = """
             package app;
-            
+
             public final class App {
                 public static void main(String... args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """;
 
-        writeJavaSourceFileToSourceSets originalSource
+        writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
-        when: 'a compilation with code changes happens'
-        runTasksSuccessfully('compileAllErrorProne', *mode)
+        // when: 'a compilation with code changes happens'
+        List<String> args =
+                Stream.concat(Stream.of("compileAllErrorProne"), mode.stream()).toList();
+        gradle.withArgs(args.toArray(String[]::new)).buildsSuccessfully();
 
-        then: 'the source code is reset back to the original state'
-        writeJavaSourceFileToSourceSets originalSource
+        // then: 'the source code is reset back to the original state'
+        writeJavaSourceFileToSourceSets(rootProject, originalSource);
 
-        when: 'compilation with changes runs again'
-        runTasksSuccessfully('compileAllErrorProne', *mode)
+        // when: 'compilation with changes runs again'
+        gradle.withArgs(args.toArray(String[]::new)).buildsSuccessfully();
 
-        then: 'changes are actually made, it was not up-to-date'
-        javaSourceIsSyntacticallyNotEqualTo originalSource
-
-        where:
-        mode << [
-                ['-PerrorProneApply'],
-                ['-PerrorProneSuppress'],
-                ['-PerrorProneApply', '-PerrorProneSuppress']
-        ]
+        // then: 'changes are actually made, it was not up-to-date'
+        javaSourceIsSyntacticallyNotEqualTo(rootProject, originalSource);
     }
 
-    def 'throws exception when -PerrorProneDisable is combined with -PerrorProneApply or -PerrorProneSuppress'() {
-        when:
-        def applyOutput = runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneApply').output
+    @Test
+    void throws_exception_when_errorProneDisable_is_combined_with_errorProneApply_or_errorProneSuppress(
+            GradleInvoker gradle, RootProject rootProject) {
+        InvocationResult applyResult = gradle.withArgs(
+                        "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneApply")
+                .buildsWithFailure();
 
-        then:
-        applyOutput.contains '-PerrorProneDisable cannot be used'
+        assertThat(applyResult).output().contains("-PerrorProneDisable cannot be used");
 
-        when:
-        def suppressOutput = runTasksWithFailure('compileAllErrorProne', '-PerrorProneDisable', '-PerrorProneSuppress').output
+        InvocationResult suppressResult = gradle.withArgs(
+                        "compileAllErrorProne", "-PerrorProneDisable", "-PerrorProneSuppress")
+                .buildsWithFailure();
 
-        then:
-        suppressOutput.contains '-PerrorProneDisable cannot be used'
+        assertThat(suppressResult).output().contains("-PerrorProneDisable cannot be used");
     }
 
-    // This test also verifies we're properly passing the arguments to the errorprone plugin
-    def 'supports removing specific error prone suppressions'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void supports_removing_specific_error_prone_suppressions(GradleInvoker gradle, RootProject rootProject) {
+        // This test also verifies we're properly passing the arguments to the errorprone plugin
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Test')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=Test")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {}
-        '''.stripIndent(true)
+            """);
     }
 
-    // This test also verifies we're properly passing the arguments to the errorprone plugin
-    def 'supports removing all error prone suppressions'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void supports_removing_all_error_prone_suppressions(GradleInvoker gradle, RootProject rootProject) {
+        // This test also verifies we're properly passing the arguments to the errorprone plugin
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             // We can remove entire lines
             @SuppressWarnings("for-rollout:Test")
             public final class App {
@@ -1160,125 +1124,118 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 @SuppressWarnings({"for-rollout:Test", "Test"})
                 void nested() {}
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             // We can remove entire lines
             public final class App {
                 // We keep non-rollout suppressions untouched
                 @SuppressWarnings("Test")
                 void nested() {}
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    // This test also verifies we're properly passing the arguments to the errorprone plugin
-    def 'does not remove suppressions other than requested'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_remove_suppressions_other_than_requested(GradleInvoker gradle, RootProject rootProject) {
+        // This test also verifies we're properly passing the arguments to the errorprone plugin
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=Other')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=Other")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'does not suppress RemoveRolloutSuppressions'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_suppress_remove_rollout_suppressions(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             @SuppressWarnings("for-rollout:Test")
             public final class App {}
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'RemoveRolloutSuppressions can remove itself'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void remove_rollout_suppressions_can_remove_itself(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             @SuppressWarnings("for-rollout:RemoveRolloutSuppressions")
             public final class App {}
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=RemoveRolloutSuppressions')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=RemoveRolloutSuppressions")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {}
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'can patch checks while using -PerrorProneRemoveRollout, even if suppressed for rollout'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_patch_checks_while_using_errorProneRemoveRollout_even_if_suppressed_for_rollout(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString",
+                        "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'can patch checks while using -PerrorProneRemoveRollout, which also add annotations as fixes'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_patch_checks_while_using_errorProneRemoveRollout_which_also_add_annotations_as_fixes(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             public final class App {
@@ -1287,23 +1244,25 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     return null;
                 }
 
-                @SuppressWarnings("for-rollout:ShouldBeNullable")       
+                @SuppressWarnings("for-rollout:ShouldBeNullable")
                 private Object fixme(Object andMySuppressionHasWhiteSpaceAfterIt) {
                     return null;
                 }
-                
+
                 @SuppressWarnings({"for-rollout:ShouldBePrivate", "for-rollout:ShouldBeNullable"})
                 Integer fixme(Integer i) {
                     return null;
                 }
             }
-        '''.stripIndent(true)
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ShouldBeNullable,ShouldBePrivate', '-PerrorProneApply=ShouldBeNullable,ShouldBePrivate')
+            """);
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ShouldBeNullable,ShouldBePrivate",
+                        "-PerrorProneApply=ShouldBeNullable,ShouldBePrivate")
+                .buildsSuccessfully();
+
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import javax.annotation.Nullable;
@@ -1318,18 +1277,19 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 private Object fixme(Object andMySuppressionHasWhiteSpaceAfterIt) {
                     return null;
                 }
-                
+
                 @Nullable
                 private Integer fixme(Integer i) {
                     return null;
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def '-PerrorProneSuppress then -PerrorProneRemoveRollout does not add newlines'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneSuppress_then_errorProneRemoveRollout_does_not_add_newlines(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             public final class App {
@@ -1337,14 +1297,14 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     return null;
                 }
             }
-        '''.stripIndent(true)
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneSuppress=ShouldBeNullable')
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ShouldBeNullable')
+            """);
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress=ShouldBeNullable")
+                .buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=ShouldBeNullable")
+                .buildsSuccessfully();
+
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             public final class App {
@@ -1352,130 +1312,130 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     return null;
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-
-    def 'does not patch checks while using -PerrorProneRemoveRollout, if suppressed normally'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void does_not_patch_checks_while_using_errorProneRemoveRollout_if_suppressed_normally(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString",
+                        "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'can patch checks while using -PerrorProneRemoveRollout, if not suppressed'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_patch_checks_while_using_errorProneRemoveRollout_if_not_suppressed(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString', '-PerrorProneApply=ArrayToString')
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString",
+                        "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveRollout does not patch unrelated checks'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveRollout_does_not_patch_unrelated_checks(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=NullAway', '-PerrorProneApply=NullAway')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=NullAway", "-PerrorProneApply=NullAway")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveRollout does not patch by itself'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveRollout_does_not_patch_by_itself(GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout=ArrayToString")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveRollout does not patch if specific check is not selected'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveRollout_does_not_patch_if_specific_check_is_not_selected(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             @SuppressWarnings("for-rollout:Test")
             public final class App {
@@ -1484,151 +1444,146 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout=ArrayToString,Test', '-PerrorProneApply=Test')
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveRollout=ArrayToString,Test",
+                        "-PerrorProneApply=Test")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'can patch specific checks even if errorProneRemoveRollout argument is empty'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void can_patch_specific_checks_even_if_errorProneRemoveRollout_argument_is_empty(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout', '-PerrorProneApply=ArrayToString')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout", "-PerrorProneApply=ArrayToString")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'can patch configured checks even if errorProneRemoveRollout argument is empty'() {
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void can_patch_configured_checks_even_if_errorProneRemoveRollout_argument_is_empty(
+            GradleInvoker gradle, RootProject rootProject) {
+        rootProject.buildGradle().append("""
             suppressibleErrorProne {
                 patchChecks.add('ArrayToString')
             }
-        '''.stripIndent(true)
+            """);
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:ArrayToString")
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveRollout', '-PerrorProneApply')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout", "-PerrorProneApply")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
-            
+
             public final class App {
                 public static void main(String[] args) {
                     Arrays.toString(new int[3]);
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'RemoveRolloutSuppressions does not appear as a Note: [RemoveRolloutSuppressions] in unrelated errors'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void remove_rollout_suppressions_does_not_appear_as_a_note_in_unrelated_errors(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
-            
+
             public final class App {
                 @SuppressWarnings("for-rollout:NullAway")
                 public static void method() {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        def output = runTasksWithFailure('compileAllErrorProne').output
+        InvocationResult result = gradle.withArgs("compileAllErrorProne").buildsWithFailure();
 
-        then:
-        !output.contains('[RemoveRolloutSuppressions]')
+        assertThat(result).output().doesNotContain("[RemoveRolloutSuppressions]");
     }
 
-    def 'errorProneRemoveUnused removes only unused error-prone suppressions, and leaves unknown suppressions untouched'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveUnused_removes_only_unused_error_prone_suppressions_and_leaves_unknown_suppressions_untouched(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             @SuppressWarnings({"ArrayToString", "UnnecessaryFinal", "InlineTrivialConstant", "NotAnErrorProne", "checkstyle:Bla",})
             public final class App {
                 private static final String EMPTY_STRING = "";
- 
+
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused=ArrayToString')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused=ArrayToString")
+                .buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             @SuppressWarnings({"ArrayToString", "InlineTrivialConstant", "NotAnErrorProne", "checkstyle:Bla"})
             public final class App {
                 private static final String EMPTY_STRING = "";
- 
+
                 public static void main(String[] args) {
                     new int[3].toString();
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused does not apply fixes'() {
-        given:
-        // language=Java
-        def initialSource = '''
+    @Test
+    void errorProneRemoveUnused_does_not_apply_fixes(GradleInvoker gradle, RootProject rootProject) {
+        String initialSource = """
             package app;
 
             public final class App {
@@ -1636,22 +1591,22 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     class InnerInner {}
                 }
             }
-        '''.stripIndent(true)
+            """;
 
-        writeJavaSourceFileToSourceSets initialSource
+        writeJavaSourceFileToSourceSets(rootProject, initialSource);
 
-        when: 'errorProneRemoveUnused is run by itself'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        // when: 'errorProneRemoveUnused is run by itself'
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
-        then: 'No checks are applied'
-        javaSourceIsSyntacticallyEqualTo initialSource
+        // then: 'No checks are applied'
+        javaSourceIsSyntacticallyEqualTo(rootProject, initialSource);
 
-        when: 'ClassCanBeStatic is applied alongside errorProneRemoveUnused'
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ClassCanBeStatic')
+        // when: 'ClassCanBeStatic is applied alongside errorProneRemoveUnused'
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneApply=ClassCanBeStatic")
+                .buildsSuccessfully();
 
-        then: 'ClassCanBeStatic is applied'
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        // then: 'ClassCanBeStatic is applied'
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             public final class App {
@@ -1659,21 +1614,22 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     static class InnerInner {}
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused only keeps the closest suppression to a violation'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveUnused_only_keeps_the_closest_suppression_to_a_violation(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             @SuppressWarnings("InlineTrivialConstant")
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 @SuppressWarnings("InlineTrivialConstant")
-                class Inner { 
+                class Inner {
                     @SuppressWarnings("InlineTrivialConstant")
                     class InnerInner {
                         @SuppressWarnings("InlineTrivialConstant")
@@ -1683,21 +1639,17 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        def result = runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
-        then:
-
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 class Inner {
                     class InnerInner {
                         @SuppressWarnings("InlineTrivialConstant")
@@ -1707,46 +1659,43 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused handles multiple suppressions on different tree types gracefully'() {
+    @Test
+    void errorProneRemoveUnused_handles_multiple_suppressions_on_different_tree_types_gracefully(
+            GradleInvoker gradle, RootProject rootProject) {
         // Here we test the three types of trees you can suppress — ClassTree, MethodTree, VariableTree
 
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 // Doesn't move an already existing suppression, even if it could be closer to the violation
                 @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                 static class Inner {
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
                     boolean truism = new int[3].equals(new int[3]);
-                    
+
                     @SuppressWarnings("InlineTrivialConstant")
                     static class InnerInner {
                         @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                         void method() {
                             new int[3].equals(new int[3]);
-                        } 
+                        }
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
-        then:
-
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             public final class App {
@@ -1769,85 +1718,81 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused removes entire SuppressWarnings annotation when all suppressions are unused'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
-        package app;
+    @Test
+    void errorProneRemoveUnused_removes_entire_suppress_warnings_annotation_when_all_suppressions_are_unused(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
+            package app;
 
-        @SuppressWarnings({"UnusedVariable", "ArrayToString"})
-        public final class App {
-            public static void main(String[] args) {
-                System.out.println("No violations here");
+            @SuppressWarnings({"UnusedVariable", "ArrayToString"})
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("No violations here");
+                }
             }
-        }
-    '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused").buildsSuccessfully();
 
-        then:
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
-        package app;
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
+            package app;
 
-        public final class App {
-            public static void main(String[] args) {
-                System.out.println("No violations here");
+            public final class App {
+                public static void main(String[] args) {
+                    System.out.println("No violations here");
+                }
             }
-        }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused and errorProneSuppress uses existing suppressions if possible'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveUnused_and_errorProneSuppress_uses_existing_suppressions_if_possible(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             @SuppressWarnings("InlineTrivialConstant")
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 @SuppressWarnings("InlineTrivialConstant")
                 static class Inner {
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
                     boolean truism = new int[3].equals(new int[3]);
-                    
+
                     @SuppressWarnings("InlineTrivialConstant")
                     static class InnerInner {
                         @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                         void method() {
                             new int[3].equals(new int[3]);
-                        } 
+                        }
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneSuppress')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneSuppress")
+                .buildsSuccessfully();
 
-        then:
-
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 static class Inner {
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
 
                     @SuppressWarnings("for-rollout:ArrayEquals")
                     boolean truism = new int[3].equals(new int[3]);
-                    
+
                     static class InnerInner {
                         @SuppressWarnings("ArrayEquals")
                         void method() {
@@ -1856,42 +1801,40 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused and errorProneApply applies fixes on previously suppressed elements'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveUnused_and_errorProneApply_applies_fixes_on_previously_suppressed_elements(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
             @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                 static class Inner {
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
                     boolean truism = new int[3].equals(new int[3]);
-                    
+
                     @SuppressWarnings("InlineTrivialConstant")
                     static class InnerInner {
                         @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                         void method() {
                             new int[3].equals(new int[3]);
-                        } 
+                        }
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneApply=ArrayEquals')
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveUnused", "-PerrorProneApply=ArrayEquals")
+                .buildsSuccessfully();
 
-        then:
-
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
@@ -1899,13 +1842,13 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
             public final class App {
                 @SuppressWarnings("InlineTrivialConstant")
                 private static final String EMPTY_STRING = "";
-                
+
                 static class Inner {
                     @SuppressWarnings("InlineTrivialConstant")
                     private static final String EMPTY = "";
 
                     boolean truism = Arrays.equals(new int[3], new int[3]);
-                    
+
                     static class InnerInner {
                         void method() {
                             Arrays.equals(new int[3], new int[3]);
@@ -1913,19 +1856,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'errorProneRemoveUnused + errorProneApply + errorProneSuppress applies fixes and suppressions on previously suppressed elements'() {
-        // language=Java
-        writeJavaSourceFileToSourceSets '''
+    @Test
+    void errorProneRemoveUnused_apply_suppress_fixes_and_suppressions_on_previously_suppressed_elements(
+            GradleInvoker gradle, RootProject rootProject) {
+        writeJavaSourceFileToSourceSets(rootProject, """
             package app;
 
             @SuppressWarnings("ArrayEquals")
             public final class App {
                 private static final String EMPTY_STRING = "";
-                
-                // Although InlineTrivialConstant can be placed lower in the AST hierarchy, 
+
+                // Although InlineTrivialConstant can be placed lower in the AST hierarchy,
                 // we preserve existing suppressions whenever possible rather than move suppressions around.
                 // Also, note that we don't add for-rollout here.
                 @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
@@ -1938,19 +1882,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                         @SuppressWarnings({"ArrayEquals", "InlineTrivialConstant"})
                         void method() {
                             new int[3].equals(new int[3]);
-                        } 
+                        }
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        runTasksSuccessfully('compileAllErrorProne', '-PerrorProneRemoveUnused', '-PerrorProneSuppress', '-PerrorProneApply=ArrayEquals')
+        gradle.withArgs(
+                        "compileAllErrorProne",
+                        "-PerrorProneRemoveUnused",
+                        "-PerrorProneSuppress",
+                        "-PerrorProneApply=ArrayEquals")
+                .buildsSuccessfully();
 
-        then:
-
-        // language=Java
-        javaSourceIsSyntacticallyEqualTo '''
+        javaSourceIsSyntacticallyEqualTo(rootProject, """
             package app;
 
             import java.util.Arrays;
@@ -1966,7 +1911,7 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                 static class Inner {
                     private static final String EMPTY = "";
                     boolean truism = Arrays.equals(new int[3], new int[3]);
-                    
+
                     static class InnerInner {
                         void method() {
                             Arrays.equals(new int[3], new int[3]);
@@ -1974,19 +1919,20 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
     }
 
-    def 'error-prone dependencies have versions bound together by a virtual platform'() {
-        setup: 'when an error-prone dependency is forced to certain version'
-        // language=Gradle
-        buildFile << '''
+    @Test
+    void error_prone_dependencies_have_versions_bound_together_by_a_virtual_platform(
+            GradleInvoker gradle, RootProject rootProject) {
+        // setup: 'when an error-prone dependency is forced to certain version'
+        rootProject.buildGradle().append("""
             configurations.named('annotationProcessor') {
                 resolutionStrategy {
                    force 'com.google.errorprone:error_prone_annotation:2.3.4'
                 }
             }
-            
+
             tasks.register('printErrorProneVersions') {
                 inputs.files(configurations.named('annotationProcessor'))
                 doLast {
@@ -1995,89 +1941,103 @@ class SuppressibleErrorPronePluginIntegrationTest extends ConfigurationCacheSpec
                     }
                 }
             }
-        '''.stripIndent(true)
+            """);
 
-        when:
-        def output = runTasksSuccessfully('printErrorProneVersions').output
+        InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
 
-        then: 'every single error-prone dependency has the same version'
-        output.contains('ERROR-PRONE: error_prone_annotation-2.3.4.jar')
-        output.contains('ERROR-PRONE: error_prone_core-2.3.4.jar')
+        assertThat(result)
+                .output()
+                .as("every error-prone dependency should have the same version")
+                .contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar")
+                .contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
     }
 
-    // Running CC with debuggingErrorPrones (see setup method above) causes this issue:
-    // ERROR: transport error 202: connect failed: Connection refused
-    // ERROR: JDWP Transport dt_socket failed to initialize, TRANSPORT_INIT(510)
-    // JDWP exit error AGENT_ERROR_TRANSPORT_INIT(197): No transports initialized [src/jdk.jdwp.agent/share/native/libjdwp/debugInit.c:700]
-    BuildResult runTasksSuccessfully(String... tasks) {
-        def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
-        String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        if (debuggingErrorPrones) {
-            return super.runTasks(strings)
-        } else {
-            return super.runTasksWithConfigurationCache(strings)
+    // Helper methods
+
+    private void writeJavaSourceFileToSourceSets(RootProject rootProject, @Language("Java") String source) {
+        rootProject.sourceSet("main").java().writeClass(source.stripIndent());
+        rootProject.sourceSet("other").java().writeClass(source.stripIndent());
+    }
+
+    private void javaSourceContains(RootProject rootProject, String substring) {
+        Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
+        Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
+
+        try {
+            String mainContent = Files.readString(mainJava);
+            String otherContent = Files.readString(otherJava);
+            assertThat(mainContent).contains(substring);
+            assertThat(otherContent).contains(substring);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read Java source files", e);
         }
     }
 
-    BuildResult runTasksWithFailure(String... tasks) {
-        def projectVersion = Optional.ofNullable(System.getProperty('projectVersion')).orElseThrow()
-        String[] strings = tasks + ["-PsuppressibleErrorProneVersion=${projectVersion}".toString()]
-        if (debuggingErrorPrones) {
-            return super.runTasksAndFail(strings)
-        } else {
-            return super.runTasksAndFailWithConfigurationCache(strings)
+    private void javaSourceDoesNotContain(RootProject rootProject, String substring) {
+        Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
+        Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
+
+        try {
+            String mainContent = Files.readString(mainJava);
+            String otherContent = Files.readString(otherJava);
+            assertThat(mainContent).doesNotContain(substring);
+            assertThat(otherContent).doesNotContain(substring);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read Java source files", e);
         }
-    }
-
-    void writeJavaSourceFileToSourceSets(String source) {
-        super.writeJavaSourceFile(source, 'src/main/java')
-        super.writeJavaSourceFile(source, 'src/other/java')
-    }
-
-    void javaSourceContains(String substring) {
-        assert file('src/main/java/app/App.java').text.contains(substring)
-        assert file('src/other/java/app/App.java').text.contains(substring)
-    }
-
-    void javaSourceDoesNotContain(String substring) {
-        assert !file('src/main/java/app/App.java').text.contains(substring)
-        assert !file('src/other/java/app/App.java').text.contains(substring)
     }
 
     // Normalizes Java source by trimming whitespace and applying consistent formatting.
     // Preserves newlines since the formatter allows them within methods, and we need
     // to test that error-prone doesn't introduce unwanted line breaks.
     private static String normalizeSource(String content) {
-        String stripped = content.readLines()
-                .collect { it.trim() }           // Remove leading/trailing whitespace
-                .join('\n')
+        String stripped =
+                Splitter.on('\n').splitToStream(content).map(String::trim).collect(Collectors.joining("\n", "", "\n"));
 
-        return formatter.formatSource(stripped)
+        try {
+            return FORMATTER.formatSource(stripped);
+        } catch (FormatterException e) {
+            throw new RuntimeException("Failed to format source", e);
+        }
     }
 
-    void javaSourceIsSyntacticallyEqualTo(String source) {
-        def output = normalizeSource(file('src/main/java/app/App.java').text)
-        def expected = normalizeSource(source)
+    private void javaSourceIsSyntacticallyEqualTo(RootProject rootProject, @Language("Java") String source) {
+        Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
+        Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
 
-        // Ensure test fixtures are properly formatted
-        assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
-        assert output == expected
+        try {
+            String mainContent = Files.readString(mainJava);
+            String otherContent = Files.readString(otherJava);
 
-        def outputOther = normalizeSource(file('src/other/java/app/App.java').text)
-        def expectedOther = normalizeSource(source)
-        assert outputOther == expectedOther
+            String output = normalizeSource(mainContent);
+            String expected = normalizeSource(source);
+
+            assertThat(output).isEqualTo(expected);
+
+            String outputOther = normalizeSource(otherContent);
+            assertThat(outputOther).isEqualTo(expected);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read Java source files", e);
+        }
     }
 
-    void javaSourceIsSyntacticallyNotEqualTo(String source) {
-        def output = normalizeSource(file('src/main/java/app/App.java').text)
-        def expected = normalizeSource(source)
+    private void javaSourceIsSyntacticallyNotEqualTo(RootProject rootProject, @Language("Java") String source) {
+        Path mainJava = rootProject.path().resolve("src/main/java/app/App.java");
+        Path otherJava = rootProject.path().resolve("src/other/java/app/App.java");
 
-        // Ensure test fixtures are properly formatted
-        assert "\n" + expected == source, "Please update your text fixtures to be in palantir-java-format"
-        assert output != expected
+        try {
+            String mainContent = Files.readString(mainJava);
+            String otherContent = Files.readString(otherJava);
 
-        def outputOther = normalizeSource(file('src/other/java/app/App.java').text)
-        def expectedOther = normalizeSource(source)
-        assert outputOther != expectedOther
+            String output = normalizeSource(mainContent);
+            String expected = normalizeSource(source);
+
+            assertThat(output).isNotEqualTo(expected);
+
+            String outputOther = normalizeSource(otherContent);
+            assertThat(outputOther).isNotEqualTo(expected);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read Java source files", e);
+        }
     }
 }

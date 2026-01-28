@@ -27,9 +27,11 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,7 +48,8 @@ public final class TimingsPlugin implements Plugin {
 
     @Override
     public void init(JavacTask task, String... args) {
-        String path = args[0];
+        // The path is Base64 encoded to avoid issues with spaces or special characters in paths.
+        String path = new String(Base64.getDecoder().decode(args[0]), StandardCharsets.UTF_8);
         task.addTaskListener(new TimingsTaskListener(
                 ErrorProneTimings.instance(((BasicJavacTask) task).getContext()), Path.of(path)));
     }
