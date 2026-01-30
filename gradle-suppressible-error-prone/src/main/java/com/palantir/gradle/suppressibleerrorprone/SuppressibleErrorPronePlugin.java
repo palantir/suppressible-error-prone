@@ -32,6 +32,9 @@ import org.gradle.api.Action;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.artifacts.ComponentMetadataContext;
+import org.gradle.api.artifacts.ComponentMetadataRule;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.ExtensionAware;
@@ -76,6 +79,11 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             // (via an artifact transform) that intercepts every error from every check and adds a custom fix
             setupErrorProneArtifactTransform(project, mustModify.modifiedFiles());
         }
+
+        // Register the component metadata rule to ensure core error-prone dependencies are at consistent versions.
+        // Annotation jars (error_prone_annotations and error_prone_type_annotations) are allowed to diverge since
+        // they're commonly pulled in as compile dependencies by libraries like Guava.
+        project.getDependencies().getComponents().all(ConsistentErrorPronePlatformRule.class);
 
         project.getConfigurations().named(ErrorPronePlugin.CONFIGURATION_NAME).configure(errorProneConfiguration -> {
             // Required so that we can run the runtime parts of the errorprone patching in suppressing stage 1 and
@@ -225,6 +233,43 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
             return Optional.ofNullable(getPatchChecksArgument().getOrNull())
                     .map(commaSeparated -> List.of("-XepPatchLocation:IN_PLACE", "-XepPatchChecks:" + commaSeparated))
                     .orElseGet(List::of);
+        }
+    }
+
+    /**
+     * Similar to GCV's virtual platform behavior
+     * (see https://github.com/palantir/gradle-consistent-versions/blob/8318ac29e81b6a77ed9ec223b2024cb7a61c7175/
+     * src/main/java/com/palantir/gradle/versions/VersionsPropsPlugin.java#L294-L305).
+     *
+     * This binds core error-prone dependencies (error_prone_core, error_prone_check_api, etc.) to a virtual platform
+     * so they all resolve to the same version. This prevents ClassNotFoundException at runtime from version mismatches.
+     *
+     * Annotation jars (error_prone_annotations and error_prone_type_annotations) are NOT bound to this platform,
+     * allowing them to diverge from the core jars. This is useful because many libraries (like Guava) depend on
+     * error_prone_annotations as a compile dependency, and forcing it to match the error-prone core version can
+     * block library upgrades.
+     */
+    static final class ConsistentErrorPronePlatformRule implements ComponentMetadataRule {
+        private static final String ERRORPRONE_GROUP = "com.google.errorprone";
+        private static final Set<String> ANNOTATION_ARTIFACTS =
+                Set.of("error_prone_annotations", "error_prone_type_annotations");
+
+        private static final String CORE_PLATFORM = ERRORPRONE_GROUP + ":error-prone-core-platform";
+
+        @Override
+        public void execute(ComponentMetadataContext context) {
+            ModuleVersionIdentifier id = context.getDetails().getId();
+            if (!id.getGroup().equals(ERRORPRONE_GROUP)) {
+                return;
+            }
+
+            // Annotation jars can diverge - don't bind them to the platform
+            if (ANNOTATION_ARTIFACTS.contains(id.getName())) {
+                return;
+            }
+
+            // All other error-prone deps belong to the core-platform
+            context.getDetails().belongsTo("%s:%s".formatted(CORE_PLATFORM, id.getVersion()));
         }
     }
 }
