@@ -1955,7 +1955,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                 }
                 """);
 
-            InvocationResult result = gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
+            InvocationResult result =
+                    gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
 
             assertThat(result)
                     .output()
@@ -1974,7 +1975,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                 }
                 """);
 
-            InvocationResult result = gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
+            InvocationResult result =
+                    gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
 
             assertThat(result)
                     .output()
@@ -1994,7 +1996,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
                 }
                 """);
 
-            InvocationResult result = gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
+            InvocationResult result =
+                    gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
 
             assertThat(result)
                     .output()
