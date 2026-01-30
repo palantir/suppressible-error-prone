@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -1922,34 +1923,88 @@ final class SuppressibleErrorPronePluginIntegrationTest {
             """);
     }
 
-    @Test
-    void error_prone_dependencies_have_versions_bound_together_by_a_virtual_platform(
-            GradleInvoker gradle, RootProject rootProject) {
-        // setup: 'when an error-prone dependency is forced to certain version'
-        rootProject.buildGradle().append("""
-            configurations.named('annotationProcessor') {
-                resolutionStrategy {
-                   force 'com.google.errorprone:error_prone_annotation:2.3.4'
+    @Nested
+    class ErrorProneVersionAlignment {
+        @BeforeEach
+        void setupTestEnvironment(RootProject rootProject) {
+            rootProject.buildGradle().append("""
+                configurations.configureEach {
+                    // Exclude suppressible-error-prone transitives so that the error-prone version
+                    // (automatically updated by excavator) doesn't affect test version resolution
+                    exclude group: 'com.palantir.suppressible-error-prone'
                 }
-            }
 
-            tasks.register('printErrorProneVersions') {
-                inputs.files(configurations.named('annotationProcessor'))
-                doLast {
-                    inputs.files.files.each {
-                        println("ERROR-PRONE: ${it.name}")
+                tasks.register('printAnnotationProcessorJars') {
+                    inputs.files(configurations.named('annotationProcessor'))
+                    doLast {
+                        inputs.files.files.each {
+                            println("AP: ${it.name}")
+                        }
                     }
                 }
-            }
-            """);
+                """);
+        }
 
-        InvocationResult result = gradle.withArgs("printErrorProneVersions").buildsSuccessfully();
+        @Test
+        void core_jars_are_bound_together_via_platform(GradleInvoker gradle, RootProject rootProject) {
+            // When different versions of core error-prone jars are requested, they should align via the platform
+            rootProject.buildGradle().append("""
+                dependencies {
+                    errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                    errorprone 'com.google.errorprone:error_prone_refaster:2.38.0'
+                }
+                """);
 
-        assertThat(result)
-                .output()
-                .as("every error-prone dependency should have the same version")
-                .contains("ERROR-PRONE: error_prone_annotation-2.3.4.jar")
-                .contains("ERROR-PRONE: error_prone_core-2.3.4.jar");
+            InvocationResult result =
+                    gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
+
+            assertThat(result)
+                    .output()
+                    .as("core jars are bound together via platform, higher version wins")
+                    .contains("AP: error_prone_core-2.38.0.jar")
+                    .contains("AP: error_prone_refaster-2.38.0.jar");
+        }
+
+        @Test
+        void annotations_can_diverge_from_core(GradleInvoker gradle, RootProject rootProject) {
+            // error_prone_annotations should be allowed to have a different version than core
+            rootProject.buildGradle().append("""
+                dependencies {
+                    errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                    errorprone 'com.google.errorprone:error_prone_annotations:2.41.0'
+                }
+                """);
+
+            InvocationResult result =
+                    gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
+
+            assertThat(result)
+                    .output()
+                    .as("annotations is not bound to core platform, so versions can differ")
+                    .contains("AP: error_prone_annotations-2.41.0.jar")
+                    .contains("AP: error_prone_core-2.31.0.jar");
+        }
+
+        @Test
+        void type_annotations_can_diverge_from_core(GradleInvoker gradle, RootProject rootProject) {
+            // error_prone_type_annotations should also be allowed to diverge from core
+            // Using version 2.36.0 for type_annotations because in 2.37.0+ it was merged into error_prone_annotations
+            rootProject.buildGradle().append("""
+                dependencies {
+                    errorprone 'com.google.errorprone:error_prone_core:2.31.0'
+                    errorprone 'com.google.errorprone:error_prone_type_annotations:2.36.0'
+                }
+                """);
+
+            InvocationResult result =
+                    gradle.withArgs("printAnnotationProcessorJars").buildsSuccessfully();
+
+            assertThat(result)
+                    .output()
+                    .as("type_annotations is not bound to core platform, so versions can differ")
+                    .contains("AP: error_prone_type_annotations-2.36.0.jar")
+                    .contains("AP: error_prone_core-2.31.0.jar");
+        }
     }
 
     // Helper methods
