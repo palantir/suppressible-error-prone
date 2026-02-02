@@ -32,7 +32,7 @@ com.google.j2objc:j2objc-annotations:3.1 (1 constraints: b809f1a0)
 
 com.google.protobuf:protobuf-java:3.25.5 (1 constraints: 2c1160c9)
 
-com.palantir.gradle.utils:environment-variables:0.21.0 (1 constraints: 35052a3b)
+com.palantir.gradle.utils:environment-variables:0.22.0 (1 constraints: 36052d3b)
 
 io.github.eisop:dataflow-errorprone:3.41.0-eisop1 (3 constraints: 3e40ddde)
 
