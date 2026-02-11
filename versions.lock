@@ -58,19 +58,19 @@ org.pcollections:pcollections:4.0.1 (1 constraints: f21028b8)
 
 cglib:cglib-nodep:3.2.2 (1 constraints: 490ded24)
 
-com.fasterxml.jackson.core:jackson-annotations:2.21 (5 constraints: 6958ac0a)
+com.fasterxml.jackson.core:jackson-annotations:2.21 (5 constraints: 6a58ad0a)
 
-com.fasterxml.jackson.core:jackson-core:2.21.0 (6 constraints: 6a82d0b1)
+com.fasterxml.jackson.core:jackson-core:2.21.0 (6 constraints: 6a82d2b1)
 
-com.fasterxml.jackson.core:jackson-databind:2.21.0 (5 constraints: e66fe0eb)
+com.fasterxml.jackson.core:jackson-databind:2.21.0 (5 constraints: e66fe2eb)
 
 com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.21.0 (2 constraints: 8d362195)
 
-com.fasterxml.jackson.datatype:jackson-datatype-guava:2.21.0 (3 constraints: 0d4bb181)
+com.fasterxml.jackson.datatype:jackson-datatype-guava:2.21.0 (3 constraints: 0d4bb381)
 
-com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.21.0 (2 constraints: ac2d83f9)
+com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.21.0 (2 constraints: ac2d85f9)
 
-com.fasterxml.jackson.module:jackson-module-parameter-names:2.21.0 (1 constraints: 08131539)
+com.fasterxml.jackson.module:jackson-module-parameter-names:2.21.0 (1 constraints: 08131739)
 
 com.fasterxml.woodstox:woodstox-core:7.1.1 (1 constraints: 3d174926)
 
@@ -102,9 +102,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.54.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.54.0 (1 constraints: 3b053f3b)
 
-com.palantir.javaformat:palantir-java-format:2.86.0 (1 constraints: 42055d3b)
+com.palantir.javaformat:palantir-java-format:2.87.0 (1 constraints: 4305603b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.86.0 (1 constraints: 13133e39)
+com.palantir.javaformat:palantir-java-format-spi:2.87.0 (1 constraints: 14134139)
 
 commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
