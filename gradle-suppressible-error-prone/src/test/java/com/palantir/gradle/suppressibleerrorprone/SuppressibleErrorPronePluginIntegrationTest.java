@@ -61,6 +61,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     // attach to a non-existent debugger. Set it to false before you push any code.
     private static final boolean DEBUGGING_ERROR_PRONES = false;
 
+    @SuppressWarnings("for-rollout:deprecation")
     @BeforeEach
     void setup(RootProject rootProject) {
         String projectVersion = Optional.ofNullable(System.getProperty("projectVersion"))
