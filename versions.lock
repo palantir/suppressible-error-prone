@@ -88,7 +88,7 @@ com.google.truth:truth:1.4.0 (2 constraints: 72265a6a)
 
 com.netflix.nebula:nebula-test:10.6.2 (2 constraints: d61de72d)
 
-com.palantir.gradle.consistentversions:gradle-consistent-versions:3.11.0 (1 constraints: 3705383b)
+com.palantir.gradle.consistentversions:gradle-consistent-versions:3.12.0 (1 constraints: 38053b3b)
 
 com.palantir.gradle.failure-reports:gradle-failure-reports-exceptions:1.2.0 (1 constraints: b71b1c46)
 
@@ -102,9 +102,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.57.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.57.0 (1 constraints: 3e05483b)
 
-com.palantir.javaformat:palantir-java-format:2.87.0 (1 constraints: 4305603b)
+com.palantir.javaformat:palantir-java-format:2.88.0 (1 constraints: 4405633b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.87.0 (1 constraints: 14134139)
+com.palantir.javaformat:palantir-java-format-spi:2.88.0 (1 constraints: 15134439)
 
 commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
