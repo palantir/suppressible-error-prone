@@ -88,7 +88,7 @@ com.google.truth:truth:1.4.0 (2 constraints: 72265a6a)
 
 com.netflix.nebula:nebula-test:10.6.2 (2 constraints: d61de72d)
 
-com.palantir.gradle.consistentversions:gradle-consistent-versions:3.12.0 (1 constraints: 38053b3b)
+com.palantir.gradle.consistentversions:gradle-consistent-versions:3.13.0 (1 constraints: 39053e3b)
 
 com.palantir.gradle.failure-reports:gradle-failure-reports-exceptions:1.2.0 (1 constraints: b71b1c46)
 
