@@ -4,20 +4,6 @@ apply plugin: 'com.palantir.external-publish-jar'
 apply plugin: 'com.palantir.gradle-plugin-testing'
 apply plugin: 'com.palantir.external-publish-gradle-plugin'
 
-configurations {
-    // artifact-transforms is an included build that is not published as a separate artifact.
-    // We shade its classes into the JAR (so consumers can resolve the plugin without a separate dependency)
-    // and extend compile/runtime classpaths (so TestKit integration tests can load the plugin classes).
-    // This configuration is not a standard dependency scope, so it won't appear in the published POM.
-    shade {
-        transitive = false
-    }
-    compileClasspath.extendsFrom shade
-    runtimeClasspath.extendsFrom shade
-    testCompileClasspath.extendsFrom shade
-    testRuntimeClasspath.extendsFrom shade
-}
-
 dependencies {
     api 'net.ltgt.gradle:gradle-errorprone-plugin'
 
@@ -25,8 +11,7 @@ dependencies {
     implementation 'com.palantir.gradle.utils:environment-variables'
     implementation 'one.util:streamex'
     implementation 'com.google.guava:guava'
-
-    shade 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
+    implementation 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
 
     testImplementation 'com.netflix.nebula:nebula-test'
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -35,14 +20,9 @@ dependencies {
     testImplementation 'one.util:streamex'
     testImplementation 'com.palantir.gradle.plugintesting:configuration-cache-spec'
     testImplementation 'com.palantir.javaformat:palantir-java-format'
+    testImplementation 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
 
     gradlePluginForTesting 'com.palantir.gradle.consistentversions:gradle-consistent-versions'
-}
-
-tasks.named('jar') {
-    from(configurations.shade.collect { zipTree(it) }) {
-        exclude 'META-INF/**'
-    }
 }
 
 gradlePlugin {

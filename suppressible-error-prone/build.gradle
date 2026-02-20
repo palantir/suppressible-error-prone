@@ -2,16 +2,6 @@ apply plugin: 'java-library'
 apply plugin: 'com.palantir.external-publish-jar'
 apply plugin: 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
 
-buildscript {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    dependencies {
-        classpath 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
-    }
-}
-
 dependencies {
     implementation 'com.google.errorprone:error_prone_annotation'
     implementation 'com.google.errorprone:error_prone_check_api'
