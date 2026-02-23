@@ -1,3 +1,27 @@
-# Run ./gradlew writeVersionsLocks to regenerate this file
+# Run ./gradlew writeVersionsLocks to regenerate this file. Blank lines are to minimize merge conflicts.
+
 com.palantir.gradle.utils:environment-variables:0.21.0 (1 constraints: 35052a3b)
+
 org.ow2.asm:asm:9.9.1 (1 constraints: 15053436)
+
+
+
+[Test dependencies]
+
+org.junit:junit-bom:5.8.2 (7 constraints: a074d598)
+
+org.junit.jupiter:junit-jupiter:5.8.2 (2 constraints: 260e7a59)
+
+org.junit.jupiter:junit-jupiter-api:5.8.2 (4 constraints: 8b385c34)
+
+org.junit.jupiter:junit-jupiter-engine:5.8.2 (2 constraints: 2117d23c)
+
+org.junit.jupiter:junit-jupiter-params:5.8.2 (2 constraints: 2117d23c)
+
+org.junit.platform:junit-platform-commons:1.8.2 (3 constraints: ee29ed2b)
+
+org.junit.platform:junit-platform-engine:1.8.2 (3 constraints: 062cdf16)
+
+org.junit.platform:junit-platform-launcher:1.8.2 (1 constraints: 12097995)
+
+org.opentest4j:opentest4j:1.2.0 (2 constraints: cd205b49)
