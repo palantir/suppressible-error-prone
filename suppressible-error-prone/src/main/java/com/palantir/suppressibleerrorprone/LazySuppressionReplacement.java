@@ -17,10 +17,10 @@
 package com.palantir.suppressibleerrorprone;
 
 import com.google.common.collect.Range;
+import com.google.errorprone.fixes.ErrorProneEndPosTable;
 import com.google.errorprone.fixes.Replacement;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.tree.EndPosTable;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
  * A Replacement that handles @SuppressWarnings modifications with line-removing capabilities.
  * When the final replacement text is empty (no suppressions), it will remove preceding
  * whitespace up to and including the newline.
+ * <p>
+ * Note that {@link Replacement} is a record, so we're extending it by removing the {@code final} tag via
+ * bytecode manipulation. For more details, see {@code SetupPreCompilationBytecodeManipulationPlugin}
  */
 final class LazySuppressionReplacement extends Replacement {
     // We really do need to be this lazy for generating the Replacements, as error-prone immediately converts
@@ -45,11 +48,14 @@ final class LazySuppressionReplacement extends Replacement {
     private final Optional<? extends AnnotationTree> suppressWarnings;
 
     LazySuppressionReplacement(
-            EndPosTable endPositions,
+            ErrorProneEndPosTable endPositions,
             Set<String> desiredSuppressions,
             Optional<CharSequence> sourceCode,
             Optional<? extends AnnotationTree> suppressWarnings,
             Tree declaration) {
+        // Call the record constructor with dummy values since we override range() and replaceWith()
+        super(Range.closedOpen(0, 0), "");
+
         this.desiredSuppressions = desiredSuppressions;
         this.sourceCode = sourceCode;
         this.suppressWarnings = suppressWarnings;
@@ -107,17 +113,31 @@ final class LazySuppressionReplacement extends Replacement {
     }
 
     private static Range<Integer> calculateRange(
-            EndPosTable endPositions, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
+            ErrorProneEndPosTable endPositions, Optional<? extends AnnotationTree> suppressWarnings, Tree tree) {
         return suppressWarnings
                 .map(annotationTree -> {
                     // @SuppressWarnings already exists, we need to replace the whole expression
                     DiagnosticPosition position = (DiagnosticPosition) annotationTree;
-                    return Range.closedOpen(position.getStartPosition(), position.getEndPosition(endPositions));
+                    return Range.closedOpen(position.getStartPosition(), endPositions.getEndPosition(position));
                 })
                 .orElseGet(() -> {
                     // No @SuppressWarnings, we want to prefix a new one before the start of the tree
                     int startPosition = ((DiagnosticPosition) tree).getStartPosition();
                     return Range.closedOpen(startPosition, startPosition);
                 });
+    }
+
+    // Since the parent is a record, whose equals and hashCode methods solely rely on the record's fields,
+    // We have to re-override these methods to use the default implementation from Object
+    // Or else, only one Replacement will be added to any given file:
+    // https://github.com/google/error-prone/blob/a5a718974dd7d325025ea14c1492f113490d5cf8/check_api/src/main/java/com/google/errorprone/fixes/Replacements.java#L146
+    @Override
+    public boolean equals(Object obj) {
+        return this == obj;
+    }
+
+    @Override
+    public int hashCode() {
+        return System.identityHashCode(this);
     }
 }

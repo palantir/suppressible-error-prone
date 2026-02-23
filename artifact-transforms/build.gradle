@@ -1,0 +1,54 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.gradle.publish:plugin-publish-plugin:2.0.0'
+        classpath 'com.palantir.baseline:gradle-baseline-java:7.2.0'
+        classpath 'com.palantir.baseline-error-prone:gradle-baseline-error-prone:0.9.0'
+        classpath 'com.palantir.gradle.consistentversions:gradle-consistent-versions:3.8.0'
+        classpath 'com.palantir.gradle.externalpublish:gradle-external-publish-plugin:1.27.0'
+        classpath 'com.palantir.gradle.guide:gradle-guide:1.27.0'
+    }
+}
+
+plugins {
+    id 'java-library'
+    id 'java-gradle-plugin'
+}
+
+apply plugin: 'com.palantir.gradle-guide'
+apply plugin: 'com.palantir.external-publish'
+apply plugin: 'com.palantir.external-publish-gradle-plugin'
+apply plugin: 'com.palantir.consistent-versions'
+apply plugin: 'com.palantir.baseline'
+apply plugin: 'com.palantir.baseline-error-prone-root'
+apply plugin: 'com.palantir.baseline-java-versions'
+
+gradlePlugin {
+    plugins {
+        setupPreCompilationBytecodeManipulation {
+            id = 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
+            implementationClass = 'com.palantir.gradle.suppressibleerrorprone.internal.SetupPreCompilationBytecodeManipulationPlugin'
+        }
+    }
+}
+
+group = 'com.palantir.suppressible-error-prone.internal'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.ow2.asm:asm'
+    implementation 'com.palantir.gradle.utils:environment-variables'
+}
+
+javaVersions {
+    // TEMPHACK(okelvin): gradle-jdks isn't working with included builds, so can't use 25 yet
+    javaCompiler = 21
+    libraryTarget = 21
+    runtime = 21
+}

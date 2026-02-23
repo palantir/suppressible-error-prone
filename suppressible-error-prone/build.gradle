@@ -1,5 +1,6 @@
 apply plugin: 'java-library'
 apply plugin: 'com.palantir.external-publish-jar'
+apply plugin: 'com.palantir.suppressible-error-prone.setup-pre-compilation-bytecode-manipulation'
 
 dependencies {
     implementation 'com.google.errorprone:error_prone_annotation'
