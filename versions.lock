@@ -100,9 +100,9 @@ com.palantir.gradle.plugintesting:gradle-plugin-testing-junit:0.57.0 (1 constrai
 
 com.palantir.gradle.plugintesting:plugin-testing-core:0.57.0 (1 constraints: 3e05483b)
 
-com.palantir.javaformat:palantir-java-format:2.88.0 (1 constraints: 4405633b)
+com.palantir.javaformat:palantir-java-format:2.89.0 (1 constraints: 4505663b)
 
-com.palantir.javaformat:palantir-java-format-spi:2.88.0 (1 constraints: 15134439)
+com.palantir.javaformat:palantir-java-format-spi:2.89.0 (1 constraints: 16134739)
 
 commons-io:commons-io:2.21.0 (2 constraints: 111f5a8c)
 
@@ -120,7 +120,7 @@ org.codehaus.groovy:groovy:3.0.24 (3 constraints: 133429dd)
 
 org.codehaus.woodstox:stax2-api:4.2.2 (2 constraints: 6a278bd2)
 
-org.functionaljava:functionaljava:4.8 (1 constraints: 81129900)
+org.functionaljava:functionaljava:5.0 (1 constraints: 7a129400)
 
 org.hamcrest:hamcrest:2.2 (2 constraints: 43187376)
 
