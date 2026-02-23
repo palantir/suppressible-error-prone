@@ -47,7 +47,7 @@ dependencies {
 }
 
 javaVersions {
-    javaCompiler = 25
+    javaCompiler = 21
     libraryTarget = 21
     runtime = 21
 }
