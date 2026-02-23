@@ -47,6 +47,7 @@ dependencies {
 }
 
 javaVersions {
+    // TEMPHACK(okelvin): gradle-jdks isn't working with included builds, so can't use 25 yet
     javaCompiler = 21
     libraryTarget = 21
     runtime = 21
