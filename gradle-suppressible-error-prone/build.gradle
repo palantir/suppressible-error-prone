@@ -11,7 +11,7 @@ dependencies {
     implementation 'com.palantir.gradle.utils:environment-variables'
     implementation 'one.util:streamex'
     implementation 'com.google.guava:guava'
-    implementation 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
+    implementation 'com.palantir.suppressible-error-prone:artifact-transforms'
 
     testImplementation 'com.netflix.nebula:nebula-test'
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -20,7 +20,7 @@ dependencies {
     testImplementation 'one.util:streamex'
     testImplementation 'com.palantir.gradle.plugintesting:configuration-cache-spec'
     testImplementation 'com.palantir.javaformat:palantir-java-format'
-    testImplementation 'com.palantir.suppressible-error-prone.internal:artifact-transforms'
+    testImplementation 'com.palantir.suppressible-error-prone:artifact-transforms'
 
     gradlePluginForTesting 'com.palantir.gradle.consistentversions:gradle-consistent-versions'
 }

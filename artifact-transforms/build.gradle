@@ -43,7 +43,7 @@ repositories {
     gradlePluginPortal()
 }
 
-group = 'com.palantir.suppressible-error-prone.internal'
+group = 'com.palantir.suppressible-error-prone'
 version System.env.CIRCLE_TAG ?: gitVersion()
 
 dependencies {
