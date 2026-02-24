@@ -64,3 +64,8 @@ moduleJvmArgs {
     // Need so that debugging testkit gradle runs with configuration cache works
     opens 'java.base/java.util', 'java.base/java.lang.invoke'
 }
+
+// TEMPHACK(okelvin): until we figure out a first-class way to wire up publishing for included builds
+tasks.named('publish').configure {
+    dependsOn gradle.includedBuild('artifact-transforms').task(':publish')
+}
