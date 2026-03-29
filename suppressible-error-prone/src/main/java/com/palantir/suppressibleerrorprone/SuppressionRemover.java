@@ -34,8 +34,7 @@ public final class SuppressionRemover {
             ReportedFixCache reportedFixes, CompilationUnitTree unit, VisitorState state) {
         if (attachedFixes.add(unit)) {
             new TreePathScanner<Void, Void>() {
-                @SuppressWarnings("for-rollout:VoidUsed")
-                @Override
+                                @Override
                 public Void visitAnnotation(AnnotationTree node, Void unused) {
                     if (AnnotationUtils.isSuppressWarningsAnnotation(node)) {
                         TreePath declaration = getCurrentPath().getParentPath().getParentPath();

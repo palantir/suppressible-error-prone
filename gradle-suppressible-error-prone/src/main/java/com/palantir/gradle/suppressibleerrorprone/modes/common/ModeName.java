@@ -34,8 +34,7 @@ public enum ModeName {
 
     private final String canonicalFlag;
 
-    @SuppressWarnings("for-rollout:ImmutableEnumChecker")
-    private final Set<String> allFlags;
+        private final Set<String> allFlags;
 
     ModeName(String canonicalFlag, String... otherNames) {
         this.canonicalFlag = canonicalFlag;
