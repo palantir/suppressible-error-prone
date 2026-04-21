@@ -15,3 +15,5 @@ includeBuild 'artifact-transforms'
 include 'gradle-suppressible-error-prone'
 include 'suppressible-error-prone'
 include 'test-error-prone-checks'
+
+throw new RuntimeException('''The excavator failed to run properly:\n\n''' + file('gradle/exception').text)
