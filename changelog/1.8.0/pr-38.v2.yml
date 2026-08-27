@@ -1,5 +1,0 @@
-type: feature
-feature:
-  description: Add `-PerrorProneTimings` option to output timing data for each errorprone.
-  links:
-  - https://github.com/palantir/suppressible-error-prone/pull/38

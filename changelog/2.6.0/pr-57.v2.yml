@@ -1,5 +1,0 @@
-type: feature
-feature:
-  description: Support auto-removing for-rollout suppression warnings
-  links:
-  - https://github.com/palantir/suppressible-error-prone/pull/57

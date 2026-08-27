@@ -1,6 +1,0 @@
-type: improvement
-improvement:
-  description: Running `-PerrorProneApply` and `-PerrorProneSuppress` at the same
-    time is now possible, saving compilation time.
-  links:
-  - https://github.com/palantir/suppressible-error-prone/pull/43
