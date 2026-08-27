@@ -21,6 +21,7 @@ dependencies {
     testImplementation 'com.palantir.gradle.plugintesting:configuration-cache-spec'
     testImplementation 'com.palantir.javaformat:palantir-java-format'
     testImplementation 'com.palantir.suppressible-error-prone:artifact-transforms'
+    testRuntimeOnly 'junit:junit'
 
     gradlePluginForTesting 'com.palantir.gradle.consistentversions:gradle-consistent-versions'
 }
