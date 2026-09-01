@@ -67,7 +67,7 @@ final class SuppressibleErrorPronePluginIntegrationTest {
         String projectVersion = Optional.ofNullable(System.getProperty("projectVersion"))
                 .orElseThrow(() -> new IllegalStateException("projectVersion system property must be set"));
 
-        rootProject.gradlePropertiesFile().appendProperty("suppressibleErrorProneVersion", projectVersion);
+        rootProject.gradlePropertiesFile().setProperty("suppressibleErrorProneVersion", projectVersion);
 
         // Consistent versions checks we don't resolve configurations at configuration time and
         // also interacts in many ways with dependencies
@@ -122,8 +122,8 @@ final class SuppressibleErrorPronePluginIntegrationTest {
 
         rootProject
                 .gradlePropertiesFile()
-                .appendProperty("__TESTING", "true")
-                .appendProperty("__TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM", "true");
+                .setProperty("__TESTING", "true")
+                .setProperty("__TESTING_CACHE_BUST_ERRORPRONE_TRANSFORM", "true");
 
         rootProject.file("versions.lock").createEmpty();
     }
