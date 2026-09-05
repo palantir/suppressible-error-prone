@@ -40,7 +40,6 @@ final class LazySuppressionReplacement extends Replacement {
     // the Fix to a Replacement when a Description is given to it, and we need to defer the computation of the
     // Replacement until a number of Descriptions have been produced, to handle multiple errors being suppressed
     // at the same level.
-    @SuppressWarnings("for-rollout:HidingField")
     private final Range<Integer> range;
 
     private final List<String> existingSuppressions;
