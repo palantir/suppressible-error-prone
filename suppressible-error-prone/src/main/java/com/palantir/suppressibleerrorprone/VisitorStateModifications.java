@@ -31,7 +31,6 @@ import java.util.stream.Stream;
 
 // CHECKSTYLE:ON
 
-@SuppressWarnings("RestrictedApi")
 public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
     private static final ReportedFixCache FIXES = new ReportedFixCache();
