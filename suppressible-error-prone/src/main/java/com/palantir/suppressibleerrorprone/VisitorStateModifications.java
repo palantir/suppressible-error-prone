@@ -36,7 +36,7 @@ public final class VisitorStateModifications {
     private static final Logger log = Logger.getLogger(VisitorStateModifications.class.getName());
     private static final ReportedFixCache FIXES = new ReportedFixCache();
 
-    @SuppressWarnings("CyclomaticComplexity")
+    @SuppressWarnings({"CyclomaticComplexity", "for-rollout:ReferenceEquality"})
     public static Description interceptDescription(VisitorState visitorState, Description description) {
         // Prevent infinite recursion on reported fixes
         if (description.checkName.equals(SuppressibleErrorProne.class.getSimpleName())) {
