@@ -24,6 +24,7 @@ import com.palantir.gradle.testing.execution.GradleInvoker;
 import com.palantir.gradle.testing.execution.InvocationResult;
 import com.palantir.gradle.testing.junit.GradlePluginTests;
 import com.palantir.gradle.testing.project.RootProject;
+import com.palantir.gradle.testing.project.SubProject;
 import com.palantir.javaformat.java.Formatter;
 import com.palantir.javaformat.java.FormatterException;
 import com.palantir.javaformat.java.JavaFormatterOptions;
@@ -148,6 +149,46 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     void can_suppress_an_error_prone_with_for_rollout_prefix(GradleInvoker gradle, RootProject rootProject) {
         // This test is explicitly checking we suppress the for-rollout prefix as that is what exists
         // in people's codebases
+
+        writeJavaSourceFileToSourceSets(rootProject, """
+            package app;
+
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public static void main(String[] args) {
+                    new int[3].toString();
+                }
+            }
+            """);
+
+        gradle.withArgs("compileAllErrorProne").buildsSuccessfully();
+    }
+
+    @Test
+    void can_compile_a_project_also_present_as_an_external_annotation_processor_dependency(
+            GradleInvoker gradle, RootProject rootProject) {
+        // Error Prone must use the published checks even when a project with the same coordinates is being built.
+        SubProject checksProject = rootProject.subproject("test-error-prone-checks");
+        checksProject.buildGradle().plugins().add("java");
+        checksProject.buildGradle().plugins().add("com.palantir.suppressible-error-prone");
+        checksProject.buildGradle().append("""
+            group = 'com.palantir.suppressible-error-prone'
+            version = project.findProperty('suppressibleErrorProneVersion')
+
+            repositories {
+                mavenCentral()
+                mavenLocal()
+            }
+
+            dependencies {
+                errorprone 'com.palantir.suppressible-error-prone:test-error-prone-checks:' + project.version
+            }
+            """);
+        checksProject.mainSourceSet().java().writeClass("""
+            package checks;
+
+            public final class Checks {}
+            """);
 
         writeJavaSourceFileToSourceSets(rootProject, """
             package app;
