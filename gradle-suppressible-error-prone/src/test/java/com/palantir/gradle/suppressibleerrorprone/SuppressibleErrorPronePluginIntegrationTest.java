@@ -1317,6 +1317,38 @@ final class SuppressibleErrorPronePluginIntegrationTest {
     }
 
     @Test
+    void errorProneRemoveRollout_then_errorProneSuppress_preserves_indentation(
+            GradleInvoker gradle, RootProject rootProject) {
+        @Language("Java")
+        String source = """
+            package app;
+
+            public final class App {
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public final String field = new int[3].toString();
+
+                @SuppressWarnings("for-rollout:ArrayToString")
+                public void method() {
+                    new int[3].toString();
+                }
+
+                public void variables() {
+                    @SuppressWarnings("for-rollout:ArrayToString")
+                    String variable = new int[3].toString();
+                }
+            }
+            """;
+        writeJavaSourceFileToSourceSets(rootProject, source);
+
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneRemoveRollout").buildsSuccessfully();
+        gradle.withArgs("compileAllErrorProne", "-PerrorProneSuppress").buildsSuccessfully();
+
+        javaSourceContains(rootProject, source);
+    }
+
+    @Test
     void does_not_patch_checks_while_using_errorProneRemoveRollout_if_suppressed_normally(
             GradleInvoker gradle, RootProject rootProject) {
         writeJavaSourceFileToSourceSets(rootProject, """

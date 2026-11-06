@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
 
 /**
  * A Replacement that handles @SuppressWarnings modifications with line-removing capabilities.
- * When the final replacement text is empty (no suppressions), it will remove preceding
- * whitespace up to and including the newline.
+ * When the final replacement text is empty (no suppressions), it will remove the annotation up to and including the
+ * following newline, with {@link #nextLineIndent()} removing the indentation after it.
  * <p>
  * Note that {@link Replacement} is a record, so we're extending it by removing the {@code final} tag via
  * bytecode manipulation. For more details, see {@code SetupPreCompilationBytecodeManipulationPlugin}
@@ -86,14 +86,44 @@ final class LazySuppressionReplacement extends Replacement {
     @Override
     public Range<Integer> range() {
         if (desiredSuppressions.isEmpty() && sourceCode.isPresent()) {
-            // If the next element is in a newline, remove the newline as well.
-            // Ideally, we also remove whitespace before the next element, but that would overlap with any done on
-            // the next element. We leave those spaces to the formatter.
+            // If the next element is in a newline, remove the newline as well, with nextLineIndent() removing the
+            // whitespace before the next element.
             // Otherwise, the next element is a non-whitespace. Remove up until the first non-whitespace.
-            int end = SourceCodeUtils.firstNonWhitespaceOrNextLineStart(sourceCode.get(), range.upperEndpoint());
-            return Range.closedOpen(range.lowerEndpoint(), end);
+            return Range.closedOpen(range.lowerEndpoint(), removalEnd(sourceCode.get()));
         }
         return range;
+    }
+
+    /**
+     * Covers the indentation of the line after an existing {@code @SuppressWarnings} that ends its line, so removing
+     * the annotation leaves the next element with the annotation's indentation rather than both, which would double
+     * on every remove/suppress round trip. This has to be a separate Replacement starting at the next line, as covering
+     * it in {@link #range()} would overlap with fixes inserting at the start of that line, such as added modifiers.
+     */
+    Optional<Replacement> nextLineIndent() {
+        return sourceCode.filter(_ignored -> suppressWarnings.isPresent()).flatMap(this::nextLineIndent);
+    }
+
+    private Optional<Replacement> nextLineIndent(CharSequence source) {
+        int nextLineStart = removalEnd(source);
+        int indentEnd = SourceCodeUtils.firstNonWhitespaceOrNextLineStart(source, nextLineStart);
+        boolean annotationEndsLine = source.charAt(nextLineStart - 1) == '\n';
+        boolean nextLineIndented = indentEnd > nextLineStart && source.charAt(indentEnd - 1) != '\n';
+        if (!annotationEndsLine || !nextLineIndented) {
+            return Optional.empty();
+        }
+
+        String indent = source.subSequence(nextLineStart, indentEnd).toString();
+        return Optional.of(new Replacement(Range.closedOpen(nextLineStart, indentEnd), indent) {
+            @Override
+            public String replaceWith() {
+                return desiredSuppressions.isEmpty() ? "" : indent;
+            }
+        });
+    }
+
+    private int removalEnd(CharSequence source) {
+        return SourceCodeUtils.firstNonWhitespaceOrNextLineStart(source, range.upperEndpoint());
     }
 
     @Override
