@@ -120,11 +120,13 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
                 Attribute.of("com.palantir.suppressible-error-prone.suppressible", Boolean.class);
         project.getDependencies().getAttributesSchema().attribute(suppressible);
 
-        project.getDependencies()
-                .getArtifactTypes()
-                .getByName("jar")
-                .getAttributes()
-                .attribute(suppressible, false);
+        // Only the check API needs transforming. Transforming unrelated jars can make Gradle use a local
+        // project's output for an external dependency with the same coordinates, creating a compilation cycle.
+        project.getDependencies().getComponents().withModule("com.google.errorprone:error_prone_check_api", details -> {
+            details.allVariants(variant -> variant.attributes(attributes -> {
+                attributes.attribute(suppressible, false);
+            }));
+        });
 
         project.getDependencies().registerTransform(ModifyErrorProneCheckApi.class, spec -> {
             spec.getParameters().getFilesToModify().set(modifiedFiles);
@@ -136,15 +138,25 @@ public abstract class SuppressibleErrorPronePlugin implements Plugin<Project> {
 
         // We need to configure the transform in each source set as they each have their own compile task
         project.getExtensions().getByType(SourceSetContainer.class).configureEach(sourceSet -> {
-            // It's the annotationProcessor configuration, not the errorprone that, is actually used by the compiler
-            // and so where we must put our transform. annotationProcessor extendsFrom errorprone.
+            // The compiler uses annotationProcessor, which extendsFrom errorprone.
             project.getConfigurations()
                     .named(sourceSet.getAnnotationProcessorConfigurationName())
                     .configure(annotationProcessor -> {
                         annotationProcessor
                                 .getDependencies()
                                 .add(project.getDependencies().create("com.google.errorprone:error_prone_check_api"));
-                        annotationProcessor.getAttributes().attribute(suppressible, true);
+                        // Request the transformed attribute on an artifact view so graph resolution can select
+                        // the original check API variant. Other dependencies pass through without a transform.
+                        project.getTasks()
+                                .named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
+                                .configure(javaCompile -> javaCompile
+                                        .getOptions()
+                                        .setAnnotationProcessorPath(annotationProcessor
+                                                .getIncoming()
+                                                .artifactView(view -> view.attributes(attributes -> {
+                                                    attributes.attribute(suppressible, true);
+                                                }))
+                                                .getFiles()));
                     });
         });
     }
