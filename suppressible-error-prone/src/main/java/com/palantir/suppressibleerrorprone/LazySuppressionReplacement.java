@@ -16,6 +16,7 @@
 
 package com.palantir.suppressibleerrorprone;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.errorprone.fixes.ErrorProneEndPosTable;
 import com.google.errorprone.fixes.Replacement;
@@ -26,11 +27,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A Replacement that handles @SuppressWarnings modifications with line-removing capabilities.
  * When the final replacement text is empty (no suppressions), it will remove the annotation up to and including the
- * following newline, with {@link #nextLineIndent()} removing the indentation after it.
+ * following newline, with {@link #replacements()} also removing the indentation after it.
  * <p>
  * Note that {@link Replacement} is a record, so we're extending it by removing the {@code final} tag via
  * bytecode manipulation. For more details, see {@code SetupPreCompilationBytecodeManipulationPlugin}
@@ -83,13 +85,19 @@ final class LazySuppressionReplacement extends Replacement {
                 .collect(Collectors.toList());
     }
 
+    /** This replacement, plus one removing the next line's indentation when the annotation is removed. */
+    ImmutableSet<Replacement> replacements() {
+        return Stream.concat(Stream.of(this), nextLineIndentReplacement().stream())
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
     @Override
     public Range<Integer> range() {
         if (desiredSuppressions.isEmpty() && sourceCode.isPresent()) {
-            // If the next element is in a newline, remove the newline as well, with nextLineIndent() removing the
-            // whitespace before the next element.
+            // If the next element is in a newline, remove the newline as well, with nextLineIndentReplacement()
+            // removing the whitespace before the next element.
             // Otherwise, the next element is a non-whitespace. Remove up until the first non-whitespace.
-            return Range.closedOpen(range.lowerEndpoint(), removalEnd(sourceCode.get()));
+            return Range.closedOpen(range.lowerEndpoint(), afterTrailingWhitespace(sourceCode.get()));
         }
         return range;
     }
@@ -99,13 +107,15 @@ final class LazySuppressionReplacement extends Replacement {
      * the annotation leaves the next element with the annotation's indentation rather than both, which would double
      * on every remove/suppress round trip. This has to be a separate Replacement starting at the next line, as covering
      * it in {@link #range()} would overlap with fixes inserting at the start of that line, such as added modifiers.
+     * It's returned even when suppressions remain, as a no-op, because suppressions can still be added or removed
+     * after error-prone first asks for the replacements.
      */
-    Optional<Replacement> nextLineIndent() {
-        return sourceCode.filter(_ignored -> suppressWarnings.isPresent()).flatMap(this::nextLineIndent);
+    private Optional<Replacement> nextLineIndentReplacement() {
+        return suppressWarnings.isPresent() ? sourceCode.flatMap(this::nextLineIndent) : Optional.empty();
     }
 
     private Optional<Replacement> nextLineIndent(CharSequence source) {
-        int nextLineStart = removalEnd(source);
+        int nextLineStart = afterTrailingWhitespace(source);
         int indentEnd = SourceCodeUtils.firstNonWhitespaceOrNextLineStart(source, nextLineStart);
         boolean annotationEndsLine = source.charAt(nextLineStart - 1) == '\n';
         boolean nextLineIndented = indentEnd > nextLineStart && source.charAt(indentEnd - 1) != '\n';
@@ -122,7 +132,7 @@ final class LazySuppressionReplacement extends Replacement {
         });
     }
 
-    private int removalEnd(CharSequence source) {
+    private int afterTrailingWhitespace(CharSequence source) {
         return SourceCodeUtils.firstNonWhitespaceOrNextLineStart(source, range.upperEndpoint());
     }
 

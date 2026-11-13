@@ -27,7 +27,6 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * A Fix which contains the desired end state of the {@code @SuppressWarnings} annotation on a suppressible. Supports
@@ -57,12 +56,9 @@ final class LazySuppressionFix implements Fix {
         // to use this FirstTimeMemoizingFunction thing, that will allow use to defer creating the Replacement until
         // we have access to the EndPosTable, then keep hold of the created SuppressingReplacement. We only need a
         // single instance of EndPosTable to evaluate the source positions exactly once, so this works out.
-        this.replacement = new FirstTimeMemoizingFunction<>((ErrorProneEndPosTable endPositions) -> {
-            LazySuppressionReplacement suppressionReplacement = new LazySuppressionReplacement(
-                    endPositions, desiredSuppressions, sourceCode, suppression, declaration);
-            return Stream.concat(Stream.of(suppressionReplacement), suppressionReplacement.nextLineIndent().stream())
-                    .collect(ImmutableSet.toImmutableSet());
-        });
+        this.replacement = new FirstTimeMemoizingFunction<>((ErrorProneEndPosTable endPositions) ->
+                new LazySuppressionReplacement(endPositions, desiredSuppressions, sourceCode, suppression, declaration)
+                        .replacements());
     }
 
     /**
