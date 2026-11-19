@@ -40,10 +40,12 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Nested;
+import org.gradle.work.DisableCachingByDefault;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
+@DisableCachingByDefault(because = "Not opting into build caching; explicit opt-out is required by Gradle 9.7")
 public abstract class ModifyErrorProneCheckApi implements TransformAction<Params> {
     @InputArtifact
     protected abstract Provider<FileSystemLocation> getInputArtifact();
